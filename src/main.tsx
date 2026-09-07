@@ -4,6 +4,7 @@ import '@lichess-org/chessground/assets/chessground.base.css';
 import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles.css';
+import './v1.1.css';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(
