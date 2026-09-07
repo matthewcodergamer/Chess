@@ -1,29 +1,33 @@
 # QQURZ Chess — Freestyle 960
 
-**Domain:** `qqurzchess.com`
+**Production domain:** `qqurzchess.com`
 
-A responsive Chess960 / Freestyle Chess platform built with React, Vite, Chessground, chessops, Stockfish 18 and an optional Cloudflare Durable Objects realtime server.
+QQURZ Chess is a U.S.-based, responsive Chess960 / Freestyle Chess platform built with React, Vite, Chessground, chessops, Stockfish 18 and a Cloudflare Durable Objects realtime server for global cross-network play.
 
 ## Included
 
 - Official Chess960 position IDs `0–959` (`#518` = classical chess)
 - Legal Chess960 FEN/castling and validation through `chessops`
-- Responsive Chessground board with aligned pieces
-- White pieces stay white and dark pieces are rendered truly black on the brown board
-- **CHECK** and large **CHECKMATE** board callouts
+- Responsive Chessground board with pieces centered in their exact squares
+- White pieces remain white; Black pieces are rendered truly black on the brown board
+- **CHECK** and large diagonal **CHECKMATE** board callouts
 - Three play paths: local Human vs Human, Human vs Stockfish AI, and Online Multiplayer
 - Stockfish 18 Lite WASM with Easy, Hard and Crazy Hard levels
-- 2-minute strategy phase with fast-forward and a prominent **Start Now** pill
-- Pattern selection is locked once a live game begins
-- Online private room codes, synchronized clocks/state and authoritative move validation
-- Free-tournament + future prize-tournament UI roadmap
-- GitHub Pages deployment prepared for the `qqurzchess.com` custom domain
+- 2-minute strategy phase with fast-forward and a prominent black-on-yellow **Start Now** pill
+- **Choose Pattern** instead of Shuffle; pattern/reset navigation is locked once a live game is in progress
+- Official uploaded QQURZ wordmark throughout the product
+- Online private room codes, shareable invite links, reconnectable seats, synchronized clocks/state and authoritative move validation
+- Server-side check/checkmate/draw/resignation/time-forfeit results
+- Free-tournament product path plus a future U.S. entry-fee/prize-fund tournament roadmap
+- GitHub Pages deployment prepared for the `qqurzchess.com` GoDaddy-managed custom domain
 
 ## Online multiplayer
 
-The browser UI is in `src/multiplayer/`. The real-time server is in `server/` and uses Cloudflare Workers + Durable Objects + WebSockets. GitHub Pages alone cannot provide an authoritative multi-user game server.
+The room UI is in `src/multiplayer/`. The realtime server is in `server/` and uses Cloudflare Workers + Durable Objects + the WebSocket Hibernation API. GitHub Pages remains the static frontend host; cross-network rooms require the Worker deployment.
 
-See [`docs/DOMAIN_AND_MULTIPLAYER.md`](docs/DOMAIN_AND_MULTIPLAYER.md) for deployment and GoDaddy DNS instructions.
+The server, not either player's browser, owns the Chess960 setup, legal moves, turn, clocks and final result.
+
+See [`docs/DOMAIN_AND_MULTIPLAYER.md`](docs/DOMAIN_AND_MULTIPLAYER.md) for the GoDaddy DNS, GitHub Pages and Worker deployment instructions.
 
 ## Run frontend locally
 
@@ -50,21 +54,28 @@ VITE_MULTIPLAYER_API=https://YOUR-WORKER.workers.dev
 ```bash
 cd server
 npm install
+npm run check
+npx wrangler login
 npm run deploy
 ```
 
-## Money/prize tournaments
+## U.S. tournament model
 
-Cash-entry collection is intentionally not enabled in this build. The UI can present future prize events, but payments/payouts require jurisdiction-specific legal/regulatory approval and a processor that explicitly supports the approved activity.
+QQURZ's intended paid-event model is an **entry-fee chess skill tournament with a published prize fund** — not betting, odds, wagering, side bets or player-vs-player staking.
+
+Real-money registration is intentionally **disabled** in this build. Before it is enabled, the production business needs U.S. state-by-state eligibility review, Official Rules, age/identity and fair-play controls, tax/payout operations, and a payment provider that explicitly approves the final model.
+
+See [`docs/US_TOURNAMENT_PRODUCT.md`](docs/US_TOURNAMENT_PRODUCT.md) for the product/compliance blueprint.
 
 ## Main architecture
 
-- `src/AppV12.tsx` — QQURZ product home and game-mode routing
+- `src/AppV12.tsx` — QQURZ home, branding and game-mode routing
 - `src/App.tsx` — stable local/AI game runtime
-- `src/multiplayer/OnlineArena.tsx` — live-room frontend
+- `src/multiplayer/OnlineArena.tsx` — cross-network room frontend
 - `src/multiplayer/client.ts` — room REST/WebSocket client
 - `server/src/index.ts` — authoritative room/game Durable Object
-- `src/game/chess960.ts` — Chess960 ID → back rank + FEN
+- `server/src/chess960.ts` — server-side Chess960 generation
+- `src/game/chess960.ts` — browser Chess960 ID → back rank + FEN
 - `src/engine/stockfish.ts` — Stockfish UCI worker
 - `scripts/copy-stockfish.mjs` — stages browser WASM assets
 
