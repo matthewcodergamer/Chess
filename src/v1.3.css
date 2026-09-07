@@ -1,0 +1,135 @@
+/* v1.3 — invite links, live tournament polish and U.S. prize-event framing */
+
+.online-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.invite-link-button {
+  min-height: 40px !important;
+  padding: 0 13px !important;
+  border-color: rgba(99, 213, 170, .32) !important;
+  color: #dffff1 !important;
+  background: rgba(99, 213, 170, .08) !important;
+}
+
+.online-in-game-actions {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.online-in-game-actions .online-turn-note {
+  margin-top: 0;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(99, 213, 170, .20);
+  border-radius: 12px;
+  background: rgba(99, 213, 170, .055);
+}
+
+.resign-button {
+  min-height: 40px;
+  border: 1px solid rgba(255, 85, 95, .28);
+  border-radius: 12px;
+  padding: 0 13px;
+  color: #ffc4c8;
+  background: rgba(255, 85, 95, .07);
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.skill-event-pill {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 9px;
+  border: 1px solid rgba(99, 213, 170, .27);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #bff7e2;
+  background: rgba(99, 213, 170, .055);
+  font-size: 8px;
+  line-height: 1.35;
+  font-weight: 900;
+  letter-spacing: .055em;
+}
+
+.us-prize-card > p {
+  margin-top: 9px;
+}
+
+/* The official uploaded wordmark should remain intact and uncropped. */
+.qqurz-hero-logo img,
+.qqurz-logo-button img,
+.qqurz-runtime-logo img {
+  object-position: center;
+}
+
+/* Chessground owns each 12.5% square. Keep every SVG centered at every responsive size. */
+.board-mount piece {
+  background-position: 50% 50% !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+}
+
+.board-mount piece.black {
+  filter: brightness(0) saturate(100%) contrast(1.5) !important;
+}
+
+.board-mount piece.white {
+  filter: none !important;
+}
+
+@media (hover: hover) {
+  .invite-link-button:hover { background: rgba(99, 213, 170, .13) !important; }
+  .resign-button:hover { background: rgba(255, 85, 95, .12); }
+}
+
+@media (max-width: 720px) {
+  .online-room-header {
+    align-items: flex-start;
+  }
+
+  .online-header-actions {
+    max-width: 56%;
+  }
+
+  .invite-link-button {
+    width: 100%;
+    font-size: 9px;
+  }
+
+  .online-in-game-actions {
+    grid-template-columns: minmax(0, 1fr) 86px;
+  }
+
+  .skill-event-pill {
+    border-radius: 11px;
+  }
+}
+
+@media (max-width: 430px) {
+  .online-room-header {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .online-header-actions {
+    max-width: none;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .online-header-actions > button,
+  .online-header-actions > .game-locked-pill {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
