@@ -2,6 +2,10 @@
 
 A responsive Chess960 / Freestyle Chess web app built for GitHub Pages.
 
+## Live site
+
+**https://matthewcodergamer.github.io/Chess/**
+
 ## What works
 
 - All 960 legal Scharnagl starting positions (`#0` to `#959`)
@@ -15,7 +19,7 @@ A responsive Chess960 / Freestyle Chess web app built for GitHub Pages.
 - Checkmate, stalemate, insufficient-material and flag detection
 - Move history, board flip, FEN copy, reset and reshuffle controls
 - Responsive iPhone/mobile layout
-- Automatic GitHub Pages deployment workflow
+- Automatic GitHub Pages build and deployment from `main`
 
 ## Local development
 
@@ -32,9 +36,9 @@ npm run build
 
 ## GitHub Pages
 
-This repository includes `.github/workflows/deploy-pages.yml` and Vite is configured with `base: '/Chess/'` for the repository URL.
+The repository includes `.github/workflows/deploy-pages.yml`. The workflow builds the Vite app, enables GitHub Pages when needed, uploads `dist/`, and deploys it automatically on pushes to `main`.
 
-In GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions** once. After that, pushes to `main` deploy automatically.
+Vite is configured with `base: '/Chess/'` so assets resolve correctly from the project Pages URL.
 
 ## Core libraries
 
