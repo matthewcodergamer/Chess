@@ -1,0 +1,50 @@
+name: Validate QQURZ realtime server
+
+on:
+  push:
+    branches: [main, qqurz-realtime-server]
+    paths:
+      - 'server/**'
+      - 'src/multiplayer/**'
+      - 'src/AppV12.tsx'
+      - 'src/v1.3.css'
+      - '.github/workflows/check-realtime.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'src/multiplayer/**'
+      - 'src/AppV12.tsx'
+      - 'src/v1.3.css'
+      - '.github/workflows/check-realtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+
+  realtime-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - run: npx wrangler deploy --dry-run --outdir .wrangler-dry
