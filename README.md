@@ -1,39 +1,31 @@
-# QURR Chess — Freestyle 960
+# QQURZ Chess — Freestyle 960
 
-A responsive Chess960 / Freestyle Chess web app built for GitHub Pages with React, Vite, Chessground, chessops and Stockfish 18.
+**Domain:** `qqurzchess.com`
 
-## Live site
+A responsive Chess960 / Freestyle Chess platform built with React, Vite, Chessground, chessops, Stockfish 18 and an optional Cloudflare Durable Objects realtime server.
 
-**https://matthewcodergamer.github.io/Chess/**
+## Included
 
-## What works
+- Official Chess960 position IDs `0–959` (`#518` = classical chess)
+- Legal Chess960 FEN/castling and validation through `chessops`
+- Responsive Chessground board with aligned pieces
+- White pieces stay white and dark pieces are rendered truly black on the brown board
+- **CHECK** and large **CHECKMATE** board callouts
+- Three play paths: local Human vs Human, Human vs Stockfish AI, and Online Multiplayer
+- Stockfish 18 Lite WASM with Easy, Hard and Crazy Hard levels
+- 2-minute strategy phase with fast-forward and a prominent **Start Now** pill
+- Pattern selection is locked once a live game begins
+- Online private room codes, synchronized clocks/state and authoritative move validation
+- Free-tournament + future prize-tournament UI roadmap
+- GitHub Pages deployment prepared for the `qqurzchess.com` custom domain
 
-- All 960 legal Scharnagl starting positions (`#0` to `#959`)
-- Position `#518` maps to the traditional chess starting position
-- Chess pieces stay centered on their exact squares across responsive board sizes
-- Two match modes: **Human vs Human** and **Human vs AI**
-- Stockfish 18 Lite single-threaded WASM AI running locally in the browser
-- AI strengths: **Easy**, **Hard**, and **Crazy Hard**
-- Human can choose White, Black, or Random against the robot
-- 2-minute pre-game strategy phase with automatic clock start
-- Press-and-hold `×4` strategy fast-forward, 10-second tap skip, and Start Now
-- 10-minute game clocks
-- Legal move validation with `chessops`
-- Touch-friendly board rendering with Lichess Chessground
-- Chess960 rook-side castling support
-- Promotion chooser
-- Checkmate, stalemate, insufficient-material and flag detection
-- Move history, board flip, FEN copy, reset and reshuffle controls
-- Responsive iPhone/mobile layout
-- Automatic GitHub Pages build and deployment from `main`
+## Online multiplayer
 
-## AI architecture
+The browser UI is in `src/multiplayer/`. The real-time server is in `server/` and uses Cloudflare Workers + Durable Objects + WebSockets. GitHub Pages alone cannot provide an authoritative multi-user game server.
 
-The browser AI uses the `stockfish` npm package. During builds, `scripts/copy-stockfish.mjs` copies the lightweight Stockfish 18 single-threaded worker and WASM files into `public/stockfish/`, so GitHub Pages serves the engine from the same origin without needing a backend.
+See [`docs/DOMAIN_AND_MULTIPLAYER.md`](docs/DOMAIN_AND_MULTIPLAYER.md) for deployment and GoDaddy DNS instructions.
 
-`UCI_Chess960` is enabled before engine searches. Difficulty modes tune Stockfish's UCI skill level and thinking time.
-
-## Local development
+## Run frontend locally
 
 ```bash
 npm install
@@ -44,21 +36,38 @@ Production build:
 
 ```bash
 npm run build
+npm run preview
 ```
 
-## GitHub Pages
+To point the frontend at a deployed realtime server, copy `.env.example` to `.env.local` and set:
 
-The repository includes `.github/workflows/deploy-pages.yml`. The workflow builds the Vite app, enables GitHub Pages when needed, uploads `dist/`, and deploys it automatically on pushes to `main`.
+```text
+VITE_MULTIPLAYER_API=https://YOUR-WORKER.workers.dev
+```
 
-Vite is configured with `base: '/Chess/'` so assets resolve correctly from the project Pages URL.
+## Deploy realtime server
 
-## Core libraries
+```bash
+cd server
+npm install
+npm run deploy
+```
 
-- React + TypeScript + Vite
-- `@lichess-org/chessground`
-- `chessops`
-- `stockfish` / Stockfish.js 18
+## Money/prize tournaments
 
-## License note
+Cash-entry collection is intentionally not enabled in this build. The UI can present future prize events, but payments/payouts require jurisdiction-specific legal/regulatory approval and a processor that explicitly supports the approved activity.
 
-The project is GPL-3.0-or-later. Chessground, chessops, Stockfish and Stockfish.js are GPL-family open-source projects; review and comply with their respective upstream license terms when redistributing.
+## Main architecture
+
+- `src/AppV12.tsx` — QQURZ product home and game-mode routing
+- `src/App.tsx` — stable local/AI game runtime
+- `src/multiplayer/OnlineArena.tsx` — live-room frontend
+- `src/multiplayer/client.ts` — room REST/WebSocket client
+- `server/src/index.ts` — authoritative room/game Durable Object
+- `src/game/chess960.ts` — Chess960 ID → back rank + FEN
+- `src/engine/stockfish.ts` — Stockfish UCI worker
+- `scripts/copy-stockfish.mjs` — stages browser WASM assets
+
+## License
+
+GPL-3.0-or-later. Chessground, chessops, Stockfish and Stockfish.js are GPL-family open-source projects; review and comply with their upstream notices/licenses when distributing the platform.
