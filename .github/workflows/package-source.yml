@@ -1,0 +1,32 @@
+name: Package QQURZ source
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create source ZIP
+        run: |
+          zip -r QQURZ-Chess-v1.3-source.zip . \
+            -x '.git/*' \
+               'node_modules/*' \
+               'dist/*' \
+               'server/node_modules/*' \
+               'server/.wrangler/*'
+
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqurz-chess-v1.3-source
+          path: QQURZ-Chess-v1.3-source.zip
+          retention-days: 7
