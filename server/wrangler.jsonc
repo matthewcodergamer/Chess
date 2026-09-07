@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "qqurz-chess-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-07",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "ChessRoom"
+      }
+    ]
+  },
+  "exports": {
+    "ChessRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
