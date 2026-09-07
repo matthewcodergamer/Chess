@@ -10,8 +10,12 @@ function textOf(element: Element): string {
   return (element.textContent || '').trim();
 }
 
+function hasRoomInvite(): boolean {
+  return Boolean(new URLSearchParams(window.location.search).get('room'));
+}
+
 export default function AppV12() {
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<Screen>(() => hasRoomInvite() ? 'online' : 'home');
   const [preference, setPreference] = useState<LocalPreference>('human');
   const [canReturnHome, setCanReturnHome] = useState(false);
   const localRoot = useRef<HTMLDivElement | null>(null);
@@ -19,6 +23,13 @@ export default function AppV12() {
   const openLocal = (mode: LocalPreference) => {
     setPreference(mode);
     setScreen('local');
+  };
+
+  const goHome = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.replaceState({}, '', url);
+    setScreen('home');
   };
 
   useEffect(() => {
@@ -94,12 +105,12 @@ export default function AppV12() {
     return (
       <main className="qqurz-v12-shell">
         <header className="qqurz-topbar">
-          <button className="qqurz-logo-button" onClick={() => setScreen('home')} aria-label="QQURZ Chess home">
+          <button className="qqurz-logo-button" onClick={goHome} aria-label="QQURZ Chess home">
             <img src={BRAND_LOGO} alt="QQURZ" />
           </button>
-          <div><b>Online Multiplayer</b><span>qqurzchess.com</span></div>
+          <div><b>Online Multiplayer</b><span>qqurzchess.com · global rooms</span></div>
         </header>
-        <OnlineArena onClose={() => setScreen('home')} />
+        <OnlineArena onClose={goHome} />
       </main>
     );
   }
@@ -108,7 +119,7 @@ export default function AppV12() {
     return (
       <div ref={localRoot} className="qqurz-local-wrapper">
         {canReturnHome && (
-          <button className="qqurz-home-return" onClick={() => setScreen('home')}>← QQURZ Home</button>
+          <button className="qqurz-home-return" onClick={goHome}>← QQURZ Home</button>
         )}
         <App />
       </div>
@@ -120,9 +131,9 @@ export default function AppV12() {
       <section className="qqurz-hero">
         <div className="qqurz-hero-logo"><img src={BRAND_LOGO} alt="QQURZ" /></div>
         <span className="brand-domain">qqurzchess.com</span>
-        <span className="eyebrow">FREESTYLE CHESS · ONLINE TOURNAMENT PLATFORM</span>
+        <span className="eyebrow">U.S.-BASED · FREESTYLE CHESS · GLOBAL ONLINE PLAY</span>
         <h1>Choose how you want to play.</h1>
-        <p>Play on one device, challenge Stockfish, or create a live room for someone on a completely different internet connection.</p>
+        <p>Play on one device, challenge Stockfish, or create a live QQURZ room for someone on a completely different internet connection anywhere the service is available.</p>
       </section>
 
       <section className="qqurz-mode-grid" aria-label="Choose game mode">
@@ -133,28 +144,29 @@ export default function AppV12() {
           <span aria-hidden="true">🤖</span><b>Play the AI</b><small>Easy, Hard or Crazy Hard Stockfish.</small>
         </button>
         <button className="online" onClick={() => setScreen('online')}>
-          <span aria-hidden="true">🌐</span><b>Online Multiplayer</b><small>Create a room and share the code.</small>
+          <span aria-hidden="true">🌐</span><b>Online Multiplayer</b><small>Create a private room and share its code or invite link.</small>
         </button>
       </section>
 
       <section className="tournament-preview" aria-label="Tournament roadmap">
         <div className="tournament-heading">
-          <div><span className="eyebrow">TOURNAMENTS</span><h3>Live brackets and prize-ready architecture</h3></div>
-          <span className="roadmap-pill">Realtime foundation</span>
+          <div><span className="eyebrow">U.S. TOURNAMENT PLATFORM</span><h3>Serious chess competition, not betting</h3></div>
+          <span className="roadmap-pill">Authoritative realtime foundation</span>
         </div>
         <div className="tournament-cards">
           <article>
-            <span className="tournament-type free">FREE</span>
+            <span className="tournament-type free">FREE ONLINE EVENT</span>
             <h4>QQURZ Community Freestyle</h4>
-            <p>Room-based online matches with authoritative move validation, shared clocks and leaderboard-ready results.</p>
-            <button disabled>Available after realtime server deploy</button>
+            <p>Server-validated online matches with shared clocks, locked patterns, results and bracket-ready records.</p>
+            <button disabled>Free tournament system next</button>
           </article>
-          <article>
-            <span className="tournament-type prize">PRIZE EVENT ROADMAP</span>
+          <article className="us-prize-card">
+            <span className="tournament-type prize">U.S. PRIZE TOURNAMENT ROADMAP</span>
             <h4>QQURZ Founders Prize Open</h4>
-            <strong>$500 example prize pool</strong>
-            <p>Cash entry remains disabled until the legal classification and an approved payment processor are in place.</p>
-            <button disabled>Paid entry not enabled</button>
+            <strong>$500 example guaranteed prize fund</strong>
+            <div className="skill-event-pill">ENTRY-FEE SKILL COMPETITION · NO ODDS · NO WAGERS</div>
+            <p>The intended model is a chess tournament entry fee and published prize fund. Real-money checkout remains off until U.S. state eligibility, official rules, age/identity, tax and payout requirements, fair-play controls, and an explicitly approving payment provider are in place.</p>
+            <button disabled>Paid registration intentionally disabled</button>
           </article>
         </div>
       </section>

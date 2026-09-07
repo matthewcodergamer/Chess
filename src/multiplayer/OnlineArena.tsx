@@ -30,6 +30,39 @@ function roomPosition(snapshot: RoomSnapshot | null): Chess | null {
   }
 }
 
+function seatStorageKey(code: string): string {
+  return `qqurz:room-seat:${code.toUpperCase()}`;
+}
+
+function loadSeat(code: string): RoomSeat | null {
+  if (!code) return null;
+  try {
+    const raw = window.sessionStorage.getItem(seatStorageKey(code));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as RoomSeat;
+    if (parsed.code?.toUpperCase() !== code.toUpperCase() || !parsed.token || !parsed.color) return null;
+    return { ...parsed, code: parsed.code.toUpperCase() };
+  } catch {
+    return null;
+  }
+}
+
+function rememberSeat(seat: RoomSeat): void {
+  try {
+    window.sessionStorage.setItem(seatStorageKey(seat.code), JSON.stringify(seat));
+  } catch {
+    // Session storage can be unavailable in private/embedded browser contexts.
+  }
+}
+
+function inviteUrl(code: string): string {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('room', code.toUpperCase());
+  return url.toString();
+}
+
 export default function OnlineArena({ onClose }: Props) {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const ground = useRef<ChessgroundApi | null>(null);
@@ -39,21 +72,30 @@ export default function OnlineArena({ onClose }: Props) {
   const queryRoom = new URLSearchParams(window.location.search).get('room')?.toUpperCase() ?? '';
   const [name, setName] = useState('Guest');
   const [roomCode, setRoomCode] = useState(queryRoom);
-  const [seat, setSeat] = useState<RoomSeat | null>(null);
+  const [seat, setSeat] = useState<RoomSeat | null>(() => loadSeat(queryRoom));
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
+  const [snapshotReceivedAt, setSnapshotReceivedAt] = useState(Date.now());
   const [connection, setConnection] = useState<'idle' | 'connecting' | 'connected' | 'closed' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [copied, setCopied] = useState(false);
 
   const pos = useMemo(() => roomPosition(snapshot), [snapshot]);
   const yourTurn = Boolean(
     seat && snapshot && snapshot.status === 'playing' && snapshot.turn === seat.color && !snapshot.result,
   );
 
+  const elapsedSinceSnapshot = snapshot ? Math.max(0, now - snapshotReceivedAt) : 0;
   const liveStrategySeconds = snapshot?.strategyEndsAt
-    ? Math.max(0, Math.ceil((snapshot.strategyEndsAt - now) / 1000))
+    ? Math.max(0, Math.ceil((snapshot.strategyEndsAt - snapshot.serverNow - elapsedSinceSnapshot) / 1000))
+    : 0;
+  const liveWhiteClockMs = snapshot
+    ? Math.max(0, snapshot.whiteClockMs - (snapshot.status === 'playing' && snapshot.turn === 'white' ? elapsedSinceSnapshot : 0))
+    : 0;
+  const liveBlackClockMs = snapshot
+    ? Math.max(0, snapshot.blackClockMs - (snapshot.status === 'playing' && snapshot.turn === 'black' ? elapsedSinceSnapshot : 0))
     : 0;
 
   const send = useCallback((payload: unknown) => {
@@ -101,12 +143,19 @@ export default function OnlineArena({ onClose }: Props) {
 
   useEffect(() => {
     if (!seat) return;
+    rememberSeat(seat);
     setMessage('');
     const ws = connectRoom(
       seat,
       (event: ServerEvent) => {
-        if (event.type === 'snapshot') setSnapshot(event.room);
-        else setMessage(event.message);
+        if (event.type === 'snapshot') {
+          const receivedAt = Date.now();
+          setSnapshot(event.room);
+          setSnapshotReceivedAt(receivedAt);
+          setNow(receivedAt);
+        } else {
+          setMessage(event.message);
+        }
       },
       status => setConnection(status === 'closed' ? 'closed' : status),
     );
@@ -118,10 +167,10 @@ export default function OnlineArena({ onClose }: Props) {
   }, [seat]);
 
   useEffect(() => {
-    if (!snapshot || snapshot.status !== 'strategy') return;
-    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    if (!snapshot || (snapshot.status !== 'strategy' && snapshot.status !== 'playing')) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 200);
     return () => window.clearInterval(timer);
-  }, [snapshot]);
+  }, [snapshot?.status]);
 
   useEffect(() => {
     if (!boardRef.current || !snapshot) return;
@@ -153,16 +202,21 @@ export default function OnlineArena({ onClose }: Props) {
 
   useEffect(() => syncBoard(), [syncBoard]);
 
+  const setRoomInUrl = (code: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', code.toUpperCase());
+    window.history.replaceState({}, '', url);
+  };
+
   const create = async () => {
     setBusy(true);
     setMessage('');
     try {
       const created = await createRoom(name.trim() || 'Guest');
       setRoomCode(created.code);
+      rememberSeat(created);
       setSeat(created);
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', created.code);
-      window.history.replaceState({}, '', url);
+      setRoomInUrl(created.code);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not create room.');
     } finally {
@@ -177,14 +231,25 @@ export default function OnlineArena({ onClose }: Props) {
     setMessage('');
     try {
       const joined = await joinRoom(code, name.trim() || 'Guest');
+      rememberSeat(joined);
       setSeat(joined);
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', joined.code);
-      window.history.replaceState({}, '', url);
+      setRoomInUrl(joined.code);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not join room.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const copyInvite = async () => {
+    if (!seat) return;
+    const value = inviteUrl(seat.code);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setMessage(`Invite link: ${value}`);
     }
   };
 
@@ -204,7 +269,7 @@ export default function OnlineArena({ onClose }: Props) {
           <div>
             <span className="eyebrow">ONLINE MULTIPLAYER</span>
             <h3>Play across different internet connections</h3>
-            <p>Create a private room, send the six-character code to another player, and both boards stay synchronized by the authoritative game server.</p>
+            <p>Create a private room, send the six-character room code or invite link to another player, and both boards stay synchronized by the authoritative QQURZ server.</p>
           </div>
           <span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>
             {multiplayerConfigured ? 'Server configured' : 'Backend connection required'}
@@ -218,7 +283,7 @@ export default function OnlineArena({ onClose }: Props) {
 
         <div className="online-actions-grid">
           <button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy}>
-            Create private room
+            {busy ? 'Working…' : 'Create private room'}
           </button>
           <div className="join-room-box">
             <input
@@ -233,7 +298,7 @@ export default function OnlineArena({ onClose }: Props) {
         </div>
 
         {!multiplayerConfigured && (
-          <p className="backend-note">The browser UI and multiplayer server are included in the repository, but the server must be deployed to a real-time host before players on different networks can connect.</p>
+          <p className="backend-note">The browser UI and authoritative Cloudflare Durable Object server are included in the repository. Deploy `server/`, then set the GitHub Actions variable `VITE_MULTIPLAYER_API` to activate cross-network rooms.</p>
         )}
         {message && <p className="online-error">{message}</p>}
         <button className="online-back" onClick={onClose}>Back to match choices</button>
@@ -249,7 +314,10 @@ export default function OnlineArena({ onClose }: Props) {
           <strong>{seat.code}</strong>
           <small>{connection === 'connected' ? '● Connected' : `● ${connection}`}</small>
         </div>
-        {canLeave ? <button onClick={onClose}>Leave room</button> : <span className="game-locked-pill">Game locked in progress</span>}
+        <div className="online-header-actions">
+          <button className="invite-link-button" onClick={copyInvite}>{copied ? 'Copied ✓' : 'Copy invite link'}</button>
+          {canLeave ? <button onClick={onClose}>Leave room</button> : <span className="game-locked-pill">Game locked in progress</span>}
+        </div>
       </header>
 
       {snapshot ? (
@@ -259,7 +327,7 @@ export default function OnlineArena({ onClose }: Props) {
               <div ref={boardRef} className="cg-wrap board-mount" aria-label="Online Chess960 board" />
               {snapshot.status === 'waiting' && (
                 <div className="board-overlay online-waiting-overlay">
-                  <div><span>WAITING FOR OPPONENT</span><strong className="room-code-display">{snapshot.code}</strong><small>Share this room code with the second player.</small></div>
+                  <div><span>WAITING FOR OPPONENT</span><strong className="room-code-display">{snapshot.code}</strong><small>Share this room code or the invite link with player two.</small></div>
                 </div>
               )}
               {snapshot.status === 'strategy' && (
@@ -283,16 +351,21 @@ export default function OnlineArena({ onClose }: Props) {
 
             <div className="online-clock-row">
               <div className={snapshot.turn === 'white' && snapshot.status === 'playing' ? 'active' : ''}>
-                <span>White · {snapshot.players.white?.name ?? 'Waiting'}</span><strong>{formatClockMs(snapshot.whiteClockMs)}</strong>
+                <span>White · {snapshot.players.white?.name ?? 'Waiting'}</span><strong>{formatClockMs(liveWhiteClockMs)}</strong>
               </div>
               <div className={snapshot.turn === 'black' && snapshot.status === 'playing' ? 'active' : ''}>
-                <span>Black · {snapshot.players.black?.name ?? 'Waiting'}</span><strong>{formatClockMs(snapshot.blackClockMs)}</strong>
+                <span>Black · {snapshot.players.black?.name ?? 'Waiting'}</span><strong>{formatClockMs(liveBlackClockMs)}</strong>
               </div>
             </div>
             {snapshot.status !== 'playing' && seat.color === 'white' && (
               <button className="choose-pattern-button" onClick={() => send({ type: 'choose_pattern' })}>Choose Pattern</button>
             )}
-            {snapshot.status === 'playing' && <div className="online-turn-note">{yourTurn ? 'Your move' : 'Opponent’s move'}</div>}
+            {snapshot.status === 'playing' && (
+              <div className="online-in-game-actions">
+                <div className="online-turn-note">{yourTurn ? 'Your move' : 'Opponent’s move'}</div>
+                <button className="resign-button" onClick={() => send({ type: 'resign' })}>Resign</button>
+              </div>
+            )}
             {message && <p className="online-error">{message}</p>}
           </div>
 
@@ -300,11 +373,11 @@ export default function OnlineArena({ onClose }: Props) {
             <span className="eyebrow">ROOM DETAILS</span>
             <h3>Position #{snapshot.positionId}</h3>
             <div className="seat-list">
-              <div><span className="seat-dot white" />White <b>{snapshot.players.white?.name ?? 'Open seat'}</b></div>
-              <div><span className="seat-dot black" />Black <b>{snapshot.players.black?.name ?? 'Open seat'}</b></div>
+              <div><span className="seat-dot white" />White <b>{snapshot.players.white?.name ?? 'Open seat'}{snapshot.players.white?.connected ? ' · online' : ''}</b></div>
+              <div><span className="seat-dot black" />Black <b>{snapshot.players.black?.name ?? 'Open seat'}{snapshot.players.black?.connected ? ' · online' : ''}</b></div>
             </div>
             <div className="move-count-card"><span>Moves</span><strong>{snapshot.moves.length}</strong></div>
-            <p className="server-authority-note">Moves, clocks, position state and game results are validated by the room server—not trusted from either browser.</p>
+            <p className="server-authority-note">Moves, clocks, position state and results are validated by the room server—not trusted from either browser. This is the foundation needed for serious tournament play.</p>
           </aside>
         </div>
       ) : (

@@ -16,6 +16,7 @@ export type RoomSnapshot = {
   turn: GroundColor;
   whiteClockMs: number;
   blackClockMs: number;
+  turnStartedAt: number | null;
   strategyEndsAt: number | null;
   serverNow: number;
   moves: string[];
