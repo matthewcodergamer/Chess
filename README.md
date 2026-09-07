@@ -1,56 +1,47 @@
 # QURR Chess — Freestyle 960
 
-A responsive Chess960 / Freestyle Chess web app built for GitHub Pages with React, Vite, Chessground and chessops.
+A responsive Chess960 / Freestyle Chess web app built for GitHub Pages.
 
-## Included now
+## What works
 
-- Official Chess960 position IDs `0–959` using Scharnagl numbering (`#518` = classical chess)
-- Valid Chess960 starting FEN with rook-file castling rights
-- Chessground board with touch + drag support
-- Legal move validation through chessops
-- Chess960 castling by dragging the king onto the destination rook
-- Promotion picker
-- 2-minute pre-game strategy phase
-- Live game clocks with 3+2, 5+0, 10+0 and 15+10 presets
-- Move history in SAN, check/checkmate/stalemate/insufficient-material handling
-- Board flip, reset, FEN copy and direct position-ID loading
-- Mobile-first responsive layout
-- GitHub Actions workflow for GitHub Pages
+- All 960 legal Scharnagl starting positions (`#0` to `#959`)
+- Position `#518` maps to the traditional chess starting position
+- 2-minute pre-game strategy phase with automatic clock start
+- 10-minute local two-player clocks
+- Legal move validation with `chessops`
+- Touch-friendly board rendering with Lichess Chessground
+- Chess960 rook-side castling support
+- Promotion chooser
+- Checkmate, stalemate, insufficient-material and flag detection
+- Move history, board flip, FEN copy, reset and reshuffle controls
+- Responsive iPhone/mobile layout
+- Automatic GitHub Pages deployment workflow
 
-## Run locally
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Production check:
+Production build:
 
 ```bash
 npm run build
-npm run preview
 ```
 
-## Publish on GitHub Pages
+## GitHub Pages
 
-The repository already contains `.github/workflows/deploy-pages.yml`.
+This repository includes `.github/workflows/deploy-pages.yml` and Vite is configured with `base: '/Chess/'` for the repository URL.
 
-1. Open **Settings → Pages** in this GitHub repository.
-2. Under **Build and deployment**, choose **GitHub Actions** as the source.
-3. Push to `main` (or manually run the **Deploy QURR Chess to GitHub Pages** workflow).
-4. GitHub will publish the generated `dist/` site.
+In GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions** once. After that, pushes to `main` deploy automatically.
 
-Vite uses relative asset paths, so this works correctly from the `/Chess/` project-page path and can also move to a custom domain later.
+## Core libraries
 
-## Architecture
+- React + TypeScript + Vite
+- `@lichess-org/chessground`
+- `chessops`
 
-The UI is deliberately separated from game rules:
+## License note
 
-- `src/chess960.ts` — position ID → back-rank/FEN generation
-- `chessops` — rule validation, legal moves, Chess960 castling and SAN
-- `@lichess-org/chessground` — fast browser/touch board renderer
-- `src/App.tsx` — strategy timer, clocks, move history and match state
-
-## License
-
-GPL-3.0-or-later. Chessground and chessops are also GPL-3.0-or-later.
+Chessground and chessops are GPL-3.0-or-later projects. If you distribute a derivative that incorporates them, review and comply with their license terms.
