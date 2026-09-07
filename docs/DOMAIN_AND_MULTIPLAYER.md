@@ -59,7 +59,7 @@ The server owns and validates:
 
 The browser is not trusted to decide whether a move is legal or who won.
 
-### Deploy
+### Deploy from a terminal
 
 ```bash
 cd server
@@ -68,6 +68,15 @@ npm run check
 npx wrangler login
 npm run deploy
 ```
+
+### Or deploy from GitHub Actions
+
+The repository now includes **Actions → Deploy QQURZ realtime server**. To use it:
+
+1. Create a Cloudflare API token that can deploy Workers/Durable Objects.
+2. In GitHub, open **Settings → Secrets and variables → Actions**.
+3. Add repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+4. Open **Actions → Deploy QQURZ realtime server → Run workflow**.
 
 Wrangler will print an HTTPS Worker URL. Add that URL to the GitHub repository as an **Actions variable** named:
 
