@@ -1,0 +1,19 @@
+{
+  "name": "qqurz-chess-realtime",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chessops": "0.15.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "typescript": "^5.9.2",
+    "wrangler": "latest"
+  }
+}
