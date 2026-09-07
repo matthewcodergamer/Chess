@@ -29,7 +29,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install --no-audit --no-fund
       - run: npm run build
 
@@ -43,8 +42,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
       - run: npm install --no-audit --no-fund
       - run: npm run check
       - run: npx wrangler deploy --dry-run --outdir .wrangler-dry
