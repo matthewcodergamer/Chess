@@ -6,6 +6,7 @@ import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles.css';
 import './v1.1.css';
 import './v1.2.css';
+import './v1.3.css';
 import AppV12 from './AppV12';
 
 createRoot(document.getElementById('root')!).render(
