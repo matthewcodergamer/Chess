@@ -1,4 +1,4 @@
-name: Deploy QURR Chess to GitHub Pages
+name: Deploy QQURZ Chess to GitHub Pages
 
 on:
   push:
@@ -30,6 +30,8 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Build
+        env:
+          VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API }}
         run: npm run build
 
       - name: Setup Pages
