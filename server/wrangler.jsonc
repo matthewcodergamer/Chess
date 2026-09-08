@@ -23,7 +23,8 @@
     "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
     "PUBLIC_SITE_URL": "https://qqurzchess.com",
     "PAYMENTS_MODE": "test",
-    "PREMIUM_3D_PRICE_CENTS": "499"
+    "PREMIUM_3D_PRICE_CENTS": "499",
+    "LIVE_TOURNAMENT_PAYMENTS": "disabled"
   },
   "observability": {
     "enabled": true
