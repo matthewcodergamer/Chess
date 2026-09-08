@@ -23,10 +23,10 @@ function withCors(request: Request, response: Response, env: Env): Response {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (request.method === 'OPTIONS') return baseHandler.fetch(request, env, ctx);
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === 'OPTIONS') return baseHandler.fetch(request, env);
     const tournamentResponse = await handleTournamentRequest(request, env);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
-    return baseHandler.fetch(request, env, ctx);
+    return baseHandler.fetch(request, env);
   },
 } satisfies ExportedHandler<Env>;
