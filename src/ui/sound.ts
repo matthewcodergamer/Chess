@@ -124,7 +124,6 @@ function playPieceMove(ctx: AudioContext, capture: boolean): void {
 }
 
 function fallbackClockSlap(ctx: AudioContext): void {
-  // Offline-only fallback: intentionally soft and non-musical.
   bandImpact(ctx, .017, .065, 760, .8, 0);
   noise(ctx, .021, .026, 2100, .002, 260, .001);
   bandImpact(ctx, .052, .026, 150, 1.1, .006);
@@ -171,6 +170,5 @@ export function playChessSound(kind: ChessSound): void {
     case 'start': tone(ctx, 392, .085, .018, 'sine', 0, 430); tone(ctx, 587, .105, .022, 'sine', .065, 630); break;
     case 'win': tone(ctx, 523.25, .15, .026, 'sine'); tone(ctx, 659.25, .17, .026, 'sine', .08); tone(ctx, 783.99, .24, .030, 'sine', .16); break;
     case 'error': tone(ctx, 155, .10, .020, 'square', 0, 132); tone(ctx, 120, .12, .016, 'square', .065, 104); break;
-    case 'slap': break;
   }
 }
