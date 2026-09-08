@@ -87,6 +87,11 @@ export default function TournamentHub({ onBack, onPlayOnline, onShow3D }: Props)
         </div>
       </section>
 
+      <section className="tournament-visual-standard" aria-label="QQURZ tournament board standard">
+        <div className="tournament-mini-board" aria-hidden="true">{Array.from({ length: 64 }, (_, index) => <i key={index} />)}</div>
+        <div><span className="qqurz-kicker">TOURNAMENT BOARD STANDARD</span><h2>Park green + warm ivory.</h2><p>Official QQURZ tournament rooms use the green-and-white visual language from over-the-board speed-chess sets, while friend rooms can keep their normal theme.</p><div className="tournament-color-chips"><span><i className="green"/>Tournament green</span><span><i className="ivory"/>Warm ivory</span></div></div>
+      </section>
+
       <section className="tournament-list-v14">
         {catalog.tournaments.map(event => (
           <article key={event.id} className={verifiedItem === event.id ? 'verified' : ''}>
@@ -121,6 +126,11 @@ export default function TournamentHub({ onBack, onPlayOnline, onShow3D }: Props)
             </small>
           </article>
         ))}
+      </section>
+
+      <section className="spectator-roadmap-card">
+        <div><span className="qqurz-kicker">SPECTATOR MODE</span><h2>Watch featured tournament boards.</h2><p>Watch-only rooms and live brackets are the next tournament layer. Side-betting is not enabled in this build; the current payment system remains limited to controlled test-mode product and entry flows.</p></div>
+        <button disabled>Watch lobby · coming next</button>
       </section>
 
       <section className="premium-callout-v14">
