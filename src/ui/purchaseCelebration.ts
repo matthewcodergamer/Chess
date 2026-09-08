@@ -1,6 +1,9 @@
+import { soundEnabled } from './sound';
+
 const COLORS = ['#69DAB0', '#FFD76A', '#F7F1E7', '#FF8BA7', '#8DB8FF'];
 
 function playPurchaseSound(): void {
+  if (!soundEnabled()) return;
   try {
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
