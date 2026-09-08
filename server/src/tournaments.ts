@@ -3,8 +3,10 @@ export type TournamentEnv = {
   PAYMENTS_MODE?: string;
   PUBLIC_SITE_URL?: string;
   PREMIUM_3D_PRICE_CENTS?: string;
+  LIVE_TOURNAMENT_PAYMENTS?: string;
 };
 
+type PaymentMode = 'off' | 'test' | 'live';
 type Tournament = {
   id: string;
   name: string;
@@ -17,10 +19,10 @@ type Tournament = {
 };
 
 const TOURNAMENTS: Tournament[] = [
-  { id: 'quick-1', name: 'QQURZ Quick Test', entryCents: 100, prizeLabel: 'Test event', format: 'Knockout', timeControl: '5+0', seats: 8, testOnly: true },
-  { id: 'rapid-5', name: 'QQURZ Rapid Open', entryCents: 500, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 16, testOnly: true },
-  { id: 'freestyle-10', name: 'Freestyle 960 Open', entryCents: 1000, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 32, testOnly: true },
-  { id: 'founders-20', name: 'QQURZ Founders Prize Open', entryCents: 2000, prizeLabel: '$500 guaranteed prize fund', format: 'Knockout', timeControl: '10+0', seats: 32, testOnly: true },
+  { id: 'quick-10', name: 'QQURZ Quick 10', entryCents: 100, prizeLabel: 'Hosted event', format: 'Round robin', timeControl: '5+0', seats: 10, testOnly: true },
+  { id: 'rapid-32', name: 'QQURZ Rapid Open', entryCents: 500, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 32, testOnly: true },
+  { id: 'freestyle-100', name: 'Freestyle 960 100', entryCents: 1000, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 100, testOnly: true },
+  { id: 'open-256', name: 'QQURZ Open 256', entryCents: 2000, prizeLabel: 'Prize schedule TBA', format: 'Swiss + knockout', timeControl: '10+0', seats: 256, testOnly: true },
 ];
 
 function json(data: unknown, status = 200): Response {
@@ -32,8 +34,11 @@ function premium3dPrice(env: TournamentEnv): number {
   return Number.isFinite(configured) && configured >= 50 ? Math.floor(configured) : 499;
 }
 
-function paymentReady(env: TournamentEnv): boolean {
-  return env.PAYMENTS_MODE === 'test' && Boolean(env.STRIPE_SECRET_KEY?.startsWith('sk_test_'));
+function paymentMode(env: TournamentEnv): PaymentMode {
+  const key = env.STRIPE_SECRET_KEY ?? '';
+  if (env.PAYMENTS_MODE === 'test' && key.startsWith('sk_test_')) return 'test';
+  if (env.PAYMENTS_MODE === 'live' && key.startsWith('sk_live_')) return 'live';
+  return 'off';
 }
 
 function itemFor(kind: 'tournament' | 'premium3d', itemId: string, env: TournamentEnv) {
@@ -46,11 +51,17 @@ function itemFor(kind: 'tournament' | 'premium3d', itemId: string, env: Tourname
 }
 
 async function createStripeCheckout(request: Request, env: TournamentEnv): Promise<Response> {
-  if (!paymentReady(env)) {
-    return json({ error: 'Test checkout is not configured. Set PAYMENTS_MODE=test and add STRIPE_SECRET_KEY with a Stripe test key.' }, 503);
+  const mode = paymentMode(env);
+  if (mode === 'off') {
+    return json({ error: 'Stripe checkout is not configured for the selected payment mode.' }, 503);
   }
+
   const body = await request.json().catch(() => ({})) as { itemId?: string; kind?: 'tournament' | 'premium3d' };
   const kind = body.kind === 'premium3d' ? 'premium3d' : 'tournament';
+  if (mode === 'live' && kind === 'tournament' && env.LIVE_TOURNAMENT_PAYMENTS !== 'enabled') {
+    return json({ error: 'Live tournament entry collection is intentionally disabled until QQURZ enables its tournament operations and compliance controls.' }, 403);
+  }
+
   const item = itemFor(kind, String(body.itemId ?? ''), env);
   if (!item) return json({ error: 'Unknown tournament or premium item.' }, 400);
 
@@ -61,12 +72,12 @@ async function createStripeCheckout(request: Request, env: TournamentEnv): Promi
   params.set('line_items[0][price_data][product_data][name]', item.name);
   params.set('line_items[0][price_data][unit_amount]', String(item.cents));
   params.set('line_items[0][quantity]', '1');
-  params.set('success_url', `${site}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
-  params.set('cancel_url', `${site}/?checkout=cancel`);
+  params.set('success_url', `${site}/?checkout=success&kind=${kind}&item=${encodeURIComponent(item.id)}&session_id={CHECKOUT_SESSION_ID}`);
+  params.set('cancel_url', `${site}/?checkout=cancel&kind=${kind}`);
   params.set('client_reference_id', `${kind}:${item.id}`);
   params.set('metadata[item_id]', item.id);
   params.set('metadata[kind]', kind);
-  params.set('metadata[environment]', 'qqurz-test');
+  params.set('metadata[environment]', `qqurz-${mode}`);
 
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
@@ -77,14 +88,16 @@ async function createStripeCheckout(request: Request, env: TournamentEnv): Promi
     body: params.toString(),
   });
   const payload = await response.json().catch(() => ({})) as { id?: string; url?: string; error?: { message?: string } };
-  if (!response.ok || !payload.url) return json({ error: payload.error?.message || 'Stripe could not create the test Checkout Session.' }, 502);
-  return json({ id: payload.id, url: payload.url });
+  if (!response.ok || !payload.url) return json({ error: payload.error?.message || 'Stripe could not create the Checkout Session.' }, 502);
+  return json({ id: payload.id, url: payload.url, paymentMode: mode });
 }
 
 async function verifyStripeCheckout(url: URL, env: TournamentEnv): Promise<Response> {
-  if (!paymentReady(env)) return json({ error: 'Test payment verification is not configured.' }, 503);
+  const mode = paymentMode(env);
+  if (mode === 'off') return json({ error: 'Stripe payment verification is not configured.' }, 503);
   const sessionId = url.searchParams.get('session_id') ?? '';
-  if (!/^cs_test_[A-Za-z0-9_]+$/.test(sessionId)) return json({ error: 'Invalid test Checkout Session.' }, 400);
+  const pattern = mode === 'live' ? /^cs_live_[A-Za-z0-9_]+$/ : /^cs_test_[A-Za-z0-9_]+$/;
+  if (!pattern.test(sessionId)) return json({ error: `Invalid ${mode} Checkout Session.` }, 400);
 
   const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
     headers: { authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
@@ -95,16 +108,23 @@ async function verifyStripeCheckout(url: URL, env: TournamentEnv): Promise<Respo
     error?: { message?: string };
   };
   if (!response.ok) return json({ error: payload.error?.message || 'Could not verify the Checkout Session.' }, 502);
-  return json({ paid: payload.payment_status === 'paid', itemId: payload.metadata?.item_id ?? '', kind: payload.metadata?.kind ?? '' });
+  const kind = payload.metadata?.kind === 'premium3d' ? 'premium3d' : payload.metadata?.kind === 'tournament' ? 'tournament' : '';
+  return json({
+    paid: payload.payment_status === 'paid',
+    itemId: payload.metadata?.item_id ?? '',
+    kind,
+    paymentMode: mode,
+  });
 }
 
 export async function handleTournamentRequest(request: Request, env: TournamentEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (request.method === 'GET' && url.pathname === '/tournaments') {
+    const mode = paymentMode(env);
     return json({
       tournaments: TOURNAMENTS,
-      paymentMode: env.PAYMENTS_MODE === 'test' ? 'test' : 'off',
-      paymentConfigured: paymentReady(env),
+      paymentMode: mode,
+      paymentConfigured: mode !== 'off',
       premium3dPriceCents: premium3dPrice(env),
     });
   }
