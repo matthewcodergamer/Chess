@@ -1,4 +1,4 @@
-import baseHandler, { ChessRoom } from './index';
+import baseHandler, { ChessRoom } from './indexV2';
 import { handleTournamentRequest, type TournamentEnv } from './tournaments';
 
 export { ChessRoom };
