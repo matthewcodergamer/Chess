@@ -31,7 +31,7 @@ jobs:
 
       - name: Build
         env:
-          VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API }}
+          VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API || 'https://qqurz-chess-api.gamerstriper.workers.dev' }}
         run: npm run build
 
       - name: Setup Pages
