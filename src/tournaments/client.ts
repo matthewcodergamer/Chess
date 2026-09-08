@@ -1,7 +1,8 @@
 import { MULTIPLAYER_API, multiplayerConfigured } from '../multiplayer/client';
 
 export type PaymentMode = 'off' | 'test' | 'live';
-export type CheckoutKind = 'tournament' | 'premium3d' | 'position_bid';
+export type CheckoutKind = 'tournament' | 'premium3d' | 'position_bid' | 'color_bid';
+export type BidColor = 'white' | 'black';
 
 export type Tournament = {
   id: string;
@@ -21,6 +22,8 @@ export type TournamentCatalog = {
   premium3dPriceCents: number;
   positionBidCents?: number[];
   livePositionBidsEnabled?: boolean;
+  colorBidMinCents?: number;
+  colorBidMaxCents?: number;
 };
 
 export const FALLBACK_TOURNAMENTS: Tournament[] = [
@@ -50,6 +53,8 @@ export async function loadTournamentCatalog(): Promise<TournamentCatalog> {
       premium3dPriceCents: 499,
       positionBidCents: [200, 500],
       livePositionBidsEnabled: false,
+      colorBidMinCents: 100,
+      colorBidMaxCents: 10000,
     };
   }
   return requestJson<TournamentCatalog>('/tournaments');
@@ -58,11 +63,17 @@ export async function loadTournamentCatalog(): Promise<TournamentCatalog> {
 export async function createCheckout(
   itemId: string,
   kind: CheckoutKind,
-  context?: { roomCode?: string },
+  context?: { roomCode?: string; desiredColor?: BidColor; bidCents?: number },
 ): Promise<string> {
   const result = await requestJson<{ url: string }>('/checkout', {
     method: 'POST',
-    body: JSON.stringify({ itemId, kind, roomCode: context?.roomCode }),
+    body: JSON.stringify({
+      itemId,
+      kind,
+      roomCode: context?.roomCode,
+      desiredColor: context?.desiredColor,
+      bidCents: context?.bidCents,
+    }),
   });
   return result.url;
 }
@@ -73,6 +84,7 @@ export type VerifiedCheckout = {
   kind: CheckoutKind | '';
   roomCode?: string;
   bidCents?: number;
+  desiredColor?: BidColor | '';
   paymentMode?: PaymentMode;
 };
 
