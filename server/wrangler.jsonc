@@ -19,7 +19,8 @@
     "PAYMENTS_MODE": "test",
     "PREMIUM_3D_PRICE_CENTS": "499",
     "LIVE_TOURNAMENT_PAYMENTS": "disabled",
-    "LIVE_POSITION_BIDS": "disabled"
+    "LIVE_POSITION_BIDS": "disabled",
+    "LIVE_COLOR_BIDS": "disabled"
   },
   "observability": { "enabled": true }
 }
