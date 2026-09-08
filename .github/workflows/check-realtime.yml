@@ -2,19 +2,24 @@ name: Validate QQURZ realtime server
 
 on:
   push:
-    branches: [main, qqurz-realtime-server]
     paths:
       - 'server/**'
       - 'src/multiplayer/**'
-      - 'src/AppV12.tsx'
-      - 'src/v1.3.css'
+      - 'src/premium/**'
+      - 'src/ui/**'
+      - 'src/tournaments/**'
+      - 'src/AppV14.tsx'
+      - 'src/v2.0.css'
       - '.github/workflows/check-realtime.yml'
   pull_request:
     paths:
       - 'server/**'
       - 'src/multiplayer/**'
-      - 'src/AppV12.tsx'
-      - 'src/v1.3.css'
+      - 'src/premium/**'
+      - 'src/ui/**'
+      - 'src/tournaments/**'
+      - 'src/AppV14.tsx'
+      - 'src/v2.0.css'
       - '.github/workflows/check-realtime.yml'
   workflow_dispatch:
 
