@@ -12,6 +12,8 @@ export type RoomSnapshot = {
   positionId: number;
   fen: string;
   turn: GroundColor;
+  activeClock: GroundColor | null;
+  awaitingClockPress: GroundColor | null;
   whiteClockMs: number;
   blackClockMs: number;
   turnStartedAt: number | null;
