@@ -1,0 +1,304 @@
+/* QQURZ v2.0 — real-proportion clock, dimensional quarter and overlap fixes */
+
+.clock-toggle {
+  min-width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Keep informational badges away from the strategy/start controls. */
+.three-board-card:has(.local-board-overlay) .three-preview-badge,
+.three-board-card:has(.local-board-overlay) .three-board-help,
+.three-board-card:has(.local-board-overlay) .three-clock-hint {
+  display: none !important;
+}
+
+.three-board-card .local-board-overlay {
+  z-index: 30 !important;
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+}
+
+.three-board-card .local-board-overlay > div,
+.three-board-card .local-board-overlay {
+  max-width: 100%;
+}
+
+.three-board-card .local-board-overlay button {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------------- Authentic-dimension U.S. quarter ---------------- */
+.quarter-perspective {
+  --quarter-diameter: clamp(118px, 28vw, 176px);
+  --quarter-thickness: calc(var(--quarter-diameter) * 0.0721352); /* 1.75 / 24.26 */
+  width: var(--quarter-diameter);
+  min-height: calc(var(--quarter-diameter) + 26px);
+  margin: 10px auto 4px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  perspective: 950px;
+  perspective-origin: 50% 42%;
+}
+
+.qqurz-quarter-v2 {
+  position: relative;
+  width: var(--quarter-diameter);
+  height: var(--quarter-diameter);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transform: rotateX(7deg) rotateY(-8deg);
+  will-change: transform;
+  filter: drop-shadow(0 13px 14px rgba(0,0,0,.30));
+}
+
+.qqurz-quarter-v2.flipping.result-heads {
+  animation: qqurz-quarter-heads 1.55s cubic-bezier(.17,.78,.18,1) both;
+}
+.qqurz-quarter-v2.flipping.result-tails {
+  animation: qqurz-quarter-tails 1.55s cubic-bezier(.17,.78,.18,1) both;
+}
+
+.quarter-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  color: rgba(63,66,66,.92);
+  border: 1px solid rgba(255,255,255,.88);
+  background:
+    radial-gradient(circle at 34% 25%, rgba(255,255,255,.98) 0 4%, rgba(255,255,255,.22) 18%, transparent 39%),
+    radial-gradient(circle at 64% 70%, rgba(56,58,58,.13), transparent 31%),
+    repeating-radial-gradient(circle at 52% 48%, rgba(255,255,255,.06) 0 1px, rgba(0,0,0,.025) 1px 2px),
+    linear-gradient(135deg,#f6f7f5 0%,#b9bdbd 24%,#eef0ef 45%,#9ca1a2 69%,#e8eae9 100%);
+  box-shadow:
+    inset 0 0 0 4px rgba(86,90,91,.23),
+    inset 0 0 0 6px rgba(255,255,255,.45),
+    inset 10px 12px 18px rgba(255,255,255,.30),
+    inset -10px -13px 18px rgba(55,58,59,.18);
+  text-shadow: 0 1px 0 rgba(255,255,255,.78), 0 -1px 0 rgba(62,65,66,.20);
+}
+
+.quarter-obverse {
+  transform: translateZ(calc(var(--quarter-thickness) / 2));
+}
+.quarter-reverse {
+  transform: rotateY(180deg) translateZ(calc(var(--quarter-thickness) / 2));
+}
+
+.quarter-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transform: translateZ(0);
+  pointer-events: none;
+}
+.quarter-rim::before,
+.quarter-rim::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: calc(var(--quarter-thickness) * .52) solid rgba(111,115,115,.86);
+  background: transparent;
+  box-shadow: inset 0 0 2px rgba(255,255,255,.65), 0 0 1px rgba(0,0,0,.45);
+  transform: translateZ(0);
+}
+.quarter-rim::after {
+  border-style: double;
+  opacity: .40;
+  transform: rotateX(75deg) scaleY(.12);
+}
+.quarter-reed {
+  --reed-radius: calc(var(--quarter-diameter) * .486);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(1px, calc(var(--quarter-diameter) * .006));
+  height: calc(var(--quarter-thickness) * .86);
+  margin-left: -.5px;
+  margin-top: calc(var(--quarter-thickness) * -.43);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(64,67,68,.82), rgba(255,255,255,.86), rgba(72,75,76,.68));
+  transform-origin: 50% 50%;
+  transform: rotate(var(--reed-angle)) translateY(calc(var(--reed-radius) * -1)) rotateX(72deg);
+  opacity: .88;
+}
+
+.quarter-legend,
+.quarter-year,
+.quarter-mint,
+.quarter-e-pluribus,
+.quarter-value {
+  position: absolute;
+  z-index: 4;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: rgba(72,75,75,.92);
+  user-select: none;
+}
+.legend-top { top: 8.3%; left: 0; right: 0; text-align: center; font-size: calc(var(--quarter-diameter) * .079); letter-spacing: .12em; }
+.legend-left { left: 7%; top: 48%; width: 22%; text-align: center; font-size: calc(var(--quarter-diameter) * .050); line-height: 1.05; }
+.legend-right { right: 6%; top: 47%; width: 23%; text-align: center; font-size: calc(var(--quarter-diameter) * .045); line-height: 1.05; }
+.quarter-year { left: 0; right: 0; bottom: 9%; text-align: center; font-size: calc(var(--quarter-diameter) * .082); }
+.quarter-mint { right: 29%; bottom: 20%; font-size: calc(var(--quarter-diameter) * .043); }
+
+.washington-relief,
+.eagle-relief {
+  position: absolute;
+  z-index: 2;
+  width: 66%;
+  height: 66%;
+  left: 17%;
+  top: 17%;
+  fill: rgba(105,109,109,.60);
+  stroke: rgba(75,79,80,.56);
+  filter: drop-shadow(1px 1px 0 rgba(255,255,255,.65)) drop-shadow(-1px -1px 0 rgba(63,66,67,.10));
+}
+.washington-relief { transform: translateX(-2%) scaleX(.92); }
+.eagle-relief { width: 63%; height: 58%; left: 18.5%; top: 21%; }
+.reverse-top { top: 7%; font-size: calc(var(--quarter-diameter) * .048); letter-spacing: .055em; }
+.quarter-e-pluribus { left: 0; right: 0; bottom: 20%; text-align: center; font-size: calc(var(--quarter-diameter) * .040); }
+.quarter-value { left: 0; right: 0; bottom: 8%; text-align: center; font-size: calc(var(--quarter-diameter) * .050); letter-spacing: .055em; }
+
+.quarter-spec {
+  margin-top: 9px;
+  color: rgba(255,255,255,.64);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+
+@keyframes qqurz-quarter-heads {
+  0% { transform: translateY(0) rotateX(7deg) rotateY(-8deg) rotateZ(0); }
+  35% { transform: translateY(-42px) rotateX(24deg) rotateY(780deg) rotateZ(8deg); }
+  72% { transform: translateY(-8px) rotateX(10deg) rotateY(1510deg) rotateZ(-5deg); }
+  88% { transform: translateY(-17px) rotateX(6deg) rotateY(1745deg) rotateZ(2deg); }
+  100% { transform: translateY(0) rotateX(7deg) rotateY(1800deg) rotateZ(0); }
+}
+@keyframes qqurz-quarter-tails {
+  0% { transform: translateY(0) rotateX(7deg) rotateY(-8deg) rotateZ(0); }
+  35% { transform: translateY(-42px) rotateX(24deg) rotateY(780deg) rotateZ(8deg); }
+  72% { transform: translateY(-8px) rotateX(10deg) rotateY(1590deg) rotateZ(-5deg); }
+  88% { transform: translateY(-17px) rotateX(6deg) rotateY(1870deg) rotateZ(2deg); }
+  100% { transform: translateY(0) rotateX(7deg) rotateY(1980deg) rotateZ(0); }
+}
+
+/* Coin overlay is allowed to scroll rather than covering the Start button/UI. */
+.online-board-frame .coin-overlay {
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px;
+}
+.online-board-frame .coin-stage {
+  width: min(100%, 460px);
+  max-height: none;
+  margin: auto;
+  padding: 16px 14px;
+  box-sizing: border-box;
+}
+.online-board-frame .coin-call-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 9px;
+  width: 100%;
+}
+.online-board-frame .coin-call-actions button { min-width: 0; }
+
+/* ---------------- Color-choice bidding ---------------- */
+.color-auction-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(124,135,129,.20);
+  border-radius: 18px;
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 12px 28px rgba(30,36,33,.07);
+}
+[data-theme='dark'] .color-auction-card { background: rgba(22,25,24,.82); border-color: rgba(255,255,255,.10); }
+.color-auction-card h3 { margin: 3px 0 5px; }
+.color-auction-card p { margin: 0; }
+.color-bid-choice {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 8px;
+}
+.color-bid-choice button {
+  min-height: 48px;
+  border-radius: 13px;
+}
+.color-bid-choice button.selected { outline: 2px solid currentColor; outline-offset: -3px; }
+.color-bid-entry {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+.color-bid-money {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr);
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid rgba(120,128,124,.28);
+  border-radius: 13px;
+  padding: 0 12px;
+  background: rgba(255,255,255,.66);
+}
+[data-theme='dark'] .color-bid-money { background: rgba(255,255,255,.05); }
+.color-bid-money input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 11px 7px;
+  font: inherit;
+  color: inherit;
+}
+.color-bid-status {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+}
+.color-bid-status b { text-align: right; }
+.refund-note {
+  font-size: 11px;
+  line-height: 1.45;
+  opacity: .76;
+}
+
+@media (max-width: 760px) {
+  .three-board-card .local-board-overlay { padding: 14px; }
+  .quarter-perspective { --quarter-diameter: clamp(112px, 38vw, 154px); }
+  .online-board-frame .coin-overlay { padding: 9px; }
+  .online-board-frame .coin-stage { padding: 12px 10px; }
+  .color-bid-entry { grid-template-columns: 1fr; }
+  .color-bid-entry > button { width: 100%; }
+}
+
+@media (max-width: 430px) {
+  .online-board-frame .coin-call-actions { grid-template-columns: 1fr; }
+  .quarter-spec { font-size: 8px; }
+  .color-auction-card { padding: 14px; border-radius: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qqurz-quarter-v2.flipping.result-heads { animation: none; transform: rotateX(7deg) rotateY(0deg); }
+  .qqurz-quarter-v2.flipping.result-tails { animation: none; transform: rotateX(7deg) rotateY(180deg); }
+}
