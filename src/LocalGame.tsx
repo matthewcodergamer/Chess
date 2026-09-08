@@ -9,6 +9,7 @@ import { makeSan } from 'chessops/san';
 import type { Move, Role } from 'chessops/types';
 import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
+import { playChessSound } from './ui/sound';
 
 type GameMode = 'human' | 'ai';
 type Phase = 'setup' | 'strategy' | 'playing' | 'ended';
@@ -78,6 +79,7 @@ export default function LocalGame({ initialMode }: Props) {
   const [engineError, setEngineError] = useState('');
   const [result, setResult] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
+  const [pendingSlap, setPendingSlap] = useState<Color | null>(null);
 
   const aiColor = mode === 'ai' && humanColor ? opposite(humanColor) : null;
   const backRank = useMemo(() => positionId === null ? '' : chess960BackRank(positionId), [positionId]);
@@ -91,13 +93,13 @@ export default function LocalGame({ initialMode }: Props) {
         return value;
       });
     }
-    return enginePromise.current;
+    return engine.current ?? enginePromise.current;
   }, []);
 
   const humanCanMove = useCallback((pos: Chess) => {
-    if (phase !== 'playing') return false;
+    if (phase !== 'playing' || pendingSlap) return false;
     return mode === 'human' || humanColor === pos.turn;
-  }, [humanColor, mode, phase]);
+  }, [humanColor, mode, pendingSlap, phase]);
 
   const syncBoard = useCallback(() => {
     const pos = position.current;
@@ -118,7 +120,7 @@ export default function LocalGame({ initialMode }: Props) {
         color: canMove ? pos.turn : undefined,
         dests: canMove ? chessgroundDests(pos, { chess960: true }) : new Map(),
         rookCastle: true,
-        showDests: false,
+        showDests: true,
       },
     });
   }, [humanCanMove, lastMove, orientation]);
@@ -141,18 +143,26 @@ export default function LocalGame({ initialMode }: Props) {
     setFastForward(false);
     setResult(null);
     setPromotion(null);
+    setPendingSlap(null);
     setEngineError('');
     setPhase('strategy');
   }, [mode, sideChoice]);
 
   const finishMove = useCallback((move: Move, orig: Key, dest: Key) => {
     const pos = position.current;
-    if (!pos || phase !== 'playing' || !pos.isLegal(move)) {
+    if (!pos || phase !== 'playing' || pendingSlap || !pos.isLegal(move)) {
       requestAnimationFrame(syncBoard);
       return false;
     }
+    const movingColor = pos.turn;
+    const fromSquare = parseSquare(orig);
+    const toSquare = parseSquare(dest);
+    const movingPiece = fromSquare === undefined ? undefined : pos.board.get(fromSquare);
+    const capturedPiece = toSquare === undefined ? undefined : pos.board.get(toSquare);
+    const isCapture = Boolean(capturedPiece) || Boolean(movingPiece?.role === 'pawn' && orig[0] !== dest[0]);
     const san = makeSan(pos, move);
     pos.play(move);
+    playChessSound(isCapture ? 'capture' : 'move');
     setFen(makeFen(pos.toSetup()));
     setTurn(pos.turn);
     setLastMove([orig, dest]);
@@ -161,10 +171,14 @@ export default function LocalGame({ initialMode }: Props) {
     if (ending) {
       setResult(ending);
       setPhase('ended');
+      setPendingSlap(null);
+      playChessSound('win');
       engine.current?.cancelSearch();
+    } else {
+      setPendingSlap(movingColor);
     }
     return true;
-  }, [phase, syncBoard]);
+  }, [pendingSlap, phase, syncBoard]);
 
   const boardMove = useCallback((orig: Key, dest: Key) => {
     const pos = position.current;
@@ -246,24 +260,27 @@ export default function LocalGame({ initialMode }: Props) {
     const timer = window.setInterval(() => {
       const pos = position.current;
       if (!pos) return;
-      if (mode === 'ai' && pos.turn === aiColor && engineStatus === 'loading') return;
-      const setter = pos.turn === 'white' ? setWhiteClock : setBlackClock;
+      const clockOwner = pendingSlap ?? pos.turn;
+      if (mode === 'ai' && clockOwner === aiColor && engineStatus === 'loading') return;
+      const setter = clockOwner === 'white' ? setWhiteClock : setBlackClock;
       setter(value => {
         const next = Math.max(0, value - 1);
         if (next === 0) {
-          setResult(pos.turn === 'white' ? 'Black wins on time' : 'White wins on time');
+          setResult(clockOwner === 'white' ? 'Black wins on time' : 'White wins on time');
           setPhase('ended');
+          setPendingSlap(null);
+          playChessSound('win');
           engine.current?.cancelSearch();
         }
         return next;
       });
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [aiColor, engineStatus, mode, phase]);
+  }, [aiColor, engineStatus, mode, pendingSlap, phase]);
 
   useEffect(() => {
     const pos = position.current;
-    if (phase !== 'playing' || mode !== 'ai' || !aiColor || !pos || pos.turn !== aiColor || result) return;
+    if (phase !== 'playing' || mode !== 'ai' || !aiColor || !pos || pendingSlap || pos.turn !== aiColor || result) return;
     let cancelled = false;
     const snapshot = makeFen(pos.toSetup());
     const run = async () => {
@@ -289,11 +306,25 @@ export default function LocalGame({ initialMode }: Props) {
     };
     void run();
     return () => { cancelled = true; engine.current?.cancelSearch(); };
-  }, [aiColor, difficulty, ensureEngine, fen, finishMove, mode, phase, result, turn]);
+  }, [aiColor, difficulty, ensureEngine, fen, finishMove, mode, pendingSlap, phase, result, turn]);
+
+  useEffect(() => {
+    if (phase !== 'playing' || mode !== 'ai' || !aiColor || pendingSlap !== aiColor) return;
+    const timer = window.setTimeout(() => {
+      playChessSound('slap');
+      setPendingSlap(null);
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [aiColor, mode, pendingSlap, phase]);
 
   useEffect(() => () => engine.current?.destroy(), []);
 
-  const startNow = () => { if (phase === 'strategy') { setStrategyTime(0); setFastForward(false); setPhase('playing'); } };
+  const startNow = () => { if (phase === 'strategy') { setStrategyTime(0); setFastForward(false); setPhase('playing'); playChessSound('start'); } };
+  const slapClock = useCallback(() => {
+    if (!pendingSlap || phase !== 'playing') return;
+    playChessSound('slap');
+    setPendingSlap(null);
+  }, [pendingSlap, phase]);
   const playerName = (color: Color) => mode === 'ai' && aiColor === color ? `Stockfish · ${DIFFICULTIES[difficulty].label}` : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
 
   if (phase === 'setup') {
@@ -347,8 +378,8 @@ export default function LocalGame({ initialMode }: Props) {
           <p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Human vs Human'}</p>
         </div>
         <div className="local-clocks">
-          <div className={turn === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{formatClock(blackClock)}</strong></div>
-          <div className={turn === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{formatClock(whiteClock)}</strong></div>
+          <div className={(pendingSlap ?? turn) === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{formatClock(blackClock)}</strong></div>
+          <div className={(pendingSlap ?? turn) === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{formatClock(whiteClock)}</strong></div>
         </div>
         {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish in background…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
         <div className="local-side-actions">
@@ -362,18 +393,23 @@ export default function LocalGame({ initialMode }: Props) {
       </aside>
 
       <div className="local-board-area">
-        <div className="local-board-frame no-free-hints">
+        <div className="local-board-frame">
           <div ref={boardNode} className="cg-wrap board-mount" aria-label="Interactive Chess960 board" />
           {phase === 'strategy' && (
             <div className="local-board-overlay">
               <span>STRATEGY</span>
               <strong>{formatClock(strategyTime)}</strong>
-              <p>No free tactical warnings or legal-move dots are shown. Legal blunders are yours to make.</p>
+              <p>Green dots show legal destinations. QQURZ still gives no tactical danger warnings, so blunders remain yours to make.</p>
               <div>
                 <button onPointerDown={() => setFastForward(true)} onPointerUp={() => setFastForward(false)} onPointerCancel={() => setFastForward(false)}>Hold ×4</button>
                 <button className="primary-black" onClick={startNow}>Start Now</button>
               </div>
             </div>
+          )}
+          {phase === 'playing' && pendingSlap && pendingSlap !== aiColor && (
+            <button className={`clock-slap-button ${pendingSlap}`} onClick={slapClock} aria-label={`Press ${pendingSlap} clock`}>
+              <span>MOVE MADE</span><strong>SLAP {pendingSlap.toUpperCase()} CLOCK</strong><small>Your time keeps running until you press it.</small>
+            </button>
           )}
           {phase === 'ended' && result && (
             <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>
