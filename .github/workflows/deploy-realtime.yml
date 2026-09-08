@@ -2,6 +2,11 @@ name: Deploy QQURZ realtime server
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-realtime.yml'
 
 permissions:
   contents: read
