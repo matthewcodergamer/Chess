@@ -10,6 +10,7 @@ import type { Move, Role } from 'chessops/types';
 import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
 import { playChessSound } from './ui/sound';
+import ChessClock2D from './ui/ChessClock2D';
 
 type GameMode = 'human' | 'ai';
 type Phase = 'setup' | 'strategy' | 'playing' | 'ended';
@@ -377,10 +378,14 @@ export default function LocalGame({ initialMode }: Props) {
           <h2>{backRank}</h2>
           <p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Human vs Human'}</p>
         </div>
-        <div className="local-clocks">
-          <div className={(pendingSlap ?? turn) === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{formatClock(blackClock)}</strong></div>
-          <div className={(pendingSlap ?? turn) === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{formatClock(whiteClock)}</strong></div>
-        </div>
+        <ChessClock2D
+          whiteSeconds={whiteClock}
+          blackSeconds={blackClock}
+          activeColor={phase === 'playing' ? (pendingSlap ?? turn) : null}
+          pendingSlap={pendingSlap}
+          disabled={!pendingSlap || pendingSlap === aiColor}
+          onSlap={slapClock}
+        />
         {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish in background…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
         <div className="local-side-actions">
           <button onClick={() => setOrientation(value => opposite(value))}>Flip board</button>
@@ -405,11 +410,6 @@ export default function LocalGame({ initialMode }: Props) {
                 <button className="primary-black" onClick={startNow}>Start Now</button>
               </div>
             </div>
-          )}
-          {phase === 'playing' && pendingSlap && pendingSlap !== aiColor && (
-            <button className={`clock-slap-button ${pendingSlap}`} onClick={slapClock} aria-label={`Press ${pendingSlap} clock`}>
-              <span>MOVE MADE</span><strong>SLAP {pendingSlap.toUpperCase()} CLOCK</strong><small>Your time keeps running until you press it.</small>
-            </button>
           )}
           {phase === 'ended' && result && (
             <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>

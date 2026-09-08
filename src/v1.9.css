@@ -1,0 +1,213 @@
+/* QQURZ v1.9 — separate 2D top-down clock + reference-shaped 3D clock */
+
+/* 2D games deliberately use CSS/DOM only. No WebGL clock is mounted here. */
+.qqurz-clock-2d {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 14px 0 4px;
+  padding: 24px 10px 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 22px 22px 17px 17px;
+  background:
+    radial-gradient(140% 95% at 50% 8%, rgba(255,255,255,.09), transparent 38%),
+    linear-gradient(165deg,#25282a 0%,#121416 50%,#08090a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.09),
+    inset 0 -1px 0 rgba(0,0,0,.65),
+    0 13px 28px rgba(0,0,0,.20);
+  color: #f5f6f6;
+  overflow: hidden;
+  isolation: isolate;
+}
+.qqurz-clock-2d::before {
+  content: '';
+  position: absolute;
+  inset: 5px 7px auto;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.035);
+  pointer-events: none;
+}
+.qqurz-clock-lcd {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 38px 1fr;
+  align-items: stretch;
+  min-height: 61px;
+  border: 4px solid #040506;
+  border-radius: 7px;
+  background: #d9dfca;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.06);
+  overflow: hidden;
+}
+.qqurz-clock-lcd .lcd-half {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 3px;
+  color: #18212e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-variant-numeric: tabular-nums;
+  transition: background 100ms ease;
+}
+.qqurz-clock-lcd .lcd-half.active { background: rgba(62,111,73,.14); }
+.qqurz-clock-lcd strong { font-size: clamp(20px, 3vw, 30px); line-height: 1; letter-spacing: -.08em; }
+.qqurz-clock-lcd small { align-self: flex-start; margin-top: 7px; font-size: 7px; font-weight: 900; }
+.qqurz-clock-lcd .lcd-center {
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  text-align: center;
+  border-left: 1px solid rgba(30,40,34,.27);
+  border-right: 1px solid rgba(30,40,34,.27);
+  color: #18212e;
+}
+.qqurz-clock-lcd .lcd-center b { font: 800 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.qqurz-clock-lcd .lcd-center span { font-size: 6px; font-weight: 700; white-space: nowrap; }
+
+.qqurz-clock-controls {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  width: 72%;
+  margin: 7px auto 8px;
+}
+.qqurz-clock-controls span {
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: linear-gradient(#f8f9f9,#dcdee0);
+  color: #202327;
+  font-size: 8px;
+  font-weight: 950;
+  box-shadow: 0 2px 3px rgba(0,0,0,.50), inset 0 1px 0 #fff;
+}
+
+/* The slap bar is at the BOTTOM in 2D, matching the requested top-down UX. */
+.qqurz-clock-rocker-well {
+  position: relative;
+  z-index: 3;
+  width: 88%;
+  height: 41px;
+  margin: 5px auto 0;
+  padding: 5px;
+  border-radius: 15px;
+  background: #050607;
+  box-shadow: inset 0 4px 7px rgba(0,0,0,.86), inset 0 -1px 0 rgba(255,255,255,.055);
+}
+.qqurz-clock-rocker {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  background: linear-gradient(180deg,#ffffff 0%,#f1f2f3 48%,#dfe2e5 100%);
+  box-shadow: 0 2px 5px rgba(0,0,0,.52), inset 0 1px 0 white, inset 0 -1px 0 rgba(0,0,0,.08);
+  transform-origin: 50% 50%;
+  transition: transform 72ms cubic-bezier(.2,.75,.25,1), filter 80ms ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.qqurz-clock-rocker:disabled { opacity: 1; cursor: default; }
+.qqurz-clock-rocker.armed { cursor: pointer; filter: brightness(1.035); }
+.qqurz-clock-rocker .rocker-left,
+.qqurz-clock-rocker .rocker-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  pointer-events: none;
+}
+.qqurz-clock-rocker .rocker-left { left: 0; }
+.qqurz-clock-rocker .rocker-right { right: 0; }
+.qqurz-clock-rocker .rocker-groove {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: 3px;
+  bottom: 4px;
+  border-radius: 50% 50% 44% 44% / 22% 22% 45% 45%;
+  background: linear-gradient(180deg, rgba(255,255,255,.25), rgba(198,202,207,.18));
+  box-shadow: inset 0 3px 5px rgba(92,98,105,.12), inset 0 -2px 3px rgba(255,255,255,.55);
+  transform: translateY(1.5px);
+  pointer-events: none;
+}
+.qqurz-clock-2d.pending-white .qqurz-clock-rocker:active { transform: perspective(240px) rotateZ(-2.6deg) rotateY(-2deg) translateY(1px); }
+.qqurz-clock-2d.pending-black .qqurz-clock-rocker:active { transform: perspective(240px) rotateZ(2.6deg) rotateY(2deg) translateY(1px); }
+.qqurz-clock-2d.pending-white .qqurz-clock-rocker-well { box-shadow: inset 8px 3px 10px rgba(0,0,0,.82), inset 0 -1px 0 rgba(255,255,255,.05); }
+.qqurz-clock-2d.pending-black .qqurz-clock-rocker-well { box-shadow: inset -8px 3px 10px rgba(0,0,0,.82), inset 0 -1px 0 rgba(255,255,255,.05); }
+
+.qqurz-clock-brand {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  right: 0;
+  top: 9px;
+  text-align: center;
+  color: rgba(255,255,255,.84);
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: .17em;
+  pointer-events: none;
+}
+.qqurz-clock-prompt {
+  min-height: 13px;
+  margin-top: 5px;
+  text-align: center;
+  color: rgba(255,255,255,.58);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.qqurz-clock-2d.pending-white .qqurz-clock-prompt,
+.qqurz-clock-2d.pending-black .qqurz-clock-prompt { color: #8ff0c2; }
+
+/* The physical clock exists only inside the Premium 3D scene. The old extra
+   HTML slap button is hidden there so the in-scene rocker is the control. */
+.three-play-page .three-slap { display: none !important; }
+.three-board-card.high-fidelity .three-board-help { max-width: 350px; text-align: center; }
+.three-clock-hint {
+  position: absolute;
+  z-index: 4;
+  left: 14px;
+  bottom: 14px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px;
+  background: rgba(8,9,10,.72);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .025em;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+.three-clock-hint.ready {
+  border-color: rgba(124,239,188,.42);
+  background: rgba(30,115,76,.90);
+  box-shadow: 0 5px 18px rgba(17,86,55,.28);
+}
+
+@media (max-width: 760px) {
+  .local-fast-side > .qqurz-clock-2d {
+    grid-column: 1 / -1;
+    width: min(100%, 390px);
+    margin: 4px auto 7px;
+  }
+  .qqurz-clock-2d { padding-top: 23px; }
+  .qqurz-clock-lcd { min-height: 58px; }
+  .qqurz-clock-lcd strong { font-size: 26px; }
+  .qqurz-clock-rocker-well { height: 45px; width: 91%; }
+  .qqurz-clock-prompt { font-size: 7.5px; }
+}
