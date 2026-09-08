@@ -2,12 +2,14 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
 
 const LocalGame = lazy(() => import('./LocalGame'));
-const OnlineArena = lazy(() => import('./multiplayer/OnlineArena'));
+const OnlineArena = lazy(() => import('./multiplayer/OnlineArenaV2'));
 const TournamentHub = lazy(() => import('./tournaments/TournamentHub'));
 const Premium3DGate = lazy(() => import('./premium/Premium3DGate'));
 const ProfileHub = lazy(() => import('./profile/ProfileHub'));
 
 const BRAND_LOGO = `${import.meta.env.BASE_URL}brand/qqurz-logo.jpg`;
+const CLOCK_ENABLED_KEY = 'qqurz:3d-clock-enabled';
+const CLOCK_VISIBILITY_EVENT = 'qqurz:clock-visibility';
 
 type Screen = 'home' | 'local' | 'online' | 'tournaments' | '3d' | 'account';
 type LocalMode = 'human' | 'ai';
@@ -16,8 +18,8 @@ type Theme = 'light' | 'dark';
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
   if (params.get('room')) return 'online';
-  if (params.get('checkout') === 'success' && params.get('kind') === 'position_bid') return 'online';
-  if (params.get('checkout') === 'cancel' && params.get('kind') === 'position_bid') return 'online';
+  if (params.get('checkout') === 'success' && (params.get('kind') === 'position_bid' || params.get('kind') === 'color_bid')) return 'online';
+  if (params.get('checkout') === 'cancel' && (params.get('kind') === 'position_bid' || params.get('kind') === 'color_bid')) return 'online';
   if (params.get('checkout') === 'success' && params.get('kind') === 'premium3d') return '3d';
   if (params.get('checkout') === 'cancel' && params.get('kind') === 'premium3d') return '3d';
   if (params.get('checkout') === 'success') return 'tournaments';
@@ -28,6 +30,10 @@ function initialTheme(): Theme {
   const saved = window.localStorage.getItem('qqurz:theme');
   if (saved === 'dark' || saved === 'light') return saved;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function initialClockEnabled(): boolean {
+  try { return window.localStorage.getItem(CLOCK_ENABLED_KEY) !== 'off'; } catch { return true; }
 }
 
 function LoadingView() {
@@ -44,6 +50,7 @@ export default function AppV14() {
   const [localMode, setLocalMode] = useState<LocalMode>('human');
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [soundOn, setSoundOn] = useState(soundEnabled);
+  const [clockOn, setClockOn] = useState(initialClockEnabled);
   const [onlineVariant, setOnlineVariant] = useState<'friends' | 'tournament'>('friends');
 
   useEffect(() => {
@@ -54,7 +61,7 @@ export default function AppV14() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void import('./LocalGame');
-      void import('./multiplayer/OnlineArena');
+      void import('./multiplayer/OnlineArenaV2');
     }, 450);
     return () => window.clearTimeout(timer);
   }, []);
@@ -69,6 +76,13 @@ export default function AppV14() {
   const openLocal = (mode: LocalMode) => {
     setLocalMode(mode);
     setScreen('local');
+  };
+
+  const toggleClock = () => {
+    const next = !clockOn;
+    setClockOn(next);
+    try { window.localStorage.setItem(CLOCK_ENABLED_KEY, next ? 'on' : 'off'); } catch { /* optional */ }
+    window.dispatchEvent(new CustomEvent(CLOCK_VISIBILITY_EVENT, { detail: { enabled: next } }));
   };
 
   const pageTitle = screen === 'online'
@@ -97,6 +111,7 @@ export default function AppV14() {
         </nav>
         <div className="qqurz-nav-end">
           {pageTitle && <span className="qqurz-page-label">{pageTitle}</span>}
+          {screen === '3d' && <button className="clock-toggle" onClick={toggleClock} aria-label={`${clockOn ? 'Hide' : 'Show'} physical 3D chess clock`} title={`${clockOn ? 'Hide' : 'Show'} 3D chess clock`}>{clockOn ? '⏱' : '×⏱'}</button>}
           <button className="nav-account-button" onClick={() => setScreen('account')} aria-label="Open QQURZ account">♟</button>
           <button className="sound-toggle" onClick={() => { const next = !soundOn; setSoundOn(next); setSoundEnabled(next); }} aria-label={`${soundOn ? 'Mute' : 'Enable'} game sounds`}>{soundOn ? '♪' : '×♪'}</button>
           <button className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
