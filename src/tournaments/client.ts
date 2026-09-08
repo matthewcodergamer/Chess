@@ -1,5 +1,7 @@
 import { MULTIPLAYER_API, multiplayerConfigured } from '../multiplayer/client';
 
+export type PaymentMode = 'off' | 'test' | 'live';
+
 export type Tournament = {
   id: string;
   name: string;
@@ -13,16 +15,16 @@ export type Tournament = {
 
 export type TournamentCatalog = {
   tournaments: Tournament[];
-  paymentMode: 'off' | 'test';
+  paymentMode: PaymentMode;
   paymentConfigured: boolean;
   premium3dPriceCents: number;
 };
 
 export const FALLBACK_TOURNAMENTS: Tournament[] = [
-  { id: 'quick-1', name: 'QQURZ Quick Test', entryCents: 100, prizeLabel: 'Test event', format: 'Knockout', timeControl: '5+0', seats: 8, testOnly: true },
-  { id: 'rapid-5', name: 'QQURZ Rapid Open', entryCents: 500, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 16, testOnly: true },
-  { id: 'freestyle-10', name: 'Freestyle 960 Open', entryCents: 1000, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 32, testOnly: true },
-  { id: 'founders-20', name: 'QQURZ Founders Prize Open', entryCents: 2000, prizeLabel: '$500 guaranteed prize fund', format: 'Knockout', timeControl: '10+0', seats: 32, testOnly: true },
+  { id: 'quick-10', name: 'QQURZ Quick 10', entryCents: 100, prizeLabel: 'Hosted event', format: 'Round robin', timeControl: '5+0', seats: 10, testOnly: true },
+  { id: 'rapid-32', name: 'QQURZ Rapid Open', entryCents: 500, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 32, testOnly: true },
+  { id: 'freestyle-100', name: 'Freestyle 960 100', entryCents: 1000, prizeLabel: 'Prize schedule TBA', format: 'Swiss', timeControl: '10+0', seats: 100, testOnly: true },
+  { id: 'open-256', name: 'QQURZ Open 256', entryCents: 2000, prizeLabel: 'Prize schedule TBA', format: 'Swiss + knockout', timeControl: '10+0', seats: 256, testOnly: true },
 ];
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -54,6 +56,13 @@ export async function createCheckout(itemId: string, kind: 'tournament' | 'premi
   return result.url;
 }
 
-export async function verifyCheckout(sessionId: string): Promise<{ paid: boolean; itemId: string; kind: string }> {
-  return requestJson(`/checkout/verify?session_id=${encodeURIComponent(sessionId)}`);
+export type VerifiedCheckout = {
+  paid: boolean;
+  itemId: string;
+  kind: 'tournament' | 'premium3d' | '';
+  paymentMode?: PaymentMode;
+};
+
+export async function verifyCheckout(sessionId: string): Promise<VerifiedCheckout> {
+  return requestJson<VerifiedCheckout>(`/checkout/verify?session_id=${encodeURIComponent(sessionId)}`);
 }
