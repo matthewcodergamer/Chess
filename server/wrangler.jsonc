@@ -2,6 +2,8 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "qqurz-chess-api",
   "main": "src/gateway.ts",
+  "account_id": "753e873c467138b2ff2ddf3432e7affc",
+  "workers_dev": true,
   "compatibility_date": "2026-09-07",
   "durable_objects": {
     "bindings": [
