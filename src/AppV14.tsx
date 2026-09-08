@@ -16,11 +16,12 @@ type Theme = 'light' | 'dark';
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
   if (params.get('room')) return 'online';
-  if (params.get('checkout') === 'success' && params.get('kind') === 'position_bid') return 'online';
-  if (params.get('checkout') === 'cancel' && params.get('kind') === 'position_bid') return 'online';
-  if (params.get('checkout') === 'success' && params.get('kind') === 'premium3d') return '3d';
-  if (params.get('checkout') === 'cancel' && params.get('kind') === 'premium3d') return '3d';
-  if (params.get('checkout') === 'success') return 'tournaments';
+  const checkoutKind = params.get('kind');
+  const checkoutState = params.get('checkout');
+  if ((checkoutState === 'success' || checkoutState === 'cancel') && (checkoutKind === 'position_bid' || checkoutKind === 'color_bid')) return 'online';
+  if (checkoutState === 'success' && checkoutKind === 'premium3d') return '3d';
+  if (checkoutState === 'cancel' && checkoutKind === 'premium3d') return '3d';
+  if (checkoutState === 'success') return 'tournaments';
   return 'home';
 }
 
@@ -61,7 +62,7 @@ export default function AppV14() {
 
   const goHome = () => {
     const url = new URL(window.location.href);
-    ['room', 'checkout', 'kind', 'item', 'session_id'].forEach(key => url.searchParams.delete(key));
+    ['room', 'checkout', 'kind', 'item', 'session_id', 'color'].forEach(key => url.searchParams.delete(key));
     window.history.replaceState({}, '', url);
     setScreen('home');
   };
