@@ -40,6 +40,14 @@ export type RoomSnapshot = {
     rerollCount: number;
     yourBidCents: number;
   };
+  colorAuction: {
+    leadingBidCents: number;
+    leaderName: string | null;
+    desiredColor: GroundColor | null;
+    yourBidCents: number;
+    yourDesiredColor: GroundColor | null;
+    yourBidRefunded: boolean;
+  };
 };
 
 export type RoomSeat = { code: string; token: string; color: SeatColor };
