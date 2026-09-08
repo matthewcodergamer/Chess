@@ -10,8 +10,10 @@ type CoinFace = 'heads' | 'tails';
 type RoomStatus = 'waiting' | 'coin' | 'strategy' | 'playing' | 'ended';
 type PlayerSeat = { name: string; token: string };
 type PaidBid = { cents: number; paidAt: number; sessionId: string };
+type PaidColorBid = { cents: number; desiredColor: Color; paidAt: number; sessionId: string; paymentIntentId: string; refundedAt: number | null };
 type CoinState = { claimedFace: CoinFace | null; claimedByToken: string | null; result: CoinFace | null; winnerToken: string | null; flippedAt: number | null; endsAt: number | null };
 type AuctionState = { bids: Record<string, PaidBid>; leaderToken: string | null; leadingBidCents: number; rerollCount: number; usedSessions: string[] };
+type ColorAuctionState = { bids: Record<string, PaidColorBid>; leaderToken: string | null; leadingBidCents: number; desiredColor: Color | null; usedSessions: string[]; settled: boolean };
 type RoomState = {
   code: string;
   status: RoomStatus;
@@ -32,6 +34,7 @@ type RoomState = {
   players: { white: PlayerSeat; black: PlayerSeat | null };
   coin: CoinState;
   auction: AuctionState;
+  colorAuction: ColorAuctionState;
 };
 type SocketAttachment = { token: string };
 type ClientMessage =
@@ -40,6 +43,8 @@ type ClientMessage =
   | { type: 'start_now' }
   | { type: 'call_coin'; face: CoinFace }
   | { type: 'claim_position_bid'; sessionId: string }
+  | { type: 'claim_color_bid'; sessionId: string }
+  | { type: 'settle_color_bid' }
   | { type: 'resign' };
 type Env = {
   ROOMS: DurableObjectNamespace<ChessRoom>;
@@ -47,6 +52,7 @@ type Env = {
   STRIPE_SECRET_KEY?: string;
   PAYMENTS_MODE?: string;
   LIVE_POSITION_BIDS?: string;
+  LIVE_COLOR_BIDS?: string;
 };
 
 const GAME_CLOCK_MS = 10 * 60 * 1000;
@@ -57,6 +63,7 @@ const BID_VALUES = new Set([200, 500]);
 
 function emptyCoin(): CoinState { return { claimedFace: null, claimedByToken: null, result: null, winnerToken: null, flippedAt: null, endsAt: null }; }
 function emptyAuction(): AuctionState { return { bids: {}, leaderToken: null, leadingBidCents: 0, rerollCount: 0, usedSessions: [] }; }
+function emptyColorAuction(): ColorAuctionState { return { bids: {}, leaderToken: null, leadingBidCents: 0, desiredColor: null, usedSessions: [], settled: false }; }
 function normalizeName(value: unknown): string {
   const name = String(value ?? 'Guest').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 28);
   return name || 'Guest';
@@ -106,6 +113,7 @@ function makeSnapshot(room: RoomState, connected: Set<Color>, viewerToken: strin
   const yourFace = viewerToken && room.coin.claimedByToken && room.coin.claimedFace
     ? viewerToken === room.coin.claimedByToken ? room.coin.claimedFace : oppositeFace(room.coin.claimedFace)
     : null;
+  const yourColorBid = viewerToken ? room.colorAuction.bids[viewerToken] : undefined;
   return {
     code: room.code, status: room.status, positionId: room.positionId, fen: room.fen, turn: room.turn,
     activeClock: activeClockColor(room), awaitingClockPress: room.pendingClockPress,
@@ -122,6 +130,14 @@ function makeSnapshot(room: RoomState, connected: Set<Color>, viewerToken: strin
       leaderName: room.auction.leaderToken ? playerForToken(room, room.auction.leaderToken)?.name ?? null : null,
       rerollCount: room.auction.rerollCount,
       yourBidCents: viewerToken ? room.auction.bids[viewerToken]?.cents ?? 0 : 0,
+    },
+    colorAuction: {
+      leadingBidCents: room.colorAuction.leadingBidCents,
+      leaderName: room.colorAuction.leaderToken ? playerForToken(room, room.colorAuction.leaderToken)?.name ?? null : null,
+      desiredColor: room.colorAuction.desiredColor,
+      yourBidCents: yourColorBid?.cents ?? 0,
+      yourDesiredColor: yourColorBid?.desiredColor ?? null,
+      yourBidRefunded: Boolean(yourColorBid?.refundedAt),
     },
   };
 }
@@ -171,6 +187,7 @@ export class ChessRoom extends DurableObject<Env> {
       if (this.room) {
         if (!this.room.coin) this.room.coin = emptyCoin();
         if (!this.room.auction) this.room.auction = emptyAuction();
+        if (!this.room.colorAuction) this.room.colorAuction = emptyColorAuction();
         if (this.room.pendingClockPress === undefined) this.room.pendingClockPress = null;
       }
     });
@@ -188,7 +205,7 @@ export class ChessRoom extends DurableObject<Env> {
         code, status: 'waiting', positionId, fen: chess960Fen(positionId), turn: 'white', pendingClockPress: null,
         whiteClockMs: GAME_CLOCK_MS, blackClockMs: GAME_CLOCK_MS, turnStartedAt: null, strategyEndsAt: null,
         moves: [], result: null, check: false, checkmate: false, createdAt: now, lastActivityAt: now,
-        players: { white: { name: normalizeName(body.name), token }, black: null }, coin: emptyCoin(), auction: emptyAuction(),
+        players: { white: { name: normalizeName(body.name), token }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
       };
       await this.persist();
       return json({ code, token, color: 'white' });
@@ -226,6 +243,8 @@ export class ChessRoom extends DurableObject<Env> {
 
     if (payload.type === 'call_coin') return void await this.callCoin(ws, attachment.token, payload.face);
     if (payload.type === 'claim_position_bid') return void await this.claimPositionBid(ws, attachment.token, payload.sessionId);
+    if (payload.type === 'claim_color_bid') return void await this.claimColorBid(ws, attachment.token, payload.sessionId);
+    if (payload.type === 'settle_color_bid') return void await this.settleColorBid(ws, attachment.token);
     if (payload.type === 'move') return void await this.handleMove(ws, color, payload.uci);
     if (payload.type === 'clock_slap') return void await this.handleClockSlap(ws, color);
     if (payload.type === 'start_now') {
@@ -247,7 +266,7 @@ export class ChessRoom extends DurableObject<Env> {
   async alarm(): Promise<void> {
     if (!this.room) return; const now = Date.now();
     if (this.room.status === 'coin' && this.room.coin.result && (this.room.coin.endsAt ?? 0) <= now) {
-      this.room.status = 'strategy'; this.room.strategyEndsAt = now + STRATEGY_MS; this.room.coin.endsAt = null; this.room.lastActivityAt = now;
+      this.startStrategy(now); this.room.coin.endsAt = null;
       await this.persist(); await this.scheduleForState(); this.broadcast(); return;
     }
     if (this.room.status === 'strategy') {
@@ -256,7 +275,7 @@ export class ChessRoom extends DurableObject<Env> {
     }
     if (this.room.status === 'playing') {
       const owner = activeClockColor(this.room); this.settleActiveClock(now);
-      const remaining = owner === 'white' ? this.room.whiteClockMs : this.room.blackClockMs;
+      const remaining = owner ? (owner === 'white' ? this.room.whiteClockMs : this.room.blackClockMs) : 0;
       if (owner && remaining <= 0) {
         this.room.status = 'ended'; this.room.result = `${opposite(owner) === 'white' ? 'White' : 'Black'} wins on time`;
         this.room.pendingClockPress = null; this.room.turnStartedAt = null; this.room.lastActivityAt = now;
@@ -287,11 +306,17 @@ export class ChessRoom extends DurableObject<Env> {
     if (!this.room) return;
     this.room.status = 'coin'; this.room.turnStartedAt = null; this.room.pendingClockPress = null; this.room.strategyEndsAt = null;
     this.room.whiteClockMs = GAME_CLOCK_MS; this.room.blackClockMs = GAME_CLOCK_MS; this.room.moves = []; this.room.result = null;
-    this.room.check = false; this.room.checkmate = false; this.room.coin = emptyCoin(); this.room.auction = emptyAuction(); this.room.lastActivityAt = now;
+    this.room.check = false; this.room.checkmate = false; this.room.coin = emptyCoin(); this.room.auction = emptyAuction(); this.room.colorAuction = emptyColorAuction(); this.room.lastActivityAt = now;
+  }
+
+  private startStrategy(now: number): void {
+    if (!this.room) return;
+    this.room.status = 'strategy'; this.room.strategyEndsAt = now + STRATEGY_MS; this.room.turnStartedAt = null; this.room.pendingClockPress = null; this.room.lastActivityAt = now;
   }
 
   private async callCoin(ws: WebSocket, token: string, face: CoinFace): Promise<void> {
     if (!this.room || this.room.status !== 'coin' || !this.room.players.black) return this.sendError(ws, 'The coin toss is not available right now.');
+    if (this.room.colorAuction.leaderToken) return this.sendError(ws, 'A paid color bid is active. Outbid it or let the leader lock the winning side.');
     if (face !== 'heads' && face !== 'tails') return this.sendError(ws, 'Choose Heads or Tails.');
     if (this.room.coin.result || this.room.coin.claimedByToken) return this.sendError(ws, 'Another player already called the coin.');
     this.room.coin.claimedFace = face; this.room.coin.claimedByToken = token;
@@ -311,13 +336,17 @@ export class ChessRoom extends DurableObject<Env> {
     if (this.env.PAYMENTS_MODE === 'live' && key.startsWith('sk_live_')) return 'live';
     return 'off';
   }
+
+  private checkoutPattern(): RegExp {
+    return this.paymentMode() === 'live' ? /^cs_live_[A-Za-z0-9_]+$/ : /^cs_test_[A-Za-z0-9_]+$/;
+  }
+
   private async verifyBidSession(sessionId: string): Promise<{ cents: number }> {
     if (!this.room) throw new Error('Room unavailable.');
     const mode = this.paymentMode();
     if (mode === 'off') throw new Error('Position-bid payments are not configured.');
     if (mode === 'live' && this.env.LIVE_POSITION_BIDS !== 'enabled') throw new Error('Live paid position bidding is disabled. Use test mode until the competitive rules are approved.');
-    const pattern = mode === 'live' ? /^cs_live_[A-Za-z0-9_]+$/ : /^cs_test_[A-Za-z0-9_]+$/;
-    if (!pattern.test(sessionId)) throw new Error('Invalid Checkout Session.');
+    if (!this.checkoutPattern().test(sessionId)) throw new Error('Invalid Checkout Session.');
     const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, { headers: { authorization: `Bearer ${this.env.STRIPE_SECRET_KEY}` } });
     const payload = await response.json().catch(() => ({})) as { payment_status?: string; metadata?: { kind?: string; room_code?: string; bid_cents?: string }; error?: { message?: string } };
     if (!response.ok) throw new Error(payload.error?.message || 'Could not verify the position bid.');
@@ -325,6 +354,7 @@ export class ChessRoom extends DurableObject<Env> {
     if (payload.payment_status !== 'paid' || payload.metadata?.kind !== 'position_bid' || payload.metadata?.room_code !== this.room.code || !BID_VALUES.has(cents)) throw new Error('This payment does not match a valid QQURZ position bid for this room.');
     return { cents };
   }
+
   private async claimPositionBid(ws: WebSocket, token: string, rawSessionId: unknown): Promise<void> {
     if (!this.room || (this.room.status !== 'coin' && this.room.status !== 'strategy')) return this.sendError(ws, 'Position bidding closes when play begins.');
     const sessionId = String(rawSessionId ?? '').trim();
@@ -339,6 +369,110 @@ export class ChessRoom extends DurableObject<Env> {
       if (cents > this.room.auction.leadingBidCents) { this.room.auction.leadingBidCents = cents; this.room.auction.leaderToken = token; this.rerollPosition(); this.room.auction.rerollCount += 1; }
       this.room.lastActivityAt = now; await this.persist(); this.broadcast();
     } catch (error) { this.sendError(ws, error instanceof Error ? error.message : 'Could not verify the paid bid.'); }
+  }
+
+  private async verifyColorBidSession(sessionId: string): Promise<{ cents: number; desiredColor: Color; paymentIntentId: string }> {
+    if (!this.room) throw new Error('Room unavailable.');
+    const mode = this.paymentMode();
+    if (mode === 'off') throw new Error('Color-bid payments are not configured.');
+    if (mode === 'live' && this.env.LIVE_COLOR_BIDS !== 'enabled') throw new Error('Live paid color bidding is disabled until automatic refunds are enabled by server policy.');
+    if (!this.checkoutPattern().test(sessionId)) throw new Error('Invalid Checkout Session.');
+    const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, { headers: { authorization: `Bearer ${this.env.STRIPE_SECRET_KEY}` } });
+    const payload = await response.json().catch(() => ({})) as { payment_status?: string; payment_intent?: string; metadata?: { kind?: string; room_code?: string; bid_cents?: string; desired_color?: string }; error?: { message?: string } };
+    if (!response.ok) throw new Error(payload.error?.message || 'Could not verify the color bid.');
+    const cents = Number(payload.metadata?.bid_cents ?? '0');
+    const desiredColor = payload.metadata?.desired_color === 'white' || payload.metadata?.desired_color === 'black' ? payload.metadata.desired_color : null;
+    const paymentIntentId = typeof payload.payment_intent === 'string' ? payload.payment_intent : '';
+    if (payload.payment_status !== 'paid' || payload.metadata?.kind !== 'color_bid' || payload.metadata?.room_code !== this.room.code || !BID_VALUES.has(cents) || !desiredColor || !/^pi_[A-Za-z0-9_]+$/.test(paymentIntentId)) throw new Error('This payment does not match a valid QQURZ color bid for this room.');
+    return { cents, desiredColor, paymentIntentId };
+  }
+
+  private async refundColorBid(bid: PaidColorBid, reason: string): Promise<void> {
+    if (bid.refundedAt) return;
+    const params = new URLSearchParams();
+    params.set('payment_intent', bid.paymentIntentId);
+    params.set('metadata[qqurz_reason]', reason.slice(0, 120));
+    params.set('metadata[room_code]', this.room?.code ?? '');
+    const response = await fetch('https://api.stripe.com/v1/refunds', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${this.env.STRIPE_SECRET_KEY}`,
+        'content-type': 'application/x-www-form-urlencoded',
+        'idempotency-key': `qqurz-color-refund-${bid.sessionId}`.slice(0, 255),
+      },
+      body: params.toString(),
+    });
+    const payload = await response.json().catch(() => ({})) as { status?: string; error?: { message?: string; code?: string } };
+    if (!response.ok && payload.error?.code !== 'charge_already_refunded') throw new Error(payload.error?.message || 'Stripe could not refund the outbid payment.');
+    bid.refundedAt = Date.now();
+  }
+
+  private async claimColorBid(ws: WebSocket, token: string, rawSessionId: unknown): Promise<void> {
+    if (!this.room || this.room.status !== 'coin' || !this.room.players.black || this.room.coin.result) return this.sendError(ws, 'Color bidding is only open before the coin toss is resolved.');
+    const sessionId = String(rawSessionId ?? '').trim();
+    if (!sessionId) return this.sendError(ws, 'Missing color-bid Checkout Session.');
+    if (this.room.colorAuction.usedSessions.includes(sessionId)) return this.sendError(ws, 'That color-bid payment has already been claimed.');
+
+    try {
+      const verified = await this.verifyColorBidSession(sessionId);
+      const now = Date.now();
+      const incoming: PaidColorBid = { ...verified, paidAt: now, sessionId, refundedAt: null };
+      this.room.colorAuction.usedSessions = [...this.room.colorAuction.usedSessions, sessionId].slice(-32);
+
+      const oldOwn = this.room.colorAuction.bids[token];
+      if (oldOwn && !oldOwn.refundedAt && verified.cents <= oldOwn.cents) {
+        await this.refundColorBid(incoming, 'bid_not_higher_than_previous');
+        this.room.colorAuction.bids[token] = incoming;
+        this.room.lastActivityAt = now;
+        await this.persist(); this.broadcast();
+        return this.sendError(ws, 'That bid did not raise your active bid. The new payment was refunded automatically.');
+      }
+
+      const leaderToken = this.room.colorAuction.leaderToken;
+      const leaderBid = leaderToken ? this.room.colorAuction.bids[leaderToken] : undefined;
+      const beatsLeader = !leaderToken || leaderToken === token || verified.cents > this.room.colorAuction.leadingBidCents;
+
+      if (!beatsLeader) {
+        await this.refundColorBid(incoming, 'outbid_on_arrival');
+        this.room.colorAuction.bids[token] = incoming;
+        this.room.lastActivityAt = now;
+        await this.persist(); this.broadcast();
+        return this.sendError(ws, `Top color bid is ${this.room.colorAuction.leadingBidCents / 100} USD. Your lower bid was refunded automatically.`);
+      }
+
+      // Refund any superseded active payment before installing the new winner.
+      if (oldOwn && !oldOwn.refundedAt) await this.refundColorBid(oldOwn, 'superseded_by_higher_own_bid');
+      if (leaderToken && leaderToken !== token && leaderBid && !leaderBid.refundedAt) await this.refundColorBid(leaderBid, 'outbid_by_higher_color_bid');
+
+      this.room.colorAuction.bids[token] = incoming;
+      this.room.colorAuction.leaderToken = token;
+      this.room.colorAuction.leadingBidCents = verified.cents;
+      this.room.colorAuction.desiredColor = verified.desiredColor;
+      this.room.colorAuction.settled = false;
+      this.room.lastActivityAt = now;
+      await this.persist(); this.broadcast();
+    } catch (error) {
+      this.sendError(ws, error instanceof Error ? error.message : 'Could not verify the paid color bid.');
+    }
+  }
+
+  private assignTokenToColor(token: string, desiredColor: Color): void {
+    if (!this.room?.players.black) return;
+    const current = colorForToken(this.room, token);
+    if (!current || current === desiredColor) return;
+    const oldWhite = this.room.players.white;
+    this.room.players.white = this.room.players.black;
+    this.room.players.black = oldWhite;
+  }
+
+  private async settleColorBid(ws: WebSocket, token: string): Promise<void> {
+    if (!this.room || this.room.status !== 'coin' || this.room.coin.result) return this.sendError(ws, 'The color auction can no longer be settled.');
+    if (!this.room.colorAuction.leaderToken || !this.room.colorAuction.desiredColor) return this.sendError(ws, 'There is no winning color bid yet.');
+    if (this.room.colorAuction.leaderToken !== token) return this.sendError(ws, 'Only the current high bidder can lock the winning side. You can still outbid them.');
+    this.assignTokenToColor(token, this.room.colorAuction.desiredColor);
+    this.room.colorAuction.settled = true;
+    const now = Date.now(); this.startStrategy(now);
+    await this.persist(); await this.scheduleForState(); this.broadcast();
   }
 
   private rerollPosition(): void {
