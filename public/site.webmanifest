@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "QQURZ Chess",
+  "short_name": "QQURZ",
+  "description": "Freestyle Chess960 with Stockfish AI, friends online, official tournaments and optional Premium 3D.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101713",
+  "theme_color": "#101713",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/qqurz-pawn-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/qqurz-pawn-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/qqurz-pawn-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
