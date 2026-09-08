@@ -34,8 +34,11 @@ export default function ChessClock2D({
   useEffect(() => {
     let owned: HTMLDivElement | null = null;
     let stopped = false;
+    let observer: MutationObserver | null = null;
+    let timer = 0;
+
     const install = () => {
-      if (stopped || dock) return true;
+      if (stopped) return true;
       const shell = document.querySelector('.local-fast-shell:not(.setup-only)');
       const frame = shell?.querySelector('.local-board-frame');
       if (!frame?.parentElement) return false;
@@ -48,14 +51,22 @@ export default function ChessClock2D({
       setDock(owned);
       return true;
     };
+
     if (!install()) {
-      const observer = new MutationObserver(() => { if (install()) observer.disconnect(); });
+      observer = new MutationObserver(() => {
+        if (install()) observer?.disconnect();
+      });
       observer.observe(document.body, { childList: true, subtree: true });
-      const timer = window.setTimeout(() => observer.disconnect(), 5000);
-      return () => { stopped = true; window.clearTimeout(timer); observer.disconnect(); owned?.remove(); };
+      timer = window.setTimeout(() => observer?.disconnect(), 5000);
     }
-    return () => { stopped = true; owned?.remove(); };
-  }, [dock]);
+
+    return () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+      observer?.disconnect();
+      owned?.remove();
+    };
+  }, []);
 
   if (!dock) return null;
   return createPortal(
