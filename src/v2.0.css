@@ -1,0 +1,175 @@
+/* QQURZ v2.0 — true 3D clock dock, physical quarter, no overlay collisions */
+
+/* Clock always occupies its own document-flow row BELOW the board. */
+.qqurz-clock-dock {
+  width: 100%;
+  margin-top: 12px;
+  position: relative;
+  z-index: 1;
+}
+.qqurz-physical-clock-panel {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 20px;
+  background: var(--q-surface);
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: 0 13px 34px rgba(0,0,0,.08);
+}
+.qqurz-clock-panel-head {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+.qqurz-clock-panel-head > div { display: grid; gap: 2px; min-width: 0; }
+.qqurz-clock-panel-head b { font-size: 9px; letter-spacing: .11em; }
+.qqurz-clock-panel-head span { color: var(--q-muted); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clock-visibility-toggle {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  background: var(--q-surface-2);
+  color: var(--q-text);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+}
+.qqurz-clock-3d-view {
+  width: 100%;
+  height: clamp(190px, 30vw, 280px);
+  border-radius: 16px;
+  background:
+    radial-gradient(80% 70% at 50% 75%, rgba(0,0,0,.07), transparent 63%),
+    linear-gradient(180deg, rgba(255,255,255,.025), transparent);
+  overflow: hidden;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.qqurz-clock-3d-view canvas { width: 100% !important; height: 100% !important; display: block; }
+.qqurz-clock-3d-view.ready {
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(76,222,146,.28), 0 9px 28px rgba(48,170,111,.10);
+}
+.qqurz-clock-3d-view:focus-visible { box-shadow: inset 0 0 0 3px rgba(76,222,146,.62); }
+.qqurz-clock-hidden-note {
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--q-line);
+  border-radius: 14px;
+  color: var(--q-muted);
+  font-size: 10px;
+}
+
+/* The old sidebar slot is no longer allowed to reserve a giant fake clock box. */
+.local-fast-side > .qqurz-clock-2d { display: none !important; }
+
+/* Real 3D U.S. quarter viewer. */
+.qqurz-quarter-wrap { display: grid; justify-items: center; width: min(100%, 260px); }
+.qqurz-quarter-3d {
+  width: min(100%, 240px);
+  height: 205px;
+  position: relative;
+  filter: drop-shadow(0 16px 18px rgba(0,0,0,.20));
+}
+.qqurz-quarter-3d canvas { width: 100% !important; height: 100% !important; display: block; }
+.qqurz-quarter-spec {
+  margin-top: -6px;
+  color: currentColor;
+  opacity: .65;
+  font-size: 8px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+/* Suppress the legacy CSS coin whenever a true 3D coin is present. */
+.coin-stage:has(.qqurz-quarter-3d) > .qqurz-quarter { display: none !important; }
+
+/* Overlays belong inside the board and must never cover the physical clock below it. */
+.local-board-frame,
+.online-board-frame,
+.three-board-card { isolation: isolate; }
+.local-board-overlay,
+.online-board-frame .board-overlay,
+.three-board-card .local-board-overlay { z-index: 30 !important; }
+.local-board-overlay > div,
+.online-board-frame .board-overlay > div,
+.strategy-overlay > div {
+  max-width: min(90%, 520px);
+  max-height: calc(100% - 28px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(2px, env(safe-area-inset-bottom));
+}
+.local-board-overlay button,
+.online-board-frame .board-overlay button { position: relative; z-index: 31; }
+.three-preview-badge,
+.three-board-help,
+.three-clock-hint { z-index: 8; }
+.three-board-card:has(.local-board-overlay) .three-board-help,
+.three-board-card:has(.local-board-overlay) .three-clock-hint { opacity: 0; pointer-events: none; }
+
+/* Online physical clock dock uses the same model/spacing as local. */
+.online-physical-clock { margin-top: 12px; }
+.online-physical-clock .qqurz-clock-3d-view { height: clamp(180px, 29vw, 265px); }
+
+/* Paid color auction is deliberately outside the board overlay so Start Now can never collide with it. */
+.color-auction-card {
+  margin-top: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 20px;
+  background: var(--q-surface);
+}
+.color-auction-card h3 { margin: 5px 0 3px; font-size: 18px; letter-spacing: -.025em; }
+.color-auction-card p { margin: 0; color: var(--q-muted); font-size: 11px; line-height: 1.5; }
+.color-choice-row,
+.color-bid-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.color-choice-row button,
+.color-bid-actions button {
+  min-height: 44px;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  background: var(--q-surface-2);
+  color: var(--q-text);
+  font-weight: 850;
+}
+.color-choice-row button.selected { outline: 2px solid #50cf98; background: rgba(80,207,152,.12); }
+.color-bid-actions button { background: #111214; color: #fff; border-color: transparent; }
+.color-bid-actions button:disabled { opacity: .45; }
+.color-auction-status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.color-auction-status > div { padding: 9px; border-radius: 11px; background: var(--q-surface-2); display: grid; gap: 3px; }
+.color-auction-status span { color: var(--q-muted); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.color-auction-status b { font-size: 11px; }
+
+@media (max-width: 760px) {
+  .qqurz-clock-dock { margin-top: 9px; }
+  .qqurz-physical-clock-panel { padding: 8px 8px 10px; border-radius: 17px; }
+  .qqurz-clock-3d-view { height: 205px; }
+  .qqurz-clock-panel-head { padding: 0 2px; }
+  .qqurz-clock-panel-head b { font-size: 8px; }
+  .qqurz-clock-panel-head span { font-size: 8px; max-width: 210px; }
+  .clock-visibility-toggle { min-height: 30px; padding: 0 9px; font-size: 8px; }
+  .qqurz-quarter-3d { height: 180px; }
+  .coin-stage { gap: 8px !important; }
+  .coin-stage > p { max-height: 68px; overflow: auto; }
+  .local-board-overlay,
+  .online-board-frame .board-overlay { padding: 12px !important; }
+  .local-board-overlay > div,
+  .online-board-frame .board-overlay > div { max-height: calc(100% - 20px); }
+  .color-auction-status { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qqurz-clock-3d-view,
+  .qqurz-quarter-3d { scroll-behavior: auto; }
+}
