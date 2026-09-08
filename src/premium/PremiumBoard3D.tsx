@@ -35,6 +35,7 @@ type SceneHandle = {
 
 const GAME_SECONDS = 600;
 const STRATEGY_SECONDS = 120;
+const CLOCK_VISIBLE_KEY = 'qqurz:physical-clock-visible';
 const DIFFICULTIES: Record<Difficulty, { label: string; note: string }> = {
   easy: { label: 'Easy', note: 'Relaxed and forgiving' },
   hard: { label: 'Hard', note: 'Strong club-level play' },
@@ -47,6 +48,10 @@ const fmt = (value: number) => {
 };
 const opposite = (color: Color): Color => color === 'white' ? 'black' : 'white';
 const chooseColor = (choice: SideChoice): Color => choice === 'random' ? (Math.random() < .5 ? 'white' : 'black') : choice;
+
+function initialClockVisible(): boolean {
+  try { return window.localStorage.getItem(CLOCK_VISIBLE_KEY) !== 'off'; } catch { return true; }
+}
 
 function resultOf(pos: Chess) {
   if (pos.isCheckmate()) return pos.turn === 'white' ? 'Black wins by checkmate' : 'White wins by checkmate';
@@ -158,6 +163,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
   const [selected, setSelected] = useState<Key | null>(null);
   const [promotion, setPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
   const [pendingSlap, setPendingSlap] = useState<Color | null>(null);
+  const [clockVisible, setClockVisible] = useState(initialClockVisible);
 
   const aiColor = mode === 'ai' && humanColor ? opposite(humanColor) : null;
   const backRank = useMemo(() => positionId === null ? '' : chess960BackRank(positionId), [positionId]);
@@ -237,16 +243,16 @@ export default function PremiumBoard3D({ onBack }: Props) {
 
   const resetCamera = useCallback(() => {
     const h = sceneRef.current; if (!h) return;
-    h.camera.position.set(0, 15.4, 17.2); h.controls.target.set(-.9, .45, 0); h.controls.update(); h.renderer.render(h.scene, h.camera);
+    h.camera.position.set(0, 17.4, 20.6); h.controls.target.set(0, .35, .95); h.controls.update(); h.renderer.render(h.scene, h.camera);
   }, []);
 
   useEffect(() => {
     const element = mount.current; if (!element) return;
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x4b3a2d); scene.fog = new THREE.Fog(0x4b3a2d, 25, 42);
-    const camera = new THREE.PerspectiveCamera(30, 1, .1, 100); camera.position.set(0, 15.4, 17.2); camera.lookAt(-.9, .45, 0);
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x4b3a2d); scene.fog = new THREE.Fog(0x4b3a2d, 29, 48);
+    const camera = new THREE.PerspectiveCamera(30, 1, .1, 100); camera.position.set(0, 17.4, 20.6); camera.lookAt(0, .35, .95);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.28; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; element.replaceChildren(renderer.domElement);
-    const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableZoom = true; controls.rotateSpeed = .48; controls.zoomSpeed = .7; controls.minDistance = 17; controls.maxDistance = 26; controls.minPolarAngle = .58; controls.maxPolarAngle = 1.02; controls.minAzimuthAngle = -.82; controls.maxAzimuthAngle = .82; controls.target.set(-.9, .45, 0); controls.update(); controls.addEventListener('change', () => renderer.render(scene, camera));
+    const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableZoom = true; controls.rotateSpeed = .48; controls.zoomSpeed = .7; controls.minDistance = 19; controls.maxDistance = 32; controls.minPolarAngle = .54; controls.maxPolarAngle = 1.04; controls.minAzimuthAngle = -.82; controls.maxAzimuthAngle = .82; controls.target.set(0, .35, .95); controls.update(); controls.addEventListener('change', () => renderer.render(scene, camera));
 
     const shell = new THREE.MeshStandardMaterial({ color: 0x3b2416, roughness: .64, metalness: .08 });
     const inset = new THREE.MeshStandardMaterial({ color: 0x6b452c, roughness: .72, metalness: .04 });
@@ -265,19 +271,27 @@ export default function PremiumBoard3D({ onBack }: Props) {
       const square = `${String.fromCharCode(97 + file)}${rank}` as Key, p = squarePos(square);
       const tile = mesh(new THREE.BoxGeometry(1, .08, 1), (file + rank) % 2 === 0 ? darkSq : lightSq, .04); tile.position.set(p.x, .04, p.z); tile.userData.square = square; squares.push(tile); board.add(tile);
     }
-    scene.add(mesh(new THREE.CylinderGeometry(11.5, 12, .14, 56), new THREE.MeshStandardMaterial({ color: 0x31251d, roughness: .94 }), -.47));
+    scene.add(mesh(new THREE.CylinderGeometry(12.2, 12.7, .14, 64), new THREE.MeshStandardMaterial({ color: 0x31251d, roughness: .94 }), -.47));
 
-    const clock = createChessClock3D(); clock.group.position.set(-6.12, -.35, .58); clock.group.scale.setScalar(.88); clock.group.rotation.y = .035; scene.add(clock.group);
+    // The clock is a separate full 3D object directly below/near-side of the board.
+    // At z≈6.22 its rear edge meets the board frame while the front, sides and curved
+    // slap rocker remain visible to the same perspective camera.
+    const clock = createChessClock3D();
+    clock.group.position.set(0, -.34, 6.22);
+    clock.group.scale.setScalar(.88);
+    clock.group.rotation.y = 0;
+    clock.setVisible(initialClockVisible());
+    scene.add(clock.group);
 
     scene.add(new THREE.AmbientLight(0xfff4e8, .62)); scene.add(new THREE.HemisphereLight(0xfff7ed, 0x6f5847, 2.15));
     const fill = new THREE.DirectionalLight(0xffe6cf, 1.15); fill.position.set(-7, 9, 5); scene.add(fill);
     const rim = new THREE.DirectionalLight(0xdcecff, .82); rim.position.set(7, 6, -8); scene.add(rim);
-    const key = new THREE.DirectionalLight(0xffffff, 3.4); key.position.set(5.5, 11, 6.5); key.castShadow = true; key.shadow.mapSize.set(1536, 1536); key.shadow.camera.near = .1; key.shadow.camera.far = 34; key.shadow.camera.left = -8; key.shadow.camera.right = 8; key.shadow.camera.top = 8; key.shadow.camera.bottom = -8; key.shadow.bias = -.00006; key.shadow.normalBias = .014; scene.add(key, key.target); key.target.position.set(-.5, .25, 0);
+    const key = new THREE.DirectionalLight(0xffffff, 3.4); key.position.set(5.5, 11, 8.5); key.castShadow = true; key.shadow.mapSize.set(1536, 1536); key.shadow.camera.near = .1; key.shadow.camera.far = 38; key.shadow.camera.left = -9; key.shadow.camera.right = 9; key.shadow.camera.top = 9; key.shadow.camera.bottom = -9; key.shadow.bias = -.00006; key.shadow.normalBias = .014; scene.add(key, key.target); key.target.position.set(0, .25, 1.2);
 
     const ray = new THREE.Raycaster(); let down: Key | null = null, downRocker = false, moved = false, sx = 0, sy = 0;
     const aim = (e: PointerEvent) => { const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)), camera); };
     const pickSquare = (e: PointerEvent): Key | null => { aim(e); return (ray.intersectObjects(squares, false)[0]?.object.userData.square as Key | undefined) ?? null; };
-    const pickRocker = (e: PointerEvent) => { aim(e); return ray.intersectObjects(clock.hitTargets, true).length > 0; };
+    const pickRocker = (e: PointerEvent) => { if (!clock.group.visible) return false; aim(e); return ray.intersectObjects(clock.hitTargets, true).length > 0; };
     const pd = (e: PointerEvent) => { sx = e.clientX; sy = e.clientY; moved = false; downRocker = pickRocker(e); down = downRocker ? null : pickSquare(e); };
     const pm = (e: PointerEvent) => { if (Math.abs(e.clientX - sx) > 7 || Math.abs(e.clientY - sy) > 7) moved = true; };
     const pu = (e: PointerEvent) => { if (moved) return; if (downRocker && pickRocker(e)) { slapRef.current(); return; } const up = pickSquare(e); if (down && up && down === up) selectRef.current(up); };
@@ -290,6 +304,12 @@ export default function PremiumBoard3D({ onBack }: Props) {
 
   useEffect(() => { sync3D(); }, [sync3D]);
   useEffect(() => { const h = sceneRef.current; if (!h) return; h.clock.update(whiteClock, blackClock, phase === 'playing' ? (pendingSlap ?? turn) : null, pendingSlap); h.renderer.render(h.scene, h.camera); }, [blackClock, pendingSlap, phase, turn, whiteClock]);
+  useEffect(() => {
+    try { window.localStorage.setItem(CLOCK_VISIBLE_KEY, clockVisible ? 'on' : 'off'); } catch { /* preference is optional */ }
+    const h = sceneRef.current; if (!h) return;
+    h.clock.setVisible(clockVisible);
+    h.renderer.render(h.scene, h.camera);
+  }, [clockVisible]);
   useEffect(() => { if (mode !== 'ai' || positionId === null) { setEngineStatus('off'); return; } let cancelled = false; setEngineStatus('loading'); void ensureEngine().then(e => e.init()).then(() => { if (!cancelled) setEngineStatus('ready'); }).catch(err => { if (!cancelled) { setEngineStatus('error'); setEngineError(err instanceof Error ? err.message : 'Stockfish failed to load.'); } }); return () => { cancelled = true; }; }, [ensureEngine, mode, positionId]);
   useEffect(() => { if (phase !== 'strategy') return; if (strategyTime <= 0) { setFastForward(false); setPhase('playing'); return; } const timer = window.setTimeout(() => setStrategyTime(v => Math.max(0, v - 1)), fastForward ? 250 : 1000); return () => window.clearTimeout(timer); }, [fastForward, phase, strategyTime]);
   useEffect(() => { if (phase !== 'playing') return; const timer = window.setInterval(() => { const pos = position.current; if (!pos) return; const owner = pendingSlap ?? pos.turn; if (mode === 'ai' && owner === aiColor && engineStatus === 'loading') return; const setter = owner === 'white' ? setWhiteClock : setBlackClock; setter(v => { const n = Math.max(0, v - 1); if (n === 0) { setResult(owner === 'white' ? 'Black wins on time' : 'White wins on time'); setPhase('ended'); setPendingSlap(null); playChessSound('win'); engine.current?.cancelSearch(); } return n; }); }, 1000); return () => window.clearInterval(timer); }, [aiColor, engineStatus, mode, pendingSlap, phase]);
@@ -298,22 +318,22 @@ export default function PremiumBoard3D({ onBack }: Props) {
   useEffect(() => () => engine.current?.destroy(), []);
 
   const startNow = () => { if (phase === 'strategy') { setStrategyTime(0); setFastForward(false); setPhase('playing'); playChessSound('start'); } };
-  const slapClock = () => { if (!pendingSlap || pendingSlap === aiColor) return; sceneRef.current?.clock.slap(pendingSlap); playChessSound('slap'); setPendingSlap(null); };
+  const slapClock = () => { if (!pendingSlap || pendingSlap === aiColor) return; if (clockVisible) sceneRef.current?.clock.slap(pendingSlap); playChessSound('slap'); setPendingSlap(null); };
   slapRef.current = slapClock;
   const playerName = (color: Color) => mode === 'ai' && aiColor === color ? `Stockfish · ${DIFFICULTIES[difficulty].label}` : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
 
-  return <div className="premium-page-v14 qqurz-content-page three-play-page">
-    <section className="page-heading-v14 compact"><button className="text-back" onClick={onBack}>← Home</button><span className="qqurz-kicker">PREMIUM 3D</span><h1>Real board. Real clock. Real slap.</h1><p>The reference-matched QQURZ tournament clock sits beside the walnut board with a live LCD and a physical rocker you can tap after every move.</p></section>
+  return <div className={`premium-page-v14 qqurz-content-page three-play-page ${clockVisible ? 'clock-visible' : 'clock-hidden'}`}>
+    <section className="page-heading-v14 compact"><button className="text-back" onClick={onBack}>← Home</button><span className="qqurz-kicker">PREMIUM 3D</span><h1>Real board. Real clock. Real slap.</h1><p>The same reference-matched 3D tournament clock sits directly below the walnut board in Human vs Human and AI play, with a live LCD, green turn LEDs and a real curved seesaw rocker.</p></section>
     <section className="three-setup-card">
       <div className="local-mode-switch"><button className={mode === 'human' ? 'selected' : ''} onClick={() => setMode('human')}>Human vs Human</button><button className={mode === 'ai' ? 'selected' : ''} onClick={() => setMode('ai')}>Play AI</button></div>
       {mode === 'ai' && <div className="local-ai-options"><div><span>AI strength</span><div className="option-pills">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(level => <button key={level} className={difficulty === level ? 'selected' : ''} onClick={() => setDifficulty(level)}><b>{DIFFICULTIES[level].label}</b><small>{DIFFICULTIES[level].note}</small></button>)}</div></div><div><span>Play as</span><div className="side-pills">{(['white', 'black', 'random'] as SideChoice[]).map(side => <button key={side} className={sideChoice === side ? 'selected' : ''} onClick={() => setSideChoice(side)}>{side[0].toUpperCase() + side.slice(1)}</button>)}</div></div></div>}
-      <div className="three-toolbar-row"><button className="primary-black" onClick={createPosition}>{phase === 'setup' ? 'Create 3D Position' : 'New 3D Position'}</button><button className="secondary-clean" onClick={() => setViewColor(v => opposite(v))} disabled={positionId === null}>Flip board</button><button className="secondary-clean" onClick={resetCamera}>Reset camera</button><span className="three-inline-note">Drag to rotate · pinch/scroll to zoom · green dots = legal moves</span></div>
+      <div className="three-toolbar-row"><button className="primary-black" onClick={createPosition}>{phase === 'setup' ? 'Create 3D Position' : 'New 3D Position'}</button><button className="secondary-clean" onClick={() => setViewColor(v => opposite(v))} disabled={positionId === null}>Flip board</button><button className="secondary-clean" onClick={resetCamera}>Reset camera</button><button className={`secondary-clean clock-visibility-toggle ${clockVisible ? 'on' : 'off'}`} onClick={() => setClockVisible(v => !v)} aria-pressed={clockVisible}>{clockVisible ? 'Clock on' : 'Clock off'}</button><span className="three-inline-note">Drag to rotate · pinch/scroll to zoom · green dots = legal moves</span></div>
     </section>
     <section className="three-play-grid"><div className="three-main-column"><section className="three-board-card high-fidelity walnut">
-      <div ref={mount} className="three-board-mount" aria-label="Interactive 3D chess board and tournament clock"/><div className="three-preview-badge">PREMIUM 3D</div><div className="three-board-help">Tap piece, then destination · tap the white clock rocker after your move</div><div className={`three-clock-hint ${phase === 'playing' && pendingSlap && pendingSlap !== aiColor ? 'ready' : ''}`}>{phase === 'playing' && pendingSlap && pendingSlap !== aiColor ? `TAP CLOCK · ${pendingSlap.toUpperCase()}` : '3D CLOCK · LIVE LCD'}</div>
+      <div ref={mount} className="three-board-mount" aria-label="Interactive 3D chess board and tournament clock"/><div className="three-preview-badge">PREMIUM 3D</div><div className="three-board-help">Tap piece, then destination{clockVisible ? ' · slap the curved white rocker after your move' : ''}</div>{clockVisible && <div className={`three-clock-hint ${phase === 'playing' && pendingSlap && pendingSlap !== aiColor ? 'ready' : ''}`}>{phase === 'playing' && pendingSlap && pendingSlap !== aiColor ? `TAP 3D CLOCK · ${pendingSlap.toUpperCase()}` : 'PHYSICAL 3D CLOCK · LIVE LCD'}</div>}
       {phase === 'strategy' && <div className="local-board-overlay"><span>STRATEGY</span><strong>{fmt(strategyTime)}</strong><p>Study the Chess960 position. Green dots show legal destinations; red tactical danger warnings stay off.</p><div><button onPointerDown={() => setFastForward(true)} onPointerUp={() => setFastForward(false)} onPointerCancel={() => setFastForward(false)}>Hold ×4</button><button className="primary-black" onClick={startNow}>Start Now</button></div></div>}
       {phase === 'ended' && result && <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>}
-    </section></div><aside className="three-side-column"><div className="three-panel"><span className="qqurz-kicker">POSITION {positionId !== null ? `#${positionId}` : '—'}</span><h2>{backRank || 'Open a 3D position'}</h2><p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Two players on one device'}</p></div><div className="three-clocks"><div className={(pendingSlap ?? turn) === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{fmt(blackClock)}</strong></div><div className={(pendingSlap ?? turn) === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{fmt(whiteClock)}</strong></div></div>{phase === 'playing' && pendingSlap && pendingSlap !== aiColor && <button className={`clock-slap-inline three-slap ${pendingSlap}`} onClick={slapClock}>SLAP {pendingSlap.toUpperCase()} CLOCK</button>}{mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}<div className="three-panel muted"><span className="qqurz-kicker">CLOCK MODEL</span><ul className="three-note-list"><li>Reference-matched black housing and white rocker.</li><li>Live canvas LCD mirrors the actual chess timers.</li><li>Tap rocker after a move; AI presses automatically.</li><li>Optimized procedural geometry for mobile WebGL.</li></ul></div><div className="three-panel moves"><span className="qqurz-kicker">MOVES</span>{moves.length ? <ol>{moves.map((move, i) => <li key={`${move}-${i}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div></aside></section>
+    </section></div><aside className="three-side-column"><div className="three-panel"><span className="qqurz-kicker">POSITION {positionId !== null ? `#${positionId}` : '—'}</span><h2>{backRank || 'Open a 3D position'}</h2><p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Two players on one device'}</p></div><div className="three-clocks"><div className={(pendingSlap ?? turn) === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{fmt(blackClock)}</strong></div><div className={(pendingSlap ?? turn) === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{fmt(whiteClock)}</strong></div></div>{phase === 'playing' && pendingSlap && pendingSlap !== aiColor && !clockVisible && <button className={`clock-slap-inline three-slap-fallback ${pendingSlap}`} onClick={slapClock}>END {pendingSlap.toUpperCase()} TURN</button>}{mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}<div className="three-panel muted"><span className="qqurz-kicker">CLOCK MODEL</span><ul className="three-note-list"><li>132 × 114 × 36 mm reference-scale wedge housing.</li><li>Full 3D curved rocker, sides, rear details and rubber feet.</li><li>Green LEDs show which side is active or waiting to press.</li><li>One shared model for local Human vs Human and Stockfish AI.</li></ul></div><div className="three-panel moves"><span className="qqurz-kicker">MOVES</span>{moves.length ? <ol>{moves.map((move, i) => <li key={`${move}-${i}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div></aside></section>
     {promotion && <div className="modal-backdrop" role="dialog" aria-modal="true"><div className="promotion-modal"><span className="qqurz-kicker">PROMOTION</span><h2>Choose a piece</h2><div className="promotion-grid"><button onClick={() => promote('queen')}>♕ Queen</button><button onClick={() => promote('rook')}>♖ Rook</button><button onClick={() => promote('bishop')}>♗ Bishop</button><button onClick={() => promote('knight')}>♘ Knight</button></div></div></div>}
   </div>;
 }
