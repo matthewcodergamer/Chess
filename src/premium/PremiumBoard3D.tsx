@@ -361,8 +361,8 @@ export default function PremiumBoard3D({ onBack }: Props) {
   const resetCamera = useCallback(() => {
     const handle = sceneRef.current;
     if (!handle) return;
-    handle.camera.position.set(0.2, 15.8, 15.2);
-    handle.controls.target.set(-0.45, 0.45, 0.1);
+    handle.camera.position.set(0.0, 16.7, 16.8);
+    handle.controls.target.set(-0.55, 0.32, 0.08);
     handle.controls.update();
     handle.renderer.render(handle.scene, handle.camera);
   }, []);
@@ -387,9 +387,9 @@ export default function PremiumBoard3D({ onBack }: Props) {
     scene.background = new THREE.Color(0x4b3a2d);
     scene.fog = new THREE.Fog(0x4b3a2d, 26, 44);
 
-    const camera = new THREE.PerspectiveCamera(29, 1, 0.1, 100);
-    camera.position.set(0.2, 15.8, 15.2);
-    camera.lookAt(-0.45, 0.45, 0.1);
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    camera.position.set(0.0, 16.7, 16.8);
+    camera.lookAt(-0.55, 0.32, 0.08);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -405,13 +405,13 @@ export default function PremiumBoard3D({ onBack }: Props) {
     controls.enableZoom = true;
     controls.rotateSpeed = 0.5;
     controls.zoomSpeed = 0.72;
-    controls.minDistance = 16;
-    controls.maxDistance = 24;
+    controls.minDistance = 17;
+    controls.maxDistance = 26;
     controls.minPolarAngle = 0.58;
     controls.maxPolarAngle = 1.02;
     controls.minAzimuthAngle = -0.92;
     controls.maxAzimuthAngle = 0.92;
-    controls.target.set(-0.45, 0.45, 0.1);
+    controls.target.set(-0.55, 0.32, 0.08);
     controls.update();
     controls.addEventListener('change', renderScene);
 
@@ -451,9 +451,9 @@ export default function PremiumBoard3D({ onBack }: Props) {
     }
 
     const clock = createChessClockModel();
-    clock.group.scale.setScalar(0.78);
-    clock.group.position.set(-5.72, -0.39, 0.95);
-    clock.group.rotation.y = 0.03;
+    clock.group.scale.setScalar(0.64);
+    clock.group.position.set(-5.32, -0.39, 0.82);
+    clock.group.rotation.y = 0.02;
     scene.add(clock.group);
 
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x31251d, roughness: 0.94 });
@@ -512,23 +512,26 @@ export default function PremiumBoard3D({ onBack }: Props) {
       sy = event.clientY;
       moved = false;
       downClock = pickClock(event);
-      downSquare = downClock ? null : pickSquare(event);
+      if (downClock) {
+        event.preventDefault();
+        event.stopPropagation();
+        downSquare = null;
+        clockSlapRef.current(downClock);
+        return;
+      }
+      downSquare = pickSquare(event);
     };
     const pointerMove = (event: PointerEvent) => {
       if (Math.abs(event.clientX - sx) > 7 || Math.abs(event.clientY - sy) > 7) moved = true;
     };
     const pointerUp = (event: PointerEvent) => {
+      if (downClock) { downClock = null; return; }
       if (moved) return;
-      const clockSide = pickClock(event);
-      if (downClock && clockSide && downClock === clockSide) {
-        clockSlapRef.current(clockSide);
-        return;
-      }
       const up = pickSquare(event);
       if (downSquare && up && downSquare === up) selectRef.current(up);
     };
 
-    renderer.domElement.addEventListener('pointerdown', pointerDown);
+    renderer.domElement.addEventListener('pointerdown', pointerDown, { capture: true, passive: false });
     renderer.domElement.addEventListener('pointermove', pointerMove);
     renderer.domElement.addEventListener('pointerup', pointerUp);
     renderer.domElement.addEventListener('pointercancel', pointerUp);
@@ -549,7 +552,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
 
     return () => {
       observer.disconnect();
-      renderer.domElement.removeEventListener('pointerdown', pointerDown);
+      renderer.domElement.removeEventListener('pointerdown', pointerDown, true);
       renderer.domElement.removeEventListener('pointermove', pointerMove);
       renderer.domElement.removeEventListener('pointerup', pointerUp);
       renderer.domElement.removeEventListener('pointercancel', pointerUp);
@@ -689,8 +692,8 @@ export default function PremiumBoard3D({ onBack }: Props) {
       <section className="page-heading-v14 compact">
         <button className="text-back" onClick={onBack}>← Home</button>
         <span className="qqurz-kicker">PREMIUM 3D</span>
-        <h1>Real board. Real clock. Tap the rocker.</h1>
-        <p>The reference-matched QQURZ tournament clock now sits beside the board, shows the live game timers, and its white rocker is the actual clock control.</p>
+        <h1>Move. Slap. Next turn.</h1>
+        <p>The tournament clock sits tight beside the board. Touch your half of the white rocker and the turn passes immediately—no extra clock button.</p>
       </section>
 
       <section className="three-setup-card">
@@ -724,7 +727,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
           <button className="primary-black" onClick={createPosition}>{phase === 'setup' ? 'Create 3D Position' : 'New 3D Position'}</button>
           <button className="secondary-clean" onClick={() => setViewColor(value => opposite(value))} disabled={positionId === null}>Flip board</button>
           <button className="secondary-clean" onClick={resetCamera}>Reset camera</button>
-          <span className="three-inline-note">Tap rocker to pass the turn · drag to rotate · pinch/scroll to zoom</span>
+          <span className="three-inline-note">Touch rocker = instant clock press · drag board to rotate · pinch/scroll to zoom</span>
         </div>
       </section>
 
@@ -733,7 +736,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
           <section className="three-board-card high-fidelity walnut with-physical-clock">
             <div ref={mount} className="three-board-mount" aria-label="Interactive 3D chess board with slappable tournament clock" />
             <div className="three-preview-badge">PREMIUM 3D · LIVE CLOCK</div>
-            <div className="three-board-help">Move piece → tap matching side of white rocker</div>
+            <div className="three-board-help">Move → slap your side of the rocker</div>
             {phase === 'strategy' && (
               <div className="local-board-overlay">
                 <span>STRATEGY</span>
@@ -761,11 +764,6 @@ export default function PremiumBoard3D({ onBack }: Props) {
             <div className={(pendingSlap ?? turn) === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{fmt(blackClock)}</strong></div>
             <div className={(pendingSlap ?? turn) === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{fmt(whiteClock)}</strong></div>
           </div>
-          {phase === 'playing' && pendingSlap && pendingSlap !== aiColor && (
-            <button className={`clock-slap-inline three-slap ${pendingSlap}`} onClick={() => slapClock()}>
-              SLAP {pendingSlap.toUpperCase()} CLOCK
-            </button>
-          )}
           {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
           <div className="three-panel muted">
             <span className="qqurz-kicker">TOURNAMENT HARDWARE</span>

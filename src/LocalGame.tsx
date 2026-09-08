@@ -424,11 +424,6 @@ export default function LocalGame({ initialMode }: Props) {
               </div>
             </div>
           )}
-          {phase === 'playing' && pendingSlap && pendingSlap !== aiColor && (
-            <button className={`clock-slap-button clock-accessibility-slap ${pendingSlap}`} onClick={slapClock} aria-label={`Press ${pendingSlap} clock`}>
-              <span>MOVE MADE</span><strong>SLAP {pendingSlap.toUpperCase()} CLOCK</strong><small>Tap the 3D rocker at left, or use this backup control.</small>
-            </button>
-          )}
           {phase === 'ended' && result && (
             <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>
           )}

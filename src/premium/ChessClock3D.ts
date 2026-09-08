@@ -304,8 +304,8 @@ export function createChessClockModel(): ChessClockModel {
   const hitMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
   const hitMeshes: THREE.Mesh[] = [];
   for (const [side, x] of [['white', -1.0], ['black', 1.0]] as const) {
-    const hit = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.48, 1.45), hitMaterial);
-    hit.position.set(x, 1.48, -0.10);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(2.18, 0.62, 1.66), hitMaterial);
+    hit.position.set(x, 1.49, -0.10);
     hit.userData.clockSide = side;
     hitMeshes.push(hit);
     group.add(hit);
@@ -334,11 +334,11 @@ export function animateChessClockRocker(
   const start = performance.now();
   const from = model.currentAngle;
   const target = side === 'white' ? 0.075 : -0.075;
-  const duration = 150;
+  const duration = 82;
   const frame = (now: number) => {
     const t = Math.min(1, (now - start) / duration);
     const eased = 1 - Math.pow(1 - t, 3);
-    const overshoot = Math.sin(Math.PI * t) * target * 0.22;
+    const overshoot = Math.sin(Math.PI * t) * target * 0.10;
     const angle = from + (target - from) * eased + overshoot;
     model.currentAngle = angle;
     model.rocker.rotation.z = angle;
