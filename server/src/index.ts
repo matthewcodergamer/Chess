@@ -137,11 +137,12 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-export class ChessRoom extends DurableObject<Env> {
+export class ChessRoom extends DurableObject {
   private room: RoomState | null = null;
+  private env: Env;
 
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
+    super(ctx, env); this.env = env;
     this.ctx.blockConcurrencyWhile(async () => {
       this.room = (await this.ctx.storage.get<RoomState>('room')) ?? null;
       if (this.room) {
