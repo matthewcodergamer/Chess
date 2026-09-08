@@ -4,9 +4,7 @@ const SOUND_KEY = 'qqurz:sound-enabled';
 let context: AudioContext | null = null;
 let movePresetIndex = Math.floor(Math.random() * 30);
 
-// Thirty small physical variations: scrape length, table/piece resonance,
-// placement delay, brightness and level. We walk them with a coprime stride,
-// so the exact same move sound cannot repeat until the full set has cycled.
+// Small physical variations stop every piece placement from sounding cloned.
 const MOVE_PRESETS = [
   [.030, 720, 168, .032, .92], [.036, 810, 174, .039, .84], [.026, 660, 158, .030, .96], [.043, 900, 184, .047, .78], [.033, 760, 162, .036, .88],
   [.049, 850, 192, .052, .76], [.028, 690, 154, .034, .95], [.040, 940, 181, .043, .82], [.035, 790, 170, .041, .90], [.052, 880, 198, .055, .73],
@@ -47,14 +45,16 @@ function tone(
   volume: number,
   type: OscillatorType = 'sine',
   delay = 0,
+  endFrequency?: number,
 ): void {
   const start = ctx.currentTime + delay;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, start);
+  if (endFrequency && endFrequency > 0) osc.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), start + .006);
+  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), start + .0035);
   gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
   osc.connect(gain).connect(ctx.destination);
   osc.start(start);
@@ -68,12 +68,14 @@ function noise(
   cutoff = 1300,
   delay = 0,
   highpass = 55,
+  attack = .0015,
 ): void {
   const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < length; i += 1) {
-    const envelope = Math.pow(1 - i / length, 1.65);
+    const t = i / length;
+    const envelope = Math.pow(1 - t, 1.65);
     data[i] = (Math.random() * 2 - 1) * envelope;
   }
   const source = ctx.createBufferSource();
@@ -82,13 +84,45 @@ function noise(
   const gain = ctx.createGain();
   low.type = 'lowpass';
   low.frequency.value = cutoff;
+  low.Q.value = .55;
   high.type = 'highpass';
   high.frequency.value = highpass;
+  high.Q.value = .4;
   const start = ctx.currentTime + delay;
-  gain.gain.setValueAtTime(Math.max(.0002, volume), start);
+  gain.gain.setValueAtTime(.0001, start);
+  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), start + attack);
   gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
   source.buffer = buffer;
   source.connect(high).connect(low).connect(gain).connect(ctx.destination);
+  source.start(start);
+}
+
+function bandImpact(
+  ctx: AudioContext,
+  duration: number,
+  volume: number,
+  center: number,
+  q: number,
+  delay = 0,
+): void {
+  const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) {
+    const t = i / length;
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.5);
+  }
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  filter.type = 'bandpass';
+  filter.frequency.value = center;
+  filter.Q.value = q;
+  const start = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(volume, start);
+  gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+  source.buffer = buffer;
+  source.connect(filter).connect(gain).connect(ctx.destination);
   source.start(start);
 }
 
@@ -100,32 +134,42 @@ function nextMovePreset() {
 function playPieceMove(ctx: AudioContext, capture: boolean): void {
   const [scrapeDuration, cutoff, bodyFrequency, settleDelay, level] = nextMovePreset();
   const gain = capture ? 1.10 : 1;
-
-  // Tiny felt/wood drag, then the separate placement clack. This makes a move
-  // read as pick/slide/set instead of one repeated electronic beep.
-  noise(ctx, scrapeDuration, .018 * level, cutoff, 0, 85);
-  tone(ctx, bodyFrequency, .044, .012 * level, 'triangle', .004);
-  noise(ctx, capture ? .046 : .031, .038 * level * gain, cutoff + (capture ? 520 : 330), settleDelay, 110);
-  tone(ctx, bodyFrequency * (capture ? .66 : .73), capture ? .072 : .052, .025 * level * gain, 'sine', settleDelay + .003);
-  tone(ctx, bodyFrequency * 1.42, .025, .009 * level, 'triangle', settleDelay + .008);
-
+  noise(ctx, scrapeDuration, .017 * level, cutoff, 0, 85);
+  tone(ctx, bodyFrequency, .044, .011 * level, 'triangle', .004, bodyFrequency * .82);
+  noise(ctx, capture ? .046 : .031, .036 * level * gain, cutoff + (capture ? 520 : 330), settleDelay, 110);
+  tone(ctx, bodyFrequency * (capture ? .66 : .73), capture ? .072 : .052, .023 * level * gain, 'sine', settleDelay + .003, bodyFrequency * .48);
   if (capture) {
-    noise(ctx, .065, .030 * level, 1050, settleDelay + .014, 70);
-    tone(ctx, bodyFrequency * .48, .095, .020 * level, 'sine', settleDelay + .014);
-    haptic(16);
+    noise(ctx, .064, .026 * level, 1020, settleDelay + .014, 70);
+    haptic(15);
   }
 }
 
 function playClockSlap(ctx: AudioContext): void {
-  // Hard plastic contact + hollow case resonance + tiny rebound. The layers are
-  // deliberately short so it feels like a tournament-clock slap, not a beep.
-  noise(ctx, .018, .105, 3600, 0, 900);
-  noise(ctx, .050, .078, 1750, .006, 120);
-  tone(ctx, 112, .078, .055, 'triangle', .004);
-  tone(ctx, 186, .045, .031, 'sine', .008);
-  noise(ctx, .022, .034, 2400, .046, 500);
-  tone(ctx, 92, .060, .021, 'triangle', .048);
-  haptic(28);
+  // Tuned against real plastic-button/chess-clock recordings (including the CC0
+  // Freesound Button 04 reference): soft palm contact, short ABS case thump,
+  // then the tiny seesaw rebound. No electronic beep or musical flourish.
+  bandImpact(ctx, .018, .105, 920, .72, 0);
+  noise(ctx, .026, .050, 2550, .002, 240, .0008);
+  bandImpact(ctx, .064, .052, 165, 1.15, .006);
+  tone(ctx, 151, .052, .020, 'sine', .007, 118);
+  bandImpact(ctx, .024, .022, 1280, .9, .052);
+  noise(ctx, .018, .014, 1900, .054, 380, .0007);
+  tone(ctx, 118, .050, .009, 'triangle', .055, 92);
+  haptic(22);
+}
+
+function playCoin(ctx: AudioContext): void {
+  // Nickel-clad quarter: one bright contact followed by progressively quieter bounces.
+  const strike = (delay: number, level: number, pitch = 1) => {
+    bandImpact(ctx, .020, .052 * level, 4100 * pitch, 2.1, delay);
+    tone(ctx, 3150 * pitch, .070, .024 * level, 'sine', delay, 2450 * pitch);
+    tone(ctx, 5150 * pitch, .042, .011 * level, 'sine', delay + .003, 4300 * pitch);
+  };
+  strike(0, 1, 1.00);
+  strike(.090, .55, .93);
+  strike(.155, .31, 1.07);
+  strike(.205, .17, .97);
+  haptic(10);
 }
 
 export function playChessSound(kind: ChessSound): void {
@@ -134,32 +178,22 @@ export function playChessSound(kind: ChessSound): void {
   if (!ctx) return;
 
   switch (kind) {
-    case 'move':
-      playPieceMove(ctx, false);
-      break;
-    case 'capture':
-      playPieceMove(ctx, true);
-      break;
-    case 'slap':
-      playClockSlap(ctx);
-      break;
-    case 'coin':
-      tone(ctx, 740, .09, .028, 'sine');
-      tone(ctx, 980, .08, .025, 'sine', .08);
-      tone(ctx, 620, .13, .022, 'triangle', .17);
-      break;
+    case 'move': playPieceMove(ctx, false); break;
+    case 'capture': playPieceMove(ctx, true); break;
+    case 'slap': playClockSlap(ctx); break;
+    case 'coin': playCoin(ctx); break;
     case 'start':
-      tone(ctx, 392, .10, .024, 'sine');
-      tone(ctx, 587, .13, .028, 'sine', .08);
+      tone(ctx, 392, .085, .018, 'sine', 0, 430);
+      tone(ctx, 587, .105, .022, 'sine', .065, 630);
       break;
     case 'win':
-      tone(ctx, 523.25, .17, .030, 'sine');
-      tone(ctx, 659.25, .18, .030, 'sine', .09);
-      tone(ctx, 783.99, .28, .035, 'sine', .18);
+      tone(ctx, 523.25, .15, .026, 'sine');
+      tone(ctx, 659.25, .17, .026, 'sine', .08);
+      tone(ctx, 783.99, .24, .030, 'sine', .16);
       break;
     case 'error':
-      tone(ctx, 155, .11, .025, 'square');
-      tone(ctx, 120, .13, .020, 'square', .07);
+      tone(ctx, 155, .10, .020, 'square', 0, 132);
+      tone(ctx, 120, .12, .016, 'square', .065, 104);
       break;
   }
 }
