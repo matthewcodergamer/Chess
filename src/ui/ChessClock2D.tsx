@@ -1,4 +1,8 @@
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Color } from '@lichess-org/chessground/types';
+import ChessClock3DView from './ChessClock3DView';
+import { clockVisible, setClockVisible, subscribeClockVisible } from './clockPreference';
 
 type Props = {
   whiteSeconds: number;
@@ -9,11 +13,11 @@ type Props = {
   onSlap?: () => void;
 };
 
-function fmt(value: number) {
-  const seconds = Math.max(0, Math.ceil(value));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
+/**
+ * Kept under the old export name so existing game code does not need two clock
+ * implementations. The normal chessboard is 2D; the physical clock is now the
+ * SAME true 3D model used by Premium 3D, rendered front-facing below the board.
+ */
 export default function ChessClock2D({
   whiteSeconds,
   blackSeconds,
@@ -22,57 +26,57 @@ export default function ChessClock2D({
   disabled = false,
   onSlap,
 }: Props) {
-  const canSlap = Boolean(pendingSlap && onSlap && !disabled);
-  const press = () => {
-    if (canSlap) onSlap?.();
-  };
+  const [dock, setDock] = useState<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(clockVisible);
 
-  return (
-    <div
-      className={`qqurz-clock-2d ${pendingSlap ? `pending-${pendingSlap}` : ''}`}
-      aria-label="QQURZ top-down digital chess clock"
-    >
-      <div className="qqurz-clock-lcd" aria-live="off">
-        <div className={`lcd-half ${activeColor === 'white' ? 'active' : ''}`}>
-          <strong>{fmt(whiteSeconds)}</strong><small>000</small>
-        </div>
-        <div className="lcd-center"><b>03</b><span>bonus ●</span></div>
-        <div className={`lcd-half ${activeColor === 'black' ? 'active' : ''}`}>
-          <strong>{fmt(blackSeconds)}</strong><small>000</small>
-        </div>
-      </div>
+  useEffect(() => subscribeClockVisible(setVisible), []);
 
-      <div className="qqurz-clock-controls" aria-hidden="true">
-        <span>▲</span><span>↻</span><span>▶Ⅱ</span><span>▼</span>
-      </div>
+  useEffect(() => {
+    let owned: HTMLDivElement | null = null;
+    let stopped = false;
+    const install = () => {
+      if (stopped || dock) return true;
+      const shell = document.querySelector('.local-fast-shell:not(.setup-only)');
+      const frame = shell?.querySelector('.local-board-frame');
+      if (!frame?.parentElement) return false;
+      const existing = frame.parentElement.querySelector<HTMLDivElement>(':scope > .qqurz-clock-dock');
+      owned = existing ?? document.createElement('div');
+      if (!existing) {
+        owned.className = 'qqurz-clock-dock';
+        frame.insertAdjacentElement('afterend', owned);
+      }
+      setDock(owned);
+      return true;
+    };
+    if (!install()) {
+      const observer = new MutationObserver(() => { if (install()) observer.disconnect(); });
+      observer.observe(document.body, { childList: true, subtree: true });
+      const timer = window.setTimeout(() => observer.disconnect(), 5000);
+      return () => { stopped = true; window.clearTimeout(timer); observer.disconnect(); owned?.remove(); };
+    }
+    return () => { stopped = true; owned?.remove(); };
+  }, [dock]);
 
-      <div className="qqurz-clock-rocker-well">
-        <button
-          type="button"
-          className={`qqurz-clock-rocker ${pendingSlap ? 'armed' : ''}`}
-          onPointerDown={(event) => { if (canSlap) { event.preventDefault(); press(); } }}
-          onKeyDown={(event) => {
-            if (!canSlap || (event.key !== 'Enter' && event.key !== ' ')) return;
-            event.preventDefault();
-            press();
-          }}
-          disabled={!canSlap}
-          aria-label={pendingSlap ? `Slap ${pendingSlap} clock` : 'Chess clock rocker'}
-        >
-          <span className="rocker-left" />
-          <span className="rocker-groove" />
-          <span className="rocker-right" />
-        </button>
+  if (!dock) return null;
+  return createPortal(
+    <section className={`qqurz-physical-clock-panel ${visible ? '' : 'clock-hidden'}`} aria-label="Tournament clock">
+      <div className="qqurz-clock-panel-head">
+        <div><b>3D TOURNAMENT CLOCK</b><span>{pendingSlap ? `${pendingSlap.toUpperCase()} · press the white rocker` : activeColor ? `${activeColor.toUpperCase()} clock running` : 'Ready'}</span></div>
+        <button type="button" className="clock-visibility-toggle" onClick={() => setClockVisible(!visible)}>{visible ? 'Hide clock' : 'Show clock'}</button>
       </div>
-
-      <div className="qqurz-clock-brand">QQURZ</div>
-      <div className="qqurz-clock-prompt" aria-live="polite">
-        {pendingSlap
-          ? disabled
-            ? `${pendingSlap.toUpperCase()} clock auto-pressing…`
-            : `Tap the white slap bar · ${pendingSlap.toUpperCase()} moved`
-          : 'LIVE CLOCK'}
-      </div>
-    </div>
+      {visible ? (
+        <ChessClock3DView
+          whiteSeconds={whiteSeconds}
+          blackSeconds={blackSeconds}
+          activeColor={activeColor}
+          pendingSlap={pendingSlap}
+          disabled={disabled}
+          onSlap={onSlap}
+        />
+      ) : (
+        <div className="qqurz-clock-hidden-note">Clock hidden. Game timing continues normally.</div>
+      )}
+    </section>,
+    dock,
   );
 }
