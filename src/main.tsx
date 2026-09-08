@@ -8,6 +8,7 @@ import './v1.1.css';
 import './v1.2.css';
 import './v1.3.css';
 import './v1.4.css';
+import './v1.5.css';
 import AppV14 from './AppV14';
 
 createRoot(document.getElementById('root')!).render(
