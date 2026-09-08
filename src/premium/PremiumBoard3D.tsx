@@ -23,6 +23,7 @@ type SceneHandle = { scene: THREE.Scene; camera: THREE.PerspectiveCamera; render
 
 const GAME_SECONDS = 600;
 const STRATEGY_SECONDS = 120;
+const DEFAULT_CAMERA = new THREE.Vector3(0, 13.6, 12.2);
 const DIFFICULTIES: Record<Difficulty, { label: string; note: string }> = {
   easy: { label: 'Easy', note: 'Relaxed and forgiving' },
   hard: { label: 'Hard', note: 'Strong club-level play' },
@@ -56,15 +57,34 @@ function boardPieces(fen: string): FenPiece[] {
 function m(geometry: THREE.BufferGeometry, material: THREE.Material, y = 0) {
   const mesh = new THREE.Mesh(geometry, material); mesh.position.y = y; mesh.castShadow = true; mesh.receiveShadow = true; return mesh;
 }
+function smoothPawnBase(material: THREE.MeshStandardMaterial) {
+  const profile = [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(.31, 0),
+    new THREE.Vector2(.39, .035),
+    new THREE.Vector2(.40, .075),
+    new THREE.Vector2(.34, .12),
+    new THREE.Vector2(.27, .17),
+    new THREE.Vector2(.22, .225),
+  ];
+  return m(new THREE.LatheGeometry(profile, 30), material);
+}
 function piece(role: Role, material: THREE.MeshStandardMaterial) {
   const g = new THREE.Group();
   const seg = 24;
+
+  if (role === 'pawn') {
+    g.add(smoothPawnBase(material));
+    g.add(m(new THREE.CylinderGeometry(.135, .205, .36, seg), material, .385));
+    const collar = m(new THREE.TorusGeometry(.18, .026, 12, 28), material, .575); collar.rotation.x = Math.PI / 2; g.add(collar);
+    g.add(m(new THREE.SphereGeometry(.18, 24, 18), material, .755));
+    return g;
+  }
+
   g.add(m(new THREE.CylinderGeometry(.36, .42, .10, seg), material, .05));
   g.add(m(new THREE.CylinderGeometry(.27, .34, .08, seg), material, .15));
   const ring = m(new THREE.TorusGeometry(.23, .032, 12, 28), material, .25); ring.rotation.x = Math.PI / 2; g.add(ring);
-  if (role === 'pawn') {
-    g.add(m(new THREE.CylinderGeometry(.14, .20, .42, seg), material, .44)); g.add(m(new THREE.SphereGeometry(.17, 22, 16), material, .73));
-  } else if (role === 'rook') {
+  if (role === 'rook') {
     g.add(m(new THREE.CylinderGeometry(.20, .24, .56, seg), material, .48)); g.add(m(new THREE.CylinderGeometry(.30, .23, .12, seg), material, .82));
     for (let i = 0; i < 4; i++) { const c = m(new THREE.BoxGeometry(.09, .12, .16), material, .96); const a = i * Math.PI / 2; c.position.x = Math.cos(a) * .2; c.position.z = Math.sin(a) * .2; g.add(c); }
   } else if (role === 'knight') {
@@ -173,19 +193,28 @@ export default function PremiumBoard3D({ onBack }: Props) {
     if (!promotion) return; const suffix = role === 'queen' ? 'q' : role === 'rook' ? 'r' : role === 'bishop' ? 'b' : 'n'; const move = parseUci(`${promotion.orig}${promotion.dest}${suffix}`); setPromotion(null); if (move) finishMove(move);
   };
 
+  const resetCamera = useCallback(() => {
+    const h = sceneRef.current;
+    if (!h) return;
+    h.camera.position.copy(DEFAULT_CAMERA);
+    h.controls.target.set(0, .45, 0);
+    h.controls.update();
+    h.renderer.render(h.scene, h.camera);
+  }, []);
+
   useEffect(() => {
     const element = mount.current; if (!element) return;
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05070a); scene.fog = new THREE.Fog(0x05070a, 13, 24);
-    const camera = new THREE.PerspectiveCamera(30, 1, .1, 100); camera.position.set(0, 9.8, 8.5); camera.lookAt(0, .5, 0);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' }); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; element.replaceChildren(renderer.domElement);
-    const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableZoom = false; controls.minPolarAngle = .68; controls.maxPolarAngle = 1.1; controls.minAzimuthAngle = -.8; controls.maxAzimuthAngle = .8; controls.target.set(0, .55, 0); controls.update(); controls.addEventListener('change', () => renderer.render(scene, camera));
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x17120f); scene.fog = new THREE.Fog(0x17120f, 18, 34);
+    const camera = new THREE.PerspectiveCamera(32, 1, .1, 100); camera.position.copy(DEFAULT_CAMERA); camera.lookAt(0, .45, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' }); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.28; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; element.replaceChildren(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableZoom = true; controls.zoomSpeed = .72; controls.rotateSpeed = .55; controls.minDistance = 14.2; controls.maxDistance = 20; controls.minPolarAngle = .55; controls.maxPolarAngle = .98; controls.minAzimuthAngle = -.58; controls.maxAzimuthAngle = .58; controls.target.set(0, .45, 0); controls.update(); controls.addEventListener('change', () => renderer.render(scene, camera));
 
-    const shell = new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: .58, metalness: .28 });
-    const inset = new THREE.MeshStandardMaterial({ color: 0x10141b, roughness: .68, metalness: .16 });
-    const lightSq = new THREE.MeshStandardMaterial({ color: 0x2a3039, roughness: .82, metalness: .08 });
-    const darkSq = new THREE.MeshStandardMaterial({ color: 0x080b10, roughness: .86, metalness: .10 });
-    const white = new THREE.MeshStandardMaterial({ color: 0xf6f3eb, roughness: .30, metalness: .16 });
-    const black = new THREE.MeshStandardMaterial({ color: 0x090b10, roughness: .28, metalness: .30 });
+    const shell = new THREE.MeshStandardMaterial({ color: 0x2a1d16, roughness: .66, metalness: .12 });
+    const inset = new THREE.MeshStandardMaterial({ color: 0x3a281e, roughness: .72, metalness: .08 });
+    const lightSq = new THREE.MeshStandardMaterial({ color: 0x9b7859, roughness: .78, metalness: .02 });
+    const darkSq = new THREE.MeshStandardMaterial({ color: 0x4b3526, roughness: .84, metalness: .02 });
+    const white = new THREE.MeshStandardMaterial({ color: 0xf5ead9, roughness: .38, metalness: .04 });
+    const black = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: .34, metalness: .07 });
     const selectedMat = new THREE.MeshStandardMaterial({ color: 0x66d7ad, emissive: 0x1b5d48, transparent: true, opacity: .9 });
     const legalMat = new THREE.MeshStandardMaterial({ color: 0x8de6c2, emissive: 0x14392d, transparent: true, opacity: .55 });
     scene.userData.white = white; scene.userData.black = black; scene.userData.selected = selectedMat; scene.userData.legal = legalMat;
@@ -193,13 +222,16 @@ export default function PremiumBoard3D({ onBack }: Props) {
     board.add(m(new THREE.BoxGeometry(9.2, .48, 9.2), shell, -.24)); board.add(m(new THREE.BoxGeometry(8.7, .14, 8.7), inset, -.03));
     const squares: THREE.Mesh[] = [];
     for (let rank = 1; rank <= 8; rank++) for (let file = 0; file < 8; file++) { const square = `${String.fromCharCode(97 + file)}${rank}` as SquareName; const p = squarePos(square); const tile = m(new THREE.BoxGeometry(1, .08, 1), (file + rank) % 2 === 0 ? darkSq : lightSq, .04); tile.position.set(p.x, .04, p.z); tile.userData.square = square; squares.push(tile); board.add(tile); }
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x07090d, roughness: .96 }); const floor = m(new THREE.CylinderGeometry(9.8, 10.3, .12, 48), floorMat, -.45); scene.add(floor);
-    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x0a0d12, 1.45)); const fill = new THREE.DirectionalLight(0x8eb3ff, .65); fill.position.set(-6, 8, 4); scene.add(fill); const rim = new THREE.DirectionalLight(0xb7ffe7, .42); rim.position.set(5, 4, -7); scene.add(rim);
-    const key = new THREE.DirectionalLight(0xffffff, 2.8); key.position.set(4.8, 8.6, 5.2); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.camera.near = .1; key.shadow.camera.far = 24; key.shadow.camera.left = -7; key.shadow.camera.right = 7; key.shadow.camera.top = 7; key.shadow.camera.bottom = -7; key.shadow.bias = -.00008; key.shadow.normalBias = .018; scene.add(key, key.target); key.target.position.set(0, .2, 0);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x15110e, roughness: .94 }); const floor = m(new THREE.CylinderGeometry(9.8, 10.3, .12, 48), floorMat, -.45); scene.add(floor);
+    scene.add(new THREE.AmbientLight(0xffffff, .42));
+    scene.add(new THREE.HemisphereLight(0xfff4e4, 0x5a4638, 2.15));
+    const fill = new THREE.DirectionalLight(0xffdcc0, 1.12); fill.position.set(-6, 9, 4); scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xcbe8ff, .58); rim.position.set(5, 5, -7); scene.add(rim);
+    const key = new THREE.DirectionalLight(0xfff8ef, 3.35); key.position.set(4.8, 9.5, 6.2); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.camera.near = .1; key.shadow.camera.far = 30; key.shadow.camera.left = -7; key.shadow.camera.right = 7; key.shadow.camera.top = 7; key.shadow.camera.bottom = -7; key.shadow.bias = -.00008; key.shadow.normalBias = .018; scene.add(key, key.target); key.target.position.set(0, .2, 0);
     const ray = new THREE.Raycaster(); let down: SquareName | null = null, moved = false, sx = 0, sy = 0;
     const pick = (e: PointerEvent): SquareName | null => { const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -(((e.clientY-r.top)/r.height)*2-1)), camera); return (ray.intersectObjects(squares, false)[0]?.object.userData.square as SquareName | undefined) ?? null; };
     const pd = (e: PointerEvent) => { sx=e.clientX; sy=e.clientY; moved=false; down=pick(e); };
-    const pm = (e: PointerEvent) => { if (Math.abs(e.clientX-sx)>6 || Math.abs(e.clientY-sy)>6) moved=true; };
+    const pm = (e: PointerEvent) => { if (Math.abs(e.clientX-sx)>7 || Math.abs(e.clientY-sy)>7) moved=true; };
     const pu = (e: PointerEvent) => { if (moved) return; const up=pick(e); if (down && up && down===up) selectRef.current(up); };
     renderer.domElement.addEventListener('pointerdown', pd); renderer.domElement.addEventListener('pointermove', pm); renderer.domElement.addEventListener('pointerup', pu); renderer.domElement.addEventListener('pointercancel', pu);
     const resize = () => { const r=element.getBoundingClientRect(); const w=Math.max(1,r.width), h=Math.max(1,r.height); renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.render(scene,camera); };
@@ -227,16 +259,16 @@ export default function PremiumBoard3D({ onBack }: Props) {
   const playerName=(color:Color)=>mode==='ai'&&aiColor===color?`Stockfish · ${DIFFICULTIES[difficulty].label}`:mode==='ai'?'You':color==='white'?'White':'Black';
 
   return <div className="premium-page-v14 qqurz-content-page three-play-page">
-    <section className="page-heading-v14 compact"><button className="text-back" onClick={onBack}>← Home</button><span className="qqurz-kicker">3D BOARD LAB</span><h1>Darker, sharper 3D chess.</h1><p>An angled top-down board with real shadows, Retina rendering, Human vs Human and Stockfish AI test play.</p></section>
+    <section className="page-heading-v14 compact"><button className="text-back" onClick={onBack}>← Home</button><span className="qqurz-kicker">PREMIUM 3D</span><h1>Warm, readable 3D chess.</h1><p>A farther-back angled view, brighter studio lighting, true black-and-ivory pieces and a dark-brown / light-brown board.</p></section>
     <section className="three-setup-card">
       <div className="local-mode-switch"><button className={mode==='human'?'selected':''} onClick={()=>setMode('human')}>Human vs Human</button><button className={mode==='ai'?'selected':''} onClick={()=>setMode('ai')}>Play AI</button></div>
       {mode==='ai'&&<div className="local-ai-options"><div><span>AI strength</span><div className="option-pills">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(level=><button key={level} className={difficulty===level?'selected':''} onClick={()=>setDifficulty(level)}><b>{DIFFICULTIES[level].label}</b><small>{DIFFICULTIES[level].note}</small></button>)}</div></div><div><span>Play as</span><div className="side-pills">{(['white','black','random'] as SideChoice[]).map(side=><button key={side} className={sideChoice===side?'selected':''} onClick={()=>setSideChoice(side)}>{side[0].toUpperCase()+side.slice(1)}</button>)}</div></div></div>}
-      <div className="three-toolbar-row"><button className="primary-black" onClick={createPosition}>{phase==='setup'?'Create 3D Position':'New 3D Position'}</button><button className="secondary-clean" onClick={()=>setViewColor(v=>opposite(v))} disabled={positionId===null}>Flip view</button><span className="three-inline-note">Angled top-down · Retina render · PCF shadows</span></div>
+      <div className="three-toolbar-row"><button className="primary-black" onClick={createPosition}>{phase==='setup'?'Create 3D Position':'New 3D Position'}</button><button className="secondary-clean" onClick={()=>setViewColor(v=>opposite(v))} disabled={positionId===null}>Flip view</button><button className="secondary-clean" onClick={resetCamera}>Reset camera</button><span className="three-inline-note">Drag to rotate · pinch/scroll to zoom · tap to move</span></div>
     </section>
-    <section className="three-play-grid"><div className="three-main-column"><section className="three-board-card high-fidelity"><div ref={mount} className="three-board-mount" aria-label="Interactive 3D chess board"/><div className="three-preview-badge">LIVE 3D TEST</div><div className="three-board-help">Drag to orbit · tap piece, then square</div>
+    <section className="three-play-grid"><div className="three-main-column"><section className="three-board-card high-fidelity"><div ref={mount} className="three-board-mount" aria-label="Interactive 3D chess board"/><div className="three-preview-badge">PREMIUM 3D</div><div className="three-board-help">Drag to rotate · pinch/scroll to zoom · tap piece, then square</div>
       {phase==='strategy'&&<div className="local-board-overlay"><span>STRATEGY</span><strong>{fmt(strategyTime)}</strong><p>Study the Chess960 position. Hold to fast-forward or start now.</p><div><button onPointerDown={()=>setFastForward(true)} onPointerUp={()=>setFastForward(false)} onPointerCancel={()=>setFastForward(false)}>Hold ×4</button><button className="primary-black" onClick={startNow}>Start Now</button></div></div>}
       {phase==='ended'&&result&&<div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>}
-    </section></div><aside className="three-side-column"><div className="three-panel"><span className="qqurz-kicker">POSITION {positionId!==null?`#${positionId}`:'—'}</span><h2>{backRank||'Open a 3D position'}</h2><p>{mode==='ai'?`You vs ${DIFFICULTIES[difficulty].label} Stockfish`:'Two players on one device'}</p></div><div className="three-clocks"><div className={turn==='black'&&phase==='playing'?'active':''}><span>{playerName('black')}</span><strong>{fmt(blackClock)}</strong></div><div className={turn==='white'&&phase==='playing'?'active':''}><span>{playerName('white')}</span><strong>{fmt(whiteClock)}</strong></div></div>{mode==='ai'&&<div className={`local-engine-state ${engineStatus}`}>{engineStatus==='loading'?'Loading Stockfish…':engineStatus==='thinking'?'Stockfish thinking…':engineStatus==='ready'?'Stockfish ready':engineError||'AI preparing'}</div>}<div className="three-panel muted"><span className="qqurz-kicker">RENDERING</span><ul className="three-note-list"><li>Black graphite board theme.</li><li>ACES filmic tone mapping and Three.js PCF shadows.</li><li>3D remains lazy-loaded so normal 2D play stays lightweight.</li></ul></div><div className="three-panel moves"><span className="qqurz-kicker">MOVES</span>{moves.length?<ol>{moves.map((move,i)=><li key={`${move}-${i}`}>{move}</li>)}</ol>:<p>No moves yet.</p>}</div></aside></section>
+    </section></div><aside className="three-side-column"><div className="three-panel"><span className="qqurz-kicker">POSITION {positionId!==null?`#${positionId}`:'—'}</span><h2>{backRank||'Open a 3D position'}</h2><p>{mode==='ai'?`You vs ${DIFFICULTIES[difficulty].label} Stockfish`:'Two players on one device'}</p></div><div className="three-clocks"><div className={turn==='black'&&phase==='playing'?'active':''}><span>{playerName('black')}</span><strong>{fmt(blackClock)}</strong></div><div className={turn==='white'&&phase==='playing'?'active':''}><span>{playerName('white')}</span><strong>{fmt(whiteClock)}</strong></div></div>{mode==='ai'&&<div className={`local-engine-state ${engineStatus}`}>{engineStatus==='loading'?'Loading Stockfish…':engineStatus==='thinking'?'Stockfish thinking…':engineStatus==='ready'?'Stockfish ready':engineError||'AI preparing'}</div>}<div className="three-panel muted"><span className="qqurz-kicker">RENDERING</span><ul className="three-note-list"><li>Warm walnut dark/light board squares.</li><li>Brighter studio fill with softer readable shadows.</li><li>Smoother pawn bases and a farther default camera.</li></ul></div><div className="three-panel moves"><span className="qqurz-kicker">MOVES</span>{moves.length?<ol>{moves.map((move,i)=><li key={`${move}-${i}`}>{move}</li>)}</ol>:<p>No moves yet.</p>}</div></aside></section>
     {promotion&&<div className="modal-backdrop" role="dialog" aria-modal="true"><div className="promotion-modal"><span className="qqurz-kicker">PROMOTION</span><h2>Choose a piece</h2><div className="promotion-grid"><button onClick={()=>promote('queen')}>♕ Queen</button><button onClick={()=>promote('rook')}>♖ Rook</button><button onClick={()=>promote('bishop')}>♗ Bishop</button><button onClick={()=>promote('knight')}>♘ Knight</button></div></div></div>}
   </div>;
 }
