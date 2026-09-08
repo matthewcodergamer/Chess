@@ -8,6 +8,8 @@ import { parseFen } from 'chessops/fen';
 import { parseSquare } from 'chessops/util';
 import { celebratePurchase } from '../ui/purchaseCelebration';
 import Quarter3D from '../ui/Quarter3D';
+import ChessClock3DView from '../ui/ChessClock3DView';
+import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';
 import { playChessSound } from '../ui/sound';
 import { createCheckout, loadTournamentCatalog, type PaymentMode } from '../tournaments/client';
 import { connectRoom, createRoom, joinRoom, multiplayerConfigured } from './client';
@@ -90,6 +92,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [paymentConfigured, setPaymentConfigured] = useState(false);
   const [livePositionBidsEnabled, setLivePositionBidsEnabled] = useState(false);
   const [liveColorBidsEnabled, setLiveColorBidsEnabled] = useState(false);
+  const [showClock, setShowClock] = useState(clockVisible);
 
   const pos = useMemo(() => roomPosition(snapshot), [snapshot]);
   const yourTurn = Boolean(seat && snapshot && snapshot.status === 'playing' && !snapshot.awaitingClockPress && snapshot.turn === seat.color && !snapshot.result);
@@ -105,6 +108,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const send = useCallback((payload: unknown) => {
     if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify(payload));
   }, []);
+
+  useEffect(() => subscribeClockVisible(setShowClock), []);
 
   useEffect(() => {
     loadTournamentCatalog().then(catalog => {
@@ -314,13 +319,21 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             {snapshot.status === 'ended' && snapshot.result && <div className="board-overlay ended online-ended-overlay"><div><span>GAME OVER</span><strong className="end-title">{snapshot.result}</strong></div></div>}
           </div>
 
+          <section className={`qqurz-physical-clock-panel online-physical-clock ${showClock ? '' : 'clock-hidden'}`} aria-label="Online 3D tournament clock">
+            <div className="qqurz-clock-panel-head">
+              <div><b>3D TOURNAMENT CLOCK</b><span>{snapshot.awaitingClockPress ? `${snapshot.awaitingClockPress.toUpperCase()} · press the rocker` : snapshot.status === 'playing' && snapshot.activeClock ? `${snapshot.activeClock.toUpperCase()} clock running` : 'Same physical model · all modes'}</span></div>
+              <button type="button" className="clock-visibility-toggle" onClick={() => setClockVisible(!showClock)}>{showClock ? 'Hide clock' : 'Show clock'}</button>
+            </div>
+            {showClock ? <ChessClock3DView whiteSeconds={whiteMs / 1000} blackSeconds={blackMs / 1000} activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null} pendingSlap={snapshot.awaitingClockPress} disabled={snapshot.awaitingClockPress !== seat.color} onSlap={() => send({ type: 'clock_slap' })} compact /> : <div className="qqurz-clock-hidden-note">Clock hidden. The server timer keeps running normally.</div>}
+          </section>
+
           <div className="online-clock-row"><div className={snapshot.activeClock === 'white' && snapshot.status === 'playing' ? 'active' : ''}><span>White · {snapshot.players.white?.name ?? 'Waiting'}</span><strong>{formatClockMs(whiteMs)}</strong></div><div className={snapshot.activeClock === 'black' && snapshot.status === 'playing' ? 'active' : ''}><span>Black · {snapshot.players.black?.name ?? 'Waiting'}</span><strong>{formatClockMs(blackMs)}</strong></div></div>
 
           {colorBidAllowed && <section className="position-auction-card color-auction-card"><div><span className="eyebrow">BID FOR YOUR COLOR</span><h3>Choose White or Black. Highest verified bid gets that side.</h3><p>If another player outbids your active bid, QQURZ submits a Stripe refund to the original payment method automatically. If nobody bids, use the quarter toss above.</p></div><div className="color-choice-pills" role="radiogroup" aria-label="Desired chess color"><button className={desiredColor === 'white' ? 'selected' : ''} onClick={() => setDesiredColor('white')}>White</button><button className={desiredColor === 'black' ? 'selected' : ''} onClick={() => setDesiredColor('black')}>Black</button></div><div className="auction-status"><span>Leader</span><b>{snapshot.colorAuction.leaderName ?? 'No bid yet'}</b><span>Winning side</span><b>{snapshot.colorAuction.desiredColor ? snapshot.colorAuction.desiredColor[0].toUpperCase() + snapshot.colorAuction.desiredColor.slice(1) : '—'}</b><span>Top bid</span><b>{snapshot.colorAuction.leadingBidCents ? money(snapshot.colorAuction.leadingBidCents) : '—'}</b><span>Your last bid</span><b>{snapshot.colorAuction.yourBidCents ? `${money(snapshot.colorAuction.yourBidCents)}${snapshot.colorAuction.yourBidRefunded ? ' · refunded' : ''}` : '—'}</b></div><div className="auction-actions"><button onClick={() => buyColorBid(200)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 200 ? 'Opening…' : `Bid $2 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button><button onClick={() => buyColorBid(500)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 500 ? 'Opening…' : `Bid $5 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button>{youLeadColorBid && <button className="settle-color-auction" onClick={() => send({ type: 'settle_color_bid' })}>Lock winning color</button>}</div><small>{paymentMode === 'test' ? 'Stripe test mode: refund flow is exercised without real money.' : liveColorBidsEnabled ? 'Live color bidding and automatic outbid refunds are enabled.' : 'Live color bidding is disabled by server policy.'}</small></section>}
 
           {bidAllowed && <section className="position-auction-card"><div><span className="eyebrow">POSITION REROLL BID</span><h3>Highest verified bid controls the next shared shuffle.</h3><p>QQURZ uses all 960 legal Chess960 starts. A new highest verified bid rerolls the same board for both players.</p></div><div className="auction-status"><span>Leader</span><b>{snapshot.auction.leaderName ?? 'No bid yet'}</b><span>Top bid</span><b>{snapshot.auction.leadingBidCents ? money(snapshot.auction.leadingBidCents) : '—'}</b><span>Your bid</span><b>{snapshot.auction.yourBidCents ? money(snapshot.auction.yourBidCents) : '—'}</b></div><div className="auction-actions"><button onClick={() => buyBid(200)} disabled={!bidPaymentsAvailable || Boolean(bidBusy)}>{bidBusy === 200 ? 'Opening…' : 'Bid $2 & reroll'}</button><button onClick={() => buyBid(500)} disabled={!bidPaymentsAvailable || Boolean(bidBusy)}>{bidBusy === 500 ? 'Opening…' : 'Bid $5 & reroll'}</button></div><small>{paymentMode === 'test' ? 'Stripe test mode: no real money moves.' : livePositionBidsEnabled ? 'Live position bidding enabled by server policy.' : 'Live position bidding is disabled.'}</small></section>}
 
-          {snapshot.status === 'playing' && <div className="online-in-game-actions"><div className="online-turn-note">{snapshot.awaitingClockPress === seat.color ? 'Move made — slap your clock' : snapshot.awaitingClockPress ? 'Opponent is finishing their move on the clock' : yourTurn ? 'Your move' : 'Opponent’s move'}</div>{snapshot.awaitingClockPress === seat.color && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })}>SLAP CLOCK</button>}<button className="resign-button" onClick={() => send({ type: 'resign' })}>Resign</button></div>}
+          {snapshot.status === 'playing' && <div className="online-in-game-actions"><div className="online-turn-note">{snapshot.awaitingClockPress === seat.color ? 'Move made — slap your 3D clock' : snapshot.awaitingClockPress ? 'Opponent is finishing their move on the clock' : yourTurn ? 'Your move' : 'Opponent’s move'}</div>{snapshot.awaitingClockPress === seat.color && !showClock && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })}>SLAP CLOCK</button>}<button className="resign-button" onClick={() => send({ type: 'resign' })}>Resign</button></div>}
           {message && <p className="online-error">{message}</p>}
         </div>
 
