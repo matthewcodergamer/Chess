@@ -4,9 +4,6 @@ const SOUND_KEY = 'qqurz:sound-enabled';
 let context: AudioContext | null = null;
 let movePresetIndex = Math.floor(Math.random() * 30);
 
-// Thirty small physical variations: scrape length, table/piece resonance,
-// placement delay, brightness and level. We walk them with a coprime stride,
-// so the exact same move sound cannot repeat until the full set has cycled.
 const MOVE_PRESETS = [
   [.030, 720, 168, .032, .92], [.036, 810, 174, .039, .84], [.026, 660, 158, .030, .96], [.043, 900, 184, .047, .78], [.033, 760, 162, .036, .88],
   [.049, 850, 192, .052, .76], [.028, 690, 154, .034, .95], [.040, 940, 181, .043, .82], [.035, 790, 170, .041, .90], [.052, 880, 198, .055, .73],
@@ -54,7 +51,7 @@ function tone(
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, start);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), start + .006);
+  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), start + .004);
   gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
   osc.connect(gain).connect(ctx.destination);
   osc.start(start);
@@ -73,7 +70,7 @@ function noise(
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < length; i += 1) {
-    const envelope = Math.pow(1 - i / length, 1.65);
+    const envelope = Math.pow(1 - i / length, 1.9);
     data[i] = (Math.random() * 2 - 1) * envelope;
   }
   const source = ctx.createBufferSource();
@@ -100,15 +97,11 @@ function nextMovePreset() {
 function playPieceMove(ctx: AudioContext, capture: boolean): void {
   const [scrapeDuration, cutoff, bodyFrequency, settleDelay, level] = nextMovePreset();
   const gain = capture ? 1.10 : 1;
-
-  // Tiny felt/wood drag, then the separate placement clack. This makes a move
-  // read as pick/slide/set instead of one repeated electronic beep.
   noise(ctx, scrapeDuration, .018 * level, cutoff, 0, 85);
   tone(ctx, bodyFrequency, .044, .012 * level, 'triangle', .004);
   noise(ctx, capture ? .046 : .031, .038 * level * gain, cutoff + (capture ? 520 : 330), settleDelay, 110);
   tone(ctx, bodyFrequency * (capture ? .66 : .73), capture ? .072 : .052, .025 * level * gain, 'sine', settleDelay + .003);
   tone(ctx, bodyFrequency * 1.42, .025, .009 * level, 'triangle', settleDelay + .008);
-
   if (capture) {
     noise(ctx, .065, .030 * level, 1050, settleDelay + .014, 70);
     tone(ctx, bodyFrequency * .48, .095, .020 * level, 'sine', settleDelay + .014);
@@ -117,15 +110,26 @@ function playPieceMove(ctx: AudioContext, capture: boolean): void {
 }
 
 function playClockSlap(ctx: AudioContext): void {
-  // Hard plastic contact + hollow case resonance + tiny rebound. The layers are
-  // deliberately short so it feels like a tournament-clock slap, not a beep.
-  noise(ctx, .018, .105, 3600, 0, 900);
-  noise(ctx, .050, .078, 1750, .006, 120);
-  tone(ctx, 112, .078, .055, 'triangle', .004);
-  tone(ctx, 186, .045, .031, 'sine', .008);
-  noise(ctx, .022, .034, 2400, .046, 500);
-  tone(ctx, 92, .060, .021, 'triangle', .048);
-  haptic(28);
+  // Soft physical rocker press. This follows the short contact/body/rebound
+  // shape heard in real chess-clock recordings instead of the old hard,
+  // bright multi-layer effect. No electronic beep is mixed into a slap.
+  noise(ctx, .010, .040, 2450, 0, 420);       // fingertip/plastic contact
+  tone(ctx, 138, .052, .018, 'sine', .002);  // hollow ABS case body
+  noise(ctx, .023, .026, 1150, .006, 90);    // rocker settling into its stop
+  tone(ctx, 91, .065, .010, 'sine', .010);   // low case resonance
+  noise(ctx, .008, .015, 2100, .044, 380);   // tiny mechanical rebound
+  tone(ctx, 126, .032, .007, 'triangle', .046);
+  haptic(12);
+}
+
+function playCoin(ctx: AudioContext): void {
+  // Short metal-on-wood toss/landing instead of a melodic notification.
+  noise(ctx, .010, .036, 7200, 0, 2200);
+  tone(ctx, 3150, .085, .014, 'sine', .002);
+  tone(ctx, 2240, .105, .011, 'sine', .012);
+  noise(ctx, .018, .026, 5600, .105, 1200);
+  tone(ctx, 1760, .120, .009, 'triangle', .108);
+  haptic(8);
 }
 
 export function playChessSound(kind: ChessSound): void {
@@ -134,20 +138,10 @@ export function playChessSound(kind: ChessSound): void {
   if (!ctx) return;
 
   switch (kind) {
-    case 'move':
-      playPieceMove(ctx, false);
-      break;
-    case 'capture':
-      playPieceMove(ctx, true);
-      break;
-    case 'slap':
-      playClockSlap(ctx);
-      break;
-    case 'coin':
-      tone(ctx, 740, .09, .028, 'sine');
-      tone(ctx, 980, .08, .025, 'sine', .08);
-      tone(ctx, 620, .13, .022, 'triangle', .17);
-      break;
+    case 'move': playPieceMove(ctx, false); break;
+    case 'capture': playPieceMove(ctx, true); break;
+    case 'slap': playClockSlap(ctx); break;
+    case 'coin': playCoin(ctx); break;
     case 'start':
       tone(ctx, 392, .10, .024, 'sine');
       tone(ctx, 587, .13, .028, 'sine', .08);
