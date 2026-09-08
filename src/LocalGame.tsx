@@ -9,8 +9,8 @@ import { makeSan } from 'chessops/san';
 import type { Move, Role } from 'chessops/types';
 import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
+import ChessClockViewport from './ui/ChessClockViewport';
 import { playChessSound } from './ui/sound';
-import ChessClock2D from './ui/ChessClock2D';
 
 type GameMode = 'human' | 'ai';
 type Phase = 'setup' | 'strategy' | 'playing' | 'ended';
@@ -43,14 +43,13 @@ function formatClock(value: number): string {
 }
 
 function opposite(color: Color): Color { return color === 'white' ? 'black' : 'white'; }
-function chooseColor(choice: SideChoice): Color { return choice === 'random' ? (Math.random() < .5 ? 'white' : 'black') : choice; }
+function chooseColor(choice: SideChoice): Color { return choice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : choice; }
 
 function gameResult(pos: Chess): string | null {
   if (pos.isCheckmate()) return pos.turn === 'white' ? 'Black wins by checkmate' : 'White wins by checkmate';
   if (pos.isStalemate()) return 'Draw by stalemate';
   if (pos.isInsufficientMaterial()) return 'Draw by insufficient material';
-  if (pos.isEnd()) return 'Game over';
-  return null;
+  return pos.isEnd() ? 'Game over' : null;
 }
 
 export default function LocalGame({ initialMode }: Props) {
@@ -320,13 +319,23 @@ export default function LocalGame({ initialMode }: Props) {
 
   useEffect(() => () => engine.current?.destroy(), []);
 
-  const startNow = () => { if (phase === 'strategy') { setStrategyTime(0); setFastForward(false); setPhase('playing'); playChessSound('start'); } };
+  const startNow = () => {
+    if (phase !== 'strategy') return;
+    setStrategyTime(0);
+    setFastForward(false);
+    setPhase('playing');
+    playChessSound('start');
+  };
+
   const slapClock = useCallback(() => {
-    if (!pendingSlap || phase !== 'playing') return;
+    if (!pendingSlap || phase !== 'playing' || pendingSlap === aiColor) return;
     playChessSound('slap');
     setPendingSlap(null);
-  }, [pendingSlap, phase]);
-  const playerName = (color: Color) => mode === 'ai' && aiColor === color ? `Stockfish · ${DIFFICULTIES[difficulty].label}` : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
+  }, [aiColor, pendingSlap, phase]);
+
+  const playerName = (color: Color) => mode === 'ai' && aiColor === color
+    ? `Stockfish · ${DIFFICULTIES[difficulty].label}`
+    : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
 
   if (phase === 'setup') {
     return (
@@ -335,12 +344,10 @@ export default function LocalGame({ initialMode }: Props) {
           <span className="qqurz-kicker">LOCAL PLAY</span>
           <h1>{mode === 'ai' ? 'Play Stockfish.' : 'Play together.'}</h1>
           <p>The board opens immediately. Stockfish is not downloaded until an AI position is created.</p>
-
           <div className="local-mode-switch" role="radiogroup" aria-label="Game mode">
             <button className={mode === 'human' ? 'selected' : ''} onClick={() => setMode('human')}>Human vs Human</button>
             <button className={mode === 'ai' ? 'selected' : ''} onClick={() => setMode('ai')}>Play AI</button>
           </div>
-
           {mode === 'ai' && (
             <div className="local-ai-options">
               <div>
@@ -363,7 +370,6 @@ export default function LocalGame({ initialMode }: Props) {
               </div>
             </div>
           )}
-
           <button className="primary-black local-start" onClick={createPosition}>Create Position</button>
         </div>
       </section>
@@ -371,21 +377,28 @@ export default function LocalGame({ initialMode }: Props) {
   }
 
   return (
-    <section className="local-fast-shell">
+    <section className="local-fast-shell local-with-physical-clock">
       <aside className="local-fast-side">
         <div>
           <span className="qqurz-kicker">POSITION #{positionId}</span>
           <h2>{backRank}</h2>
           <p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Human vs Human'}</p>
         </div>
-        <ChessClock2D
+
+        <ChessClockViewport
           whiteSeconds={whiteClock}
           blackSeconds={blackClock}
-          activeColor={phase === 'playing' ? (pendingSlap ?? turn) : null}
-          pendingSlap={pendingSlap}
-          disabled={!pendingSlap || pendingSlap === aiColor}
+          pendingSlap={phase === 'playing' ? pendingSlap : null}
+          phase={phase}
+          disabled={phase !== 'playing' || !pendingSlap || pendingSlap === aiColor}
           onSlap={slapClock}
+          className="local-clock-model"
         />
+
+        <div className="local-clocks compact-readout">
+          <div className={(pendingSlap ?? turn) === 'black' && phase === 'playing' ? 'active' : ''}><span>{playerName('black')}</span><strong>{formatClock(blackClock)}</strong></div>
+          <div className={(pendingSlap ?? turn) === 'white' && phase === 'playing' ? 'active' : ''}><span>{playerName('white')}</span><strong>{formatClock(whiteClock)}</strong></div>
+        </div>
         {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish in background…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
         <div className="local-side-actions">
           <button onClick={() => setOrientation(value => opposite(value))}>Flip board</button>
@@ -410,6 +423,11 @@ export default function LocalGame({ initialMode }: Props) {
                 <button className="primary-black" onClick={startNow}>Start Now</button>
               </div>
             </div>
+          )}
+          {phase === 'playing' && pendingSlap && pendingSlap !== aiColor && (
+            <button className={`clock-slap-button clock-accessibility-slap ${pendingSlap}`} onClick={slapClock} aria-label={`Press ${pendingSlap} clock`}>
+              <span>MOVE MADE</span><strong>SLAP {pendingSlap.toUpperCase()} CLOCK</strong><small>Tap the 3D rocker at left, or use this backup control.</small>
+            </button>
           )}
           {phase === 'ended' && result && (
             <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>
