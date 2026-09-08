@@ -1,6 +1,7 @@
 import { MULTIPLAYER_API, multiplayerConfigured } from '../multiplayer/client';
 
 export type PaymentMode = 'off' | 'test' | 'live';
+export type CheckoutKind = 'tournament' | 'premium3d' | 'position_bid';
 
 export type Tournament = {
   id: string;
@@ -18,6 +19,8 @@ export type TournamentCatalog = {
   paymentMode: PaymentMode;
   paymentConfigured: boolean;
   premium3dPriceCents: number;
+  positionBidCents?: number[];
+  livePositionBidsEnabled?: boolean;
 };
 
 export const FALLBACK_TOURNAMENTS: Tournament[] = [
@@ -31,10 +34,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!multiplayerConfigured) throw new Error('Connect the QQURZ Cloudflare backend first.');
   const response = await fetch(`${MULTIPLAYER_API}${path}`, {
     ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
   });
   const body = await response.json().catch(() => ({})) as T & { error?: string };
   if (!response.ok) throw new Error(body.error || `Server returned ${response.status}.`);
@@ -43,15 +43,26 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function loadTournamentCatalog(): Promise<TournamentCatalog> {
   if (!multiplayerConfigured) {
-    return { tournaments: FALLBACK_TOURNAMENTS, paymentMode: 'off', paymentConfigured: false, premium3dPriceCents: 499 };
+    return {
+      tournaments: FALLBACK_TOURNAMENTS,
+      paymentMode: 'off',
+      paymentConfigured: false,
+      premium3dPriceCents: 499,
+      positionBidCents: [200, 500],
+      livePositionBidsEnabled: false,
+    };
   }
   return requestJson<TournamentCatalog>('/tournaments');
 }
 
-export async function createCheckout(itemId: string, kind: 'tournament' | 'premium3d'): Promise<string> {
+export async function createCheckout(
+  itemId: string,
+  kind: CheckoutKind,
+  context?: { roomCode?: string },
+): Promise<string> {
   const result = await requestJson<{ url: string }>('/checkout', {
     method: 'POST',
-    body: JSON.stringify({ itemId, kind }),
+    body: JSON.stringify({ itemId, kind, roomCode: context?.roomCode }),
   });
   return result.url;
 }
@@ -59,7 +70,9 @@ export async function createCheckout(itemId: string, kind: 'tournament' | 'premi
 export type VerifiedCheckout = {
   paid: boolean;
   itemId: string;
-  kind: 'tournament' | 'premium3d' | '';
+  kind: CheckoutKind | '';
+  roomCode?: string;
+  bidCents?: number;
   paymentMode?: PaymentMode;
 };
 

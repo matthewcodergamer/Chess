@@ -14,6 +14,8 @@ type Theme = 'light' | 'dark';
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
   if (params.get('room')) return 'online';
+  if (params.get('checkout') === 'success' && params.get('kind') === 'position_bid') return 'online';
+  if (params.get('checkout') === 'cancel' && params.get('kind') === 'position_bid') return 'online';
   if (params.get('checkout') === 'success' && params.get('kind') === 'premium3d') return '3d';
   if (params.get('checkout') === 'cancel' && params.get('kind') === 'premium3d') return '3d';
   if (params.get('checkout') === 'success') return 'tournaments';
@@ -89,11 +91,7 @@ export default function AppV14() {
         </nav>
         <div className="qqurz-nav-end">
           {pageTitle && <span className="qqurz-page-label">{pageTitle}</span>}
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}
-            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-          >
+          <button className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
             <span aria-hidden="true">{theme === 'light' ? '◐' : '◑'}</span>
           </button>
         </div>
@@ -106,78 +104,24 @@ export default function AppV14() {
             <h1>Four ways to play.</h1>
             <p>Challenge Stockfish, share one board, create a private online room with friends, or enter official QQURZ-hosted tournaments.</p>
           </section>
-
           <section className="qqurz-primary-actions play-paths-v16" aria-label="Choose play mode">
-            <button onClick={() => openLocal('ai')}>
-              <span className="action-icon">♞</span>
-              <span><b>Play the AI</b><small>Easy, Hard or Crazy Hard Stockfish.</small></span>
-              <span className="action-arrow">›</span>
-            </button>
-            <button onClick={() => openLocal('human')}>
-              <span className="action-icon">♟</span>
-              <span><b>Human vs Human</b><small>Two people on this device.</small></span>
-              <span className="action-arrow">›</span>
-            </button>
-            <button onClick={() => setScreen('online')}>
-              <span className="action-icon">◎</span>
-              <span><b>Play Friends Online</b><small>Create a private room and share the invite.</small></span>
-              <span className="action-arrow">›</span>
-            </button>
-            <button onClick={() => setScreen('tournaments')}>
-              <span className="action-icon">♛</span>
-              <span><b>Official Tournaments</b><small>QQURZ-hosted events from 10 to 100+ seats.</small></span>
-              <span className="action-arrow">›</span>
-            </button>
+            <button onClick={() => openLocal('ai')}><span className="action-icon">♞</span><span><b>Play the AI</b><small>Easy, Hard or Crazy Hard Stockfish.</small></span><span className="action-arrow">›</span></button>
+            <button onClick={() => openLocal('human')}><span className="action-icon">♟</span><span><b>Human vs Human</b><small>Two people on this device.</small></span><span className="action-arrow">›</span></button>
+            <button onClick={() => setScreen('online')}><span className="action-icon">◎</span><span><b>Play Friends Online</b><small>Create a private room and share the invite.</small></span><span className="action-arrow">›</span></button>
+            <button onClick={() => setScreen('tournaments')}><span className="action-icon">♛</span><span><b>Official Tournaments</b><small>QQURZ-hosted events from 10 to 100+ seats.</small></span><span className="action-arrow">›</span></button>
           </section>
-
           <section className="qqurz-home-grid">
-            <button className="home-feature-card" onClick={() => setScreen('tournaments')}>
-              <span className="feature-badge">QQURZ HOSTED</span>
-              <h2>Tournaments built to scale</h2>
-              <p>10-player quick events, 32-seat rapid, 100-player Freestyle and larger official formats.</p>
-              <span>Browse tournaments →</span>
-            </button>
-            <button className="home-feature-card premium" onClick={() => setScreen('3d')}>
-              <span className="feature-badge">PREMIUM · $4.99</span>
-              <h2>Unlock the 3D board</h2>
-              <p>Warm walnut squares, brighter lighting, touch camera controls and playable AI or local 3D chess.</p>
-              <span>Unlock Premium 3D →</span>
-            </button>
+            <button className="home-feature-card" onClick={() => setScreen('tournaments')}><span className="feature-badge">QQURZ HOSTED</span><h2>Tournaments built to scale</h2><p>10-player quick events, 32-seat rapid, 100-player Freestyle and larger official formats.</p><span>Browse tournaments →</span></button>
+            <button className="home-feature-card premium" onClick={() => setScreen('3d')}><span className="feature-badge">PREMIUM · $4.99</span><h2>Unlock the 3D board</h2><p>Warm walnut squares, brighter lighting, touch camera controls and playable AI or local 3D chess.</p><span>Unlock Premium 3D →</span></button>
           </section>
-
-          <footer className="qqurz-home-footer">
-            <span>qqurzchess.com</span><span>2D included · Premium 3D paid · realtime friends · hosted tournaments</span>
-          </footer>
+          <footer className="qqurz-home-footer"><span>qqurzchess.com</span><span>2D included · Premium 3D paid · realtime friends · hosted tournaments</span></footer>
         </div>
       )}
 
-      {screen === 'local' && (
-        <Suspense fallback={<LoadingView />}>
-          <div className="qqurz-local-v14">
-            <LocalGame key={localMode} initialMode={localMode} />
-          </div>
-        </Suspense>
-      )}
-
-      {screen === 'online' && (
-        <Suspense fallback={<LoadingView />}>
-          <div className="qqurz-content-page">
-            <OnlineArena onClose={goHome} />
-          </div>
-        </Suspense>
-      )}
-
-      {screen === 'tournaments' && (
-        <Suspense fallback={<LoadingView />}>
-          <TournamentHub onBack={goHome} onPlayOnline={() => setScreen('online')} onShow3D={() => setScreen('3d')} />
-        </Suspense>
-      )}
-
-      {screen === '3d' && (
-        <Suspense fallback={<LoadingView />}>
-          <Premium3DGate onBack={goHome} />
-        </Suspense>
-      )}
+      {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
+      {screen === 'online' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><OnlineArena onClose={goHome}/></div></Suspense>}
+      {screen === 'tournaments' && <Suspense fallback={<LoadingView/>}><TournamentHub onBack={goHome} onPlayOnline={() => setScreen('online')} onShow3D={() => setScreen('3d')}/></Suspense>}
+      {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
     </main>
   );
 }

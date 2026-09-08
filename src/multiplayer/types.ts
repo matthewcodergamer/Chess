@@ -1,31 +1,10 @@
 import type { Color as GroundColor } from '@lichess-org/chessground/types';
 
-export type RoomStatus = 'waiting' | 'coinflip' | 'strategy' | 'playing' | 'ended';
+export type RoomStatus = 'waiting' | 'coin' | 'strategy' | 'playing' | 'ended';
 export type SeatColor = GroundColor;
-export type CoinSide = 'heads' | 'tails';
+export type CoinFace = 'heads' | 'tails';
 
-export type RoomPlayer = {
-  name: string;
-  connected: boolean;
-};
-
-export type CoinFlipState = {
-  claimedSide: CoinSide | null;
-  claimedBy: GroundColor | null;
-  result: CoinSide | null;
-  winnerName: string | null;
-  revealAt: number | null;
-};
-
-export type RerollState = {
-  testOnly: true;
-  whiteBidCents: number | null;
-  blackBidCents: number | null;
-  complete: boolean;
-  winner: GroundColor | null;
-  rerolled: boolean;
-  previousPositionId: number | null;
-};
+export type RoomPlayer = { name: string; connected: boolean };
 
 export type RoomSnapshot = {
   code: string;
@@ -42,21 +21,27 @@ export type RoomSnapshot = {
   result: string | null;
   check: boolean;
   checkmate: boolean;
-  coin: CoinFlipState | null;
-  reroll: RerollState;
-  players: {
-    white: RoomPlayer | null;
-    black: RoomPlayer | null;
+  yourColor: GroundColor | null;
+  players: { white: RoomPlayer | null; black: RoomPlayer | null };
+  coin: {
+    claimedFace: CoinFace | null;
+    claimedBy: string | null;
+    result: CoinFace | null;
+    winner: string | null;
+    flippedAt: number | null;
+    endsAt: number | null;
+    yourFace: CoinFace | null;
+  };
+  auction: {
+    leadingBidCents: number;
+    leaderName: string | null;
+    rerollCount: number;
+    yourBidCents: number;
   };
 };
 
-export type RoomSeat = {
-  code: string;
-  token: string;
-  color: SeatColor;
-};
+export type RoomSeat = { code: string; token: string; color: SeatColor };
 
 export type ServerEvent =
   | { type: 'snapshot'; room: RoomSnapshot }
-  | { type: 'seat'; color: SeatColor }
   | { type: 'error'; message: string };

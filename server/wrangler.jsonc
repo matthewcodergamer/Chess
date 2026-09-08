@@ -7,26 +7,19 @@
   "compatibility_date": "2026-09-07",
   "durable_objects": {
     "bindings": [
-      {
-        "name": "ROOMS",
-        "class_name": "ChessRoom"
-      }
+      { "name": "ROOMS", "class_name": "ChessRoom" }
     ]
   },
   "exports": {
-    "ChessRoom": {
-      "type": "durable-object",
-      "storage": "sqlite"
-    }
+    "ChessRoom": { "type": "durable-object", "storage": "sqlite" }
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
     "PUBLIC_SITE_URL": "https://qqurzchess.com",
     "PAYMENTS_MODE": "test",
     "PREMIUM_3D_PRICE_CENTS": "499",
-    "LIVE_TOURNAMENT_PAYMENTS": "disabled"
+    "LIVE_TOURNAMENT_PAYMENTS": "disabled",
+    "LIVE_POSITION_BIDS": "disabled"
   },
-  "observability": {
-    "enabled": true
-  }
+  "observability": { "enabled": true }
 }
