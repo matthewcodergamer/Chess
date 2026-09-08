@@ -1,7 +1,7 @@
 {
-  "name": "qurr-chess",
+  "name": "qqurz-chess",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.4.0",
   "type": "module",
   "scripts": {
     "prepare:engine": "node scripts/copy-stockfish.mjs",
@@ -14,13 +14,15 @@
     "chessops": "0.15.1",
     "react": "19.1.1",
     "react-dom": "19.1.1",
-    "stockfish": "18.0.8"
+    "stockfish": "18.0.8",
+    "three": "0.185.1"
   },
   "devDependencies": {
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
     "@vitejs/plugin-react": "6.1.1",
     "typescript": "5.9.2",
-    "vite": "8.2.2"
+    "vite": "8.2.2",
+    "@types/three": "0.185.4"
   }
 }

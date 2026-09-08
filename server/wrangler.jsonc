@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "qqurz-chess-api",
-  "main": "src/index.ts",
+  "main": "src/gateway.ts",
   "compatibility_date": "2026-09-07",
   "durable_objects": {
     "bindings": [
@@ -18,7 +18,10 @@
     }
   },
   "vars": {
-    "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173"
+    "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
+    "PUBLIC_SITE_URL": "https://qqurzchess.com",
+    "PAYMENTS_MODE": "test",
+    "PREMIUM_3D_PRICE_CENTS": "499"
   },
   "observability": {
     "enabled": true
