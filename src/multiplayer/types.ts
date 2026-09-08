@@ -37,8 +37,11 @@ export type RoomSnapshot = {
   auction: {
     leadingBidCents: number;
     leaderName: string | null;
-    rerollCount: number;
+    leaderColor: GroundColor | null;
     yourBidCents: number;
+    yourBidColor: GroundColor | null;
+    yourBidRefunded: boolean;
+    rerollCount: number;
   };
 };
 
@@ -46,4 +49,5 @@ export type RoomSeat = { code: string; token: string; color: SeatColor };
 
 export type ServerEvent =
   | { type: 'snapshot'; room: RoomSnapshot }
+  | { type: 'notice'; message: string }
   | { type: 'error'; message: string };
