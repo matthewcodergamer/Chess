@@ -7,11 +7,13 @@
   "compatibility_date": "2026-09-07",
   "durable_objects": {
     "bindings": [
-      { "name": "ROOMS", "class_name": "ChessRoom" }
+      { "name": "ROOMS", "class_name": "ChessRoom" },
+      { "name": "TOURNAMENTS", "class_name": "TournamentRegistry" }
     ]
   },
   "exports": {
-    "ChessRoom": { "type": "durable-object", "storage": "sqlite" }
+    "ChessRoom": { "type": "durable-object", "storage": "sqlite" },
+    "TournamentRegistry": { "type": "durable-object", "storage": "sqlite" }
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
