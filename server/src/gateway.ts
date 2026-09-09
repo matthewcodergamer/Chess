@@ -1,7 +1,7 @@
 import baseHandler, { ChessRoom } from './index';
-import { handleTournamentRequest, type TournamentEnv } from './tournaments';
+import { handleTournamentRequest, TournamentRegistry, type TournamentEnv } from './tournaments';
 
-export { ChessRoom };
+export { ChessRoom, TournamentRegistry };
 
 type Env = TournamentEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
