@@ -15,6 +15,16 @@ type PaymentMode = 'off' | 'test' | 'live';
 type CheckoutKind = 'tournament' | 'premium3d' | 'position_bid' | 'color_bid';
 type DesiredColor = 'white' | 'black';
 type TournamentStatus = 'open' | 'filling' | 'ready' | 'in_progress' | 'complete';
+type PayoutGroup = {
+  label: string;
+  fromPlace: number;
+  toPlace: number;
+  recipients: number;
+  poolBps: number;
+  groupCents: number;
+  eachCents: number;
+  bonusRecipients: number;
+};
 type Tournament = {
   id: string;
   name: string;
@@ -29,10 +39,30 @@ type Tournament = {
   registeredSeats: number;
   status: TournamentStatus;
   fullRegistrationCents: number;
+  grossCents: number;
+  platformRakeBps: number;
+  platformFeeCents: number;
+  prizePoolCents: number;
+  paidPlaces: number;
+  payoutGroups: PayoutGroup[];
+  annualOnly: boolean;
+  registrationOpen: boolean;
+  guaranteedPrizeCents?: number;
+  guaranteeFundingGapCents?: number;
+  currentGrossCents: number;
+  currentPlatformFeeCents: number;
+  currentPrizePoolCents: number;
   testOnly: boolean;
 };
 type Registration = { registrationId: string; sessionId: string; playerName: string; createdAt: number };
 type RegistryState = Record<string, Registration[]>;
+type RegistrySnapshot = Record<string, {
+  registeredSeats: number;
+  status: TournamentStatus;
+  currentGrossCents: number;
+  currentPlatformFeeCents: number;
+  currentPrizePoolCents: number;
+}>;
 
 type StripeSession = {
   payment_status?: string;
@@ -41,14 +71,28 @@ type StripeSession = {
   error?: { message?: string };
 };
 
-const SEEDS = [16, 32, 64, 128, 256, 512, 1024, 2048, 4096] as const;
-const ENTRY_CENTS = [100, 500, 1000, 2000, 5000, 10000, 50000] as const;
+const PLATFORM_RAKE_BPS = 2_000;
+const REGULAR_SEEDS = [16, 32, 64, 128, 256, 512, 1024, 2048] as const;
+const ANNUAL_SEATS = 4096;
+const ANNUAL_ENTRY_CENTS = 50_000;
+const ANNUAL_GUARANTEE_CENTS = 200_000_000;
+const SEEDS = [...REGULAR_SEEDS, ANNUAL_SEATS] as const;
+const ENTRY_CENTS = [1_000, 2_000, 5_000, 10_000, 50_000] as const;
 const POSITION_BIDS: Record<string, number> = { 'position-bid-200': 200, 'position-bid-500': 500 };
 const COLOR_BIDS: Record<string, number> = { 'color-bid-200': 200, 'color-bid-500': 500 };
 
+function isAnnual(seats: number, entryCents: number): boolean {
+  return seats === ANNUAL_SEATS && entryCents === ANNUAL_ENTRY_CENTS;
+}
+function combinationAvailable(seats: number, entryCents: number): boolean {
+  if (seats === ANNUAL_SEATS) return entryCents === ANNUAL_ENTRY_CENTS;
+  return REGULAR_SEEDS.includes(seats as (typeof REGULAR_SEEDS)[number])
+    && ENTRY_CENTS.includes(entryCents as (typeof ENTRY_CENTS)[number]);
+}
 function tournamentId(seats: number, entryCents: number): string { return `knockout-${seats}-${entryCents}`; }
 function tournamentName(seats: number, entryCents: number): string {
-  return `QQURZ ${seats}-Seed ${entryCents >= 50000 ? 'Championship' : entryCents >= 10000 ? 'Major' : entryCents >= 5000 ? 'Open' : 'Knockout'}`;
+  if (isAnnual(seats, entryCents)) return 'QQURZ Chess Cup';
+  return `QQURZ ${seats}-Seed ${entryCents >= 50_000 ? 'Championship' : entryCents >= 10_000 ? 'Major' : entryCents >= 5_000 ? 'Open' : 'Knockout'}`;
 }
 function roundsFor(seats: number): number { return Math.max(1, Math.round(Math.log2(Math.max(2, seats)))); }
 function statusFor(registered: number, seats: number): TournamentStatus {
@@ -56,12 +100,74 @@ function statusFor(registered: number, seats: number): TournamentStatus {
   if (registered > 0) return 'filling';
   return 'open';
 }
+function platformFeeCents(grossCents: number): number {
+  return Math.floor((grossCents * PLATFORM_RAKE_BPS) / 10_000);
+}
+function prizePoolCents(grossCents: number): number {
+  return grossCents - platformFeeCents(grossCents);
+}
+function paidPlacesFor(seats: number): number {
+  if (seats <= 32) return 4;
+  if (seats === 64) return 8;
+  return Math.max(16, Math.floor(seats / 8));
+}
+type PayoutSpec = { label: string; fromPlace: number; toPlace: number; poolBps: number };
+function payoutSpecs(seats: number): PayoutSpec[] {
+  const paidPlaces = paidPlacesFor(seats);
+  if (paidPlaces <= 4) {
+    return [
+      { label: '1st', fromPlace: 1, toPlace: 1, poolBps: 5_000 },
+      { label: '2nd', fromPlace: 2, toPlace: 2, poolBps: 2_500 },
+      { label: '3rd', fromPlace: 3, toPlace: 3, poolBps: 1_500 },
+      { label: '4th', fromPlace: 4, toPlace: 4, poolBps: 1_000 },
+    ];
+  }
+  if (paidPlaces <= 8) {
+    return [
+      { label: '1st', fromPlace: 1, toPlace: 1, poolBps: 4_000 },
+      { label: '2nd', fromPlace: 2, toPlace: 2, poolBps: 2_000 },
+      { label: '3rd', fromPlace: 3, toPlace: 3, poolBps: 1_200 },
+      { label: '4th', fromPlace: 4, toPlace: 4, poolBps: 800 },
+      { label: '5th–8th', fromPlace: 5, toPlace: 8, poolBps: 2_000 },
+    ];
+  }
+  return [
+    { label: '1st', fromPlace: 1, toPlace: 1, poolBps: 3_500 },
+    { label: '2nd', fromPlace: 2, toPlace: 2, poolBps: 1_800 },
+    { label: '3rd', fromPlace: 3, toPlace: 3, poolBps: 1_000 },
+    { label: '4th', fromPlace: 4, toPlace: 4, poolBps: 700 },
+    { label: '5th–8th', fromPlace: 5, toPlace: 8, poolBps: 1_600 },
+    { label: `9th–${paidPlaces}th`, fromPlace: 9, toPlace: paidPlaces, poolBps: 1_400 },
+  ];
+}
+function buildPayoutGroups(seats: number, poolCents: number): PayoutGroup[] {
+  const specs = payoutSpecs(seats);
+  let allocated = 0;
+  return specs.map((spec, index) => {
+    const recipients = spec.toPlace - spec.fromPlace + 1;
+    const groupCents = index === specs.length - 1
+      ? Math.max(0, poolCents - allocated)
+      : Math.floor((poolCents * spec.poolBps) / 10_000);
+    allocated += groupCents;
+    return {
+      ...spec,
+      recipients,
+      groupCents,
+      eachCents: Math.floor(groupCents / recipients),
+      bonusRecipients: groupCents % recipients,
+    };
+  });
+}
 function catalogTournament(seats: number, entryCents: number): Tournament {
+  const grossCents = seats * entryCents;
+  const feeCents = platformFeeCents(grossCents);
+  const poolCents = prizePoolCents(grossCents);
+  const annualOnly = isAnnual(seats, entryCents);
   return {
     id: tournamentId(seats, entryCents),
     name: tournamentName(seats, entryCents),
     entryCents,
-    prizeLabel: 'Published prize schedule required before live launch',
+    prizeLabel: annualOnly ? '$2,000,000 guarantee requires operator or sponsor funding' : '80% of collected entries allocated to the player prize pool',
     format: 'Single elimination',
     timeControl: '10+0',
     baseMinutes: 10,
@@ -70,13 +176,30 @@ function catalogTournament(seats: number, entryCents: number): Tournament {
     rounds: roundsFor(seats),
     registeredSeats: 0,
     status: 'open',
-    fullRegistrationCents: seats * entryCents,
+    fullRegistrationCents: grossCents,
+    grossCents,
+    platformRakeBps: PLATFORM_RAKE_BPS,
+    platformFeeCents: feeCents,
+    prizePoolCents: poolCents,
+    paidPlaces: paidPlacesFor(seats),
+    payoutGroups: buildPayoutGroups(seats, poolCents),
+    annualOnly,
+    registrationOpen: !annualOnly,
+    guaranteedPrizeCents: annualOnly ? ANNUAL_GUARANTEE_CENTS : undefined,
+    guaranteeFundingGapCents: annualOnly ? Math.max(0, ANNUAL_GUARANTEE_CENTS - poolCents) : undefined,
+    currentGrossCents: 0,
+    currentPlatformFeeCents: 0,
+    currentPrizePoolCents: 0,
     testOnly: true,
   };
 }
-const TOURNAMENT_CATALOG: Tournament[] = ENTRY_CENTS.flatMap(entry => SEEDS.map(seats => catalogTournament(seats, entry)));
+const TOURNAMENT_CATALOG: Tournament[] = ENTRY_CENTS.flatMap(entry =>
+  SEEDS.filter(seats => combinationAvailable(seats, entry)).map(seats => catalogTournament(seats, entry)),
+);
 
-function json(data: unknown, status = 200): Response { return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } }); }
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
+}
 function normalizePlayerName(value: unknown): string {
   const cleaned = String(value ?? 'Guest').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 28);
   return cleaned || 'Guest';
@@ -99,8 +222,8 @@ function itemFor(kind: CheckoutKind, itemId: string, env: TournamentEnv, desired
   if (kind === 'position_bid') { const cents = POSITION_BIDS[itemId]; if (cents) return { id: itemId, name: `QQURZ Chess960 position bid — $${cents / 100}`, cents }; }
   if (kind === 'color_bid') { const cents = COLOR_BIDS[itemId]; if (cents && desiredColor) return { id: itemId, name: `QQURZ ${desiredColor === 'white' ? 'White' : 'Black'} side bid — $${cents / 100}`, cents }; }
   if (kind === 'tournament') {
-    const event = TOURNAMENT_CATALOG.find(value => value.id === itemId);
-    if (event) return { id: event.id, name: `${event.name} entry`, cents: event.entryCents };
+    const event = TOURNAMENT_CATALOG.find(value => value.id === itemId && value.registrationOpen);
+    if (event) return { id: event.id, name: `${event.name} test entry`, cents: event.entryCents };
   }
   return null;
 }
@@ -123,12 +246,15 @@ async function createStripeCheckout(request: Request, env: TournamentEnv): Promi
   const body = await request.json().catch(() => ({})) as { itemId?: string; kind?: CheckoutKind; roomCode?: string; desiredColor?: DesiredColor };
   const kind: CheckoutKind = body.kind === 'premium3d' ? 'premium3d' : body.kind === 'position_bid' ? 'position_bid' : body.kind === 'color_bid' ? 'color_bid' : 'tournament';
   const desiredColor: DesiredColor | undefined = body.desiredColor === 'white' || body.desiredColor === 'black' ? body.desiredColor : undefined;
-  if (mode === 'live' && kind === 'tournament' && env.LIVE_TOURNAMENT_PAYMENTS !== 'enabled') return json({ error: 'Live tournament entry collection is disabled until QQURZ enables its tournament operations controls.' }, 403);
+
+  if (mode === 'live' && kind === 'tournament') {
+    return json({ error: 'Live cash-prize tournament entry cannot use Stripe. Keep tournament checkout in test mode until QQURZ integrates an approved provider and jurisdiction controls.' }, 403);
+  }
   if (mode === 'live' && kind === 'position_bid' && env.LIVE_POSITION_BIDS !== 'enabled') return json({ error: 'Live paid position bidding is disabled. Use Stripe test mode until the competitive rules are approved.' }, 403);
   if (mode === 'live' && kind === 'color_bid' && env.LIVE_COLOR_BIDS !== 'enabled') return json({ error: 'Live paid color bidding is disabled. Use Stripe test mode until QQURZ enables automatic outbid refunds.' }, 403);
   if (kind === 'color_bid' && !desiredColor) return json({ error: 'Choose White or Black before opening a color bid checkout.' }, 400);
   const item = itemFor(kind, String(body.itemId ?? ''), env, desiredColor);
-  if (!item) return json({ error: 'Unknown QQURZ checkout item.' }, 400);
+  if (!item) return json({ error: 'Unknown or unavailable QQURZ checkout item.' }, 400);
   const roomCode = String(body.roomCode ?? '').trim().toUpperCase();
   if ((kind === 'position_bid' || kind === 'color_bid') && !/^[A-Z0-9]{6}$/.test(roomCode)) return json({ error: 'A valid six-character room code is required for a room bid.' }, 400);
 
@@ -207,13 +333,13 @@ function registryStub(env: TournamentEnv): DurableObjectStub<TournamentRegistry>
   return env.TOURNAMENTS.get(env.TOURNAMENTS.idFromName('qqurz-master-tournament-registry'));
 }
 
-async function registrySnapshot(env: TournamentEnv): Promise<Record<string, { registeredSeats: number; status: TournamentStatus }>> {
+async function registrySnapshot(env: TournamentEnv): Promise<RegistrySnapshot> {
   const stub = registryStub(env);
   if (!stub) return {};
   try {
     const response = await stub.fetch(new Request('https://tournament.internal/snapshot'));
     if (!response.ok) return {};
-    return await response.json() as Record<string, { registeredSeats: number; status: TournamentStatus }>;
+    return await response.json() as RegistrySnapshot;
   } catch { return {}; }
 }
 
@@ -222,14 +348,15 @@ async function registerTournament(request: Request, env: TournamentEnv): Promise
   if (!stub) return json({ error: 'Tournament registration storage is not configured on the realtime server.' }, 503);
   const mode = paymentMode(env);
   if (mode === 'off') return json({ error: 'Tournament payment verification is not configured.' }, 503);
-  if (mode === 'live' && env.LIVE_TOURNAMENT_PAYMENTS !== 'enabled') return json({ error: 'Live tournament registration is disabled by server policy.' }, 403);
+  if (mode === 'live') return json({ error: 'Live cash-prize tournament registration cannot use Stripe. Use test mode until an approved provider is integrated.' }, 403);
   const body = await request.json().catch(() => ({})) as { sessionId?: string; playerName?: string };
   const sessionId = String(body.sessionId ?? '').trim();
   try {
     const checkout = await fetchStripeSession(sessionId, env);
     const eventId = checkout.metadata?.item_id ?? '';
-    if (checkout.payment_status !== 'paid' || checkout.metadata?.kind !== 'tournament' || !TOURNAMENT_CATALOG.some(event => event.id === eventId)) {
-      return json({ error: 'This payment does not match a valid QQURZ tournament entry.' }, 400);
+    const event = TOURNAMENT_CATALOG.find(value => value.id === eventId && value.registrationOpen);
+    if (checkout.payment_status !== 'paid' || checkout.metadata?.kind !== 'tournament' || !event) {
+      return json({ error: 'This payment does not match an open QQURZ tournament test entry.' }, 400);
     }
     const internal = await stub.fetch(new Request('https://tournament.internal/claim', {
       method: 'POST',
@@ -249,13 +376,16 @@ export async function handleTournamentRequest(request: Request, env: TournamentE
     const live = await registrySnapshot(env);
     const tournaments = TOURNAMENT_CATALOG.map(event => {
       const state = live[event.id];
-      return state ? { ...event, registeredSeats: state.registeredSeats, status: state.status } : event;
+      return state ? { ...event, ...state } : event;
     });
     return json({
       tournaments,
       paymentMode: mode,
       paymentConfigured: mode !== 'off',
-      liveTournamentPaymentsEnabled: mode === 'live' && env.LIVE_TOURNAMENT_PAYMENTS === 'enabled',
+      liveTournamentPaymentsEnabled: false,
+      cashTournamentCheckoutMode: 'test-only',
+      complianceNotice: 'Cash-prize tournament checkout is test-only until QQURZ has an approved payment provider and jurisdiction review.',
+      platformRakeBps: PLATFORM_RAKE_BPS,
       premium3dPriceCents: premium3dPrice(env),
       positionBidCents: [200, 500],
       livePositionBidsEnabled: mode === 'live' && env.LIVE_POSITION_BIDS === 'enabled',
@@ -284,21 +414,37 @@ export class TournamentRegistry extends DurableObject<TournamentEnv> {
     if (url.hostname !== 'tournament.internal') return json({ error: 'Not found.' }, 404);
 
     if (request.method === 'GET' && url.pathname === '/snapshot') {
-      const snapshot: Record<string, { registeredSeats: number; status: TournamentStatus }> = {};
+      const snapshot: RegistrySnapshot = {};
       for (const event of TOURNAMENT_CATALOG) {
         const count = this.registrations[event.id]?.length ?? 0;
-        if (count) snapshot[event.id] = { registeredSeats: count, status: statusFor(count, event.seats) };
+        if (!count) continue;
+        const currentGrossCents = count * event.entryCents;
+        snapshot[event.id] = {
+          registeredSeats: count,
+          status: statusFor(count, event.seats),
+          currentGrossCents,
+          currentPlatformFeeCents: platformFeeCents(currentGrossCents),
+          currentPrizePoolCents: prizePoolCents(currentGrossCents),
+        };
       }
       return json(snapshot);
     }
 
     if (request.method === 'POST' && url.pathname === '/claim') {
       const body = await request.json().catch(() => ({})) as { eventId?: string; sessionId?: string; playerName?: string };
-      const event = TOURNAMENT_CATALOG.find(value => value.id === body.eventId);
+      const event = TOURNAMENT_CATALOG.find(value => value.id === body.eventId && value.registrationOpen);
       const sessionId = String(body.sessionId ?? '').trim();
-      if (!event || !sessionId) return json({ error: 'Invalid tournament registration claim.' }, 400);
+      if (!event || !sessionId) return json({ error: 'Invalid or closed tournament registration claim.' }, 400);
       const entries = this.registrations[event.id] ?? [];
       const existing = entries.find(entry => entry.sessionId === sessionId);
+      const accounting = (count: number) => {
+        const currentGrossCents = count * event.entryCents;
+        return {
+          currentGrossCents,
+          currentPlatformFeeCents: platformFeeCents(currentGrossCents),
+          currentPrizePoolCents: prizePoolCents(currentGrossCents),
+        };
+      };
       if (existing) {
         return json({
           eventId: event.id,
@@ -307,6 +453,7 @@ export class TournamentRegistry extends DurableObject<TournamentEnv> {
           seats: event.seats,
           status: statusFor(entries.length, event.seats),
           alreadyRegistered: true,
+          ...accounting(entries.length),
         });
       }
       if (entries.length >= event.seats) return json({ error: 'This tournament is already full.' }, 409);
@@ -326,6 +473,7 @@ export class TournamentRegistry extends DurableObject<TournamentEnv> {
         seats: event.seats,
         status: statusFor(entries.length, event.seats),
         alreadyRegistered: false,
+        ...accounting(entries.length),
       });
     }
 
