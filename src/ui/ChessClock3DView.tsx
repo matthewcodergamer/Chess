@@ -14,10 +14,19 @@ type Props = {
   className?: string;
 };
 
+type ClockState = {
+  whiteSeconds: number;
+  blackSeconds: number;
+  activeColor: Color | null;
+  pendingSlap: Color | null;
+  disabled: boolean;
+  onSlap?: () => void;
+};
+
 /**
- * The normal board is 2D, but the clock is not. This component renders the exact
- * same volumetric clock used by Premium 3D from a restrained front/three-quarter
- * camera so the body depth and seesaw rocker remain visible.
+ * Lightweight 3D clock renderer. Unlike the board scene, the clock does not need
+ * a permanent animation loop: it redraws when the time/state changes and only
+ * animates for a short window when the rocker changes direction.
  */
 export default function ChessClock3DView({
   whiteSeconds,
@@ -30,7 +39,9 @@ export default function ChessClock3DView({
   className = '',
 }: Props) {
   const mount = useRef<HTMLDivElement | null>(null);
-  const state = useRef({ whiteSeconds, blackSeconds, activeColor, pendingSlap, disabled, onSlap });
+  const state = useRef<ClockState>({ whiteSeconds, blackSeconds, activeColor, pendingSlap, disabled, onSlap });
+  const invalidate = useRef<((animateMs?: number) => void) | null>(null);
+
   state.current = { whiteSeconds, blackSeconds, activeColor, pendingSlap, disabled, onSlap };
 
   useEffect(() => {
@@ -38,50 +49,35 @@ export default function ChessClock3DView({
     if (!element) return;
 
     const scene = new THREE.Scene();
-    scene.background = null;
-    const camera = new THREE.PerspectiveCamera(compact ? 31 : 29, 1, .1, 60);
-    camera.position.set(0, 3.25, 8.55);
-    camera.lookAt(0, .52, .12);
+    const camera = new THREE.PerspectiveCamera(compact ? 30 : 28, 1, 0.1, 60);
+    camera.position.set(0, 2.72, 8.25);
+    camera.lookAt(0, 0.52, 0.18);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8));
+    const renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      alpha: true,
+      powerPreference: 'high-performance',
+      precision: 'mediump',
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.15 : 1.35));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.18;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMappingExposure = 1.14;
+    renderer.shadowMap.enabled = false;
     renderer.setClearColor(0x000000, 0);
     renderer.domElement.style.touchAction = 'manipulation';
     element.replaceChildren(renderer.domElement);
 
     const clock = createChessClock3D();
-    clock.group.scale.setScalar(compact ? 1.03 : 1.08);
-    clock.group.position.set(0, -.02, 0);
+    clock.group.scale.setScalar(compact ? 1.03 : 1.10);
+    clock.group.position.set(0, -0.07, 0);
     scene.add(clock.group);
 
-    // A small receiving plane gives the clock believable contact shadow without
-    // introducing another visible UI surface.
-    const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(7.2, 5.4),
-      new THREE.ShadowMaterial({ color: 0x000000, transparent: true, opacity: .19 }),
-    );
-    shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = -.03;
-    shadow.receiveShadow = true;
-    scene.add(shadow);
-
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x30343a, 2.45));
-    const key = new THREE.DirectionalLight(0xffffff, 4.2);
-    key.position.set(-4.4, 7.5, 7.2);
-    key.castShadow = true;
-    key.shadow.mapSize.set(768, 768);
+    // Two cheap lights are enough for a small matte-plastic object.
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x34383c, 2.4));
+    const key = new THREE.DirectionalLight(0xffffff, 3.7);
+    key.position.set(-4, 6, 7);
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xdde8ff, 1.55);
-    fill.position.set(5.2, 3.4, 3.4);
-    scene.add(fill);
-    const warm = new THREE.PointLight(0xffead5, 5.2, 20);
-    warm.position.set(-3.2, 1.5, 5.8);
-    scene.add(warm);
 
     const ray = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
@@ -89,6 +85,34 @@ export default function ChessClock3DView({
     let moved = false;
     let downX = 0;
     let downY = 0;
+    let frame = 0;
+    let animateUntil = 0;
+    let lastFrame = 0;
+    let inViewport = true;
+    let destroyed = false;
+
+    const renderOnce = (now = performance.now()) => {
+      if (destroyed || !inViewport || document.hidden) return;
+      const value = state.current;
+      clock.update(value.whiteSeconds, value.blackSeconds, value.activeColor, value.pendingSlap);
+      renderer.render(scene, camera);
+      lastFrame = now;
+    };
+
+    const animate = (now: number) => {
+      frame = 0;
+      if (destroyed || !inViewport || document.hidden) return;
+      if (now - lastFrame >= 33) renderOnce(now);
+      if (now < animateUntil) frame = requestAnimationFrame(animate);
+    };
+
+    const requestRender = (animateMs = 0) => {
+      if (destroyed) return;
+      animateUntil = Math.max(animateUntil, performance.now() + animateMs);
+      renderOnce();
+      if (animateMs > 0 && !frame) frame = requestAnimationFrame(animate);
+    };
+    invalidate.current = requestRender;
 
     const aim = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -117,10 +141,12 @@ export default function ChessClock3DView({
       const canSlap = Boolean(value.pendingSlap && value.onSlap && !value.disabled);
       if (!moved && pressed && canSlap && hitsRocker(event)) {
         clock.slap(value.pendingSlap!);
+        requestRender(240);
         value.onSlap?.();
       }
       pressed = false;
     };
+
     renderer.domElement.addEventListener('pointerdown', pointerDown);
     renderer.domElement.addEventListener('pointermove', pointerMove);
     renderer.domElement.addEventListener('pointerup', pointerUp);
@@ -128,46 +154,56 @@ export default function ChessClock3DView({
 
     const resize = () => {
       const rect = element.getBoundingClientRect();
-      const width = Math.max(1, rect.width);
-      const height = Math.max(1, rect.height);
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      requestRender();
     };
-    const observer = new ResizeObserver(resize);
-    observer.observe(element);
-    resize();
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(element);
 
-    let frame = 0;
-    let last = 0;
-    const animate = (now: number) => {
-      // 30fps is enough for the very small clock scene and materially reduces GPU
-      // work on iPhone while keeping the rocker response fluid.
-      if (now - last >= 31) {
-        last = now;
-        const value = state.current;
-        clock.update(value.whiteSeconds, value.blackSeconds, value.activeColor, value.pendingSlap);
-        renderer.render(scene, camera);
-      }
-      frame = requestAnimationFrame(animate);
-    };
-    frame = requestAnimationFrame(animate);
+    const intersectionObserver = typeof IntersectionObserver === 'function'
+      ? new IntersectionObserver(entries => {
+          inViewport = Boolean(entries[0]?.isIntersecting);
+          if (inViewport) requestRender(180);
+        }, { rootMargin: '80px' })
+      : null;
+    intersectionObserver?.observe(element);
+
+    const visibilityChange = () => { if (!document.hidden) requestRender(180); };
+    document.addEventListener('visibilitychange', visibilityChange);
+    resize();
+    requestRender(180);
 
     return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
+      destroyed = true;
+      invalidate.current = null;
+      if (frame) cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      intersectionObserver?.disconnect();
+      document.removeEventListener('visibilitychange', visibilityChange);
       renderer.domElement.removeEventListener('pointerdown', pointerDown);
       renderer.domElement.removeEventListener('pointermove', pointerMove);
       renderer.domElement.removeEventListener('pointerup', pointerUp);
       renderer.domElement.removeEventListener('pointercancel', pointerUp);
       scene.remove(clock.group);
       clock.dispose();
-      shadow.geometry.dispose();
-      (shadow.material as THREE.Material).dispose();
       renderer.dispose();
       element.replaceChildren();
     };
   }, [compact]);
+
+  // Time updates render once. Turn/press changes animate long enough for the
+  // seesaw to visibly switch direction, including Stockfish's automatic slap.
+  useEffect(() => {
+    invalidate.current?.(260);
+  }, [activeColor, pendingSlap]);
+
+  useEffect(() => {
+    invalidate.current?.();
+  }, [whiteSeconds, blackSeconds]);
 
   const canSlap = Boolean(pendingSlap && onSlap && !disabled);
   return (
@@ -176,7 +212,7 @@ export default function ChessClock3DView({
       className={`qqurz-clock-3d-view ${compact ? 'compact' : ''} ${canSlap ? 'ready' : ''} ${className}`.trim()}
       role={canSlap ? 'button' : 'img'}
       tabIndex={canSlap ? 0 : -1}
-      aria-label={pendingSlap ? `${pendingSlap} 3D chess clock — press the white rocker` : '3D tournament chess clock'}
+      aria-label={pendingSlap ? `${pendingSlap} chess clock — press your rocker` : '3D tournament chess clock'}
       onKeyDown={event => {
         if (!canSlap || (event.key !== 'Enter' && event.key !== ' ')) return;
         event.preventDefault();
