@@ -79,6 +79,13 @@ export default function AppV14() {
     return () => window.removeEventListener('keydown', close);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!displayOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setDisplayOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [displayOpen]);
+
   const closeMenus = () => { setDisplayOpen(false); setMenuOpen(false); };
   const goHome = () => {
     const url = new URL(window.location.href);
@@ -130,26 +137,25 @@ export default function AppV14() {
 
         <div className="qqurz-nav-end chess-nav-actions">
           <button className="nav-account-button" onClick={() => openScreen('account')} aria-label="Open player profile"><span aria-hidden="true">♙</span><span className="nav-control-label">Profile</span></button>
-          <div className="display-control-wrap">
-            <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu"><span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span></button>
-            {displayOpen && (
-              <section className="display-popover" id="qqurz-display-menu" aria-label="Display settings">
-                <div className="display-popover-heading"><strong>Display</strong><button onClick={() => setDisplayOpen(false)} aria-label="Close display settings">×</button></div>
-                <div className="display-setting-block">
-                  <span>Text size</span>
-                  <div className="font-scale-options" role="radiogroup" aria-label="Text size">
-                    <button className={fontScale === 'default' ? 'selected' : ''} onClick={() => setFontScale('default')}>Default</button>
-                    <button className={fontScale === 'large' ? 'selected' : ''} onClick={() => setFontScale('large')}>Large</button>
-                    <button className={fontScale === 'extra' ? 'selected' : ''} onClick={() => setFontScale('extra')}>Extra large</button>
-                  </div>
-                </div>
-                <div className="display-setting-row"><span>Board theme</span><button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Light' : 'Dark'}</button></div>
-                <div className="display-setting-row"><span>Game sounds</span><button onClick={toggleSound}>{soundOn ? 'On' : 'Off'}</button></div>
-              </section>
-            )}
-          </div>
+          <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu"><span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span></button>
         </div>
       </header>
+
+      {displayOpen && (
+        <section className="display-popover app-display-popover" id="qqurz-display-menu" aria-label="Display settings">
+          <div className="display-popover-heading"><strong>Display</strong><button onClick={() => setDisplayOpen(false)} aria-label="Close display settings">×</button></div>
+          <div className="display-setting-block">
+            <span>Text size</span>
+            <div className="font-scale-options" role="radiogroup" aria-label="Text size">
+              <button className={fontScale === 'default' ? 'selected' : ''} onClick={() => setFontScale('default')}>Default</button>
+              <button className={fontScale === 'large' ? 'selected' : ''} onClick={() => setFontScale('large')}>Large</button>
+              <button className={fontScale === 'extra' ? 'selected' : ''} onClick={() => setFontScale('extra')}>Extra large</button>
+            </div>
+          </div>
+          <div className="display-setting-row"><span>Board theme</span><button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Light' : 'Dark'}</button></div>
+          <div className="display-setting-row"><span>Game sounds</span><button onClick={toggleSound}>{soundOn ? 'On' : 'Off'}</button></div>
+        </section>
+      )}
 
       {menuOpen && (
         <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
