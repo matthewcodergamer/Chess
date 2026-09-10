@@ -17,6 +17,7 @@ import './v2.0.css';
 import './v2.1.css';
 import './v2.2.css';
 import './v2.3.css';
+import './v2.4.css';
 import AppV14 from './AppV14';
 
 createRoot(document.getElementById('root')!).render(
