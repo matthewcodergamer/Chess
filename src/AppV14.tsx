@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
+import HomeBoardPreview from './ui/HomeBoardPreview';
 
 const LocalGame = lazy(() => import('./LocalGame'));
 const OnlineArena = lazy(() => import('./multiplayer/OnlineArena'));
@@ -11,8 +12,6 @@ type Screen = 'home' | 'local' | 'online' | 'tournaments' | '3d' | 'account';
 type LocalMode = 'human' | 'ai';
 type Theme = 'light' | 'dark';
 type FontScale = 'default' | 'large' | 'extra';
-
-const HERO_PIECES = ['♜', '♞', '♝', '♛', '♟', '♟', '♟', '♟', '', '', '', '', '♙', '♙', '♙', '♙'];
 
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
@@ -189,13 +188,7 @@ export default function AppV14() {
               </div>
             </div>
 
-            <div className="hero-board-shell" aria-hidden="true">
-              <div className="hero-board-top"><span>QQURZ BOARD</span><b>960</b></div>
-              <div className="hero-mini-board">
-                {HERO_PIECES.map((piece, index) => <span key={index} className={(Math.floor(index / 4) + index) % 2 ? 'dark' : 'light'}>{piece}</span>)}
-              </div>
-              <div className="hero-board-caption"><span>♙ Your move</span><strong>10:00</strong></div>
-            </div>
+            <HomeBoardPreview />
           </section>
 
           <section className="chess-play-section">
