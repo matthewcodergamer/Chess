@@ -12,8 +12,79 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="manifest" href="./site.webmanifest" />
     <title>QQURZ Chess</title>
+
+    <script>
+      try {
+        const savedTheme = localStorage.getItem('qqurz:theme');
+        document.documentElement.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+      } catch (_) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
+    <style>
+      #qqurz-boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 12px;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        background: #181816;
+        color: #f4f1ea;
+        opacity: 0;
+        pointer-events: none;
+        animation: qqurz-boot-show .12s ease-out .07s forwards;
+        transition: opacity .22s ease, visibility .22s ease;
+      }
+      html[data-theme='light'] #qqurz-boot { background: #eee9df; color: #1b1a17; }
+      #qqurz-boot.is-hidden { animation: none; opacity: 0; visibility: hidden; }
+      .qqurz-boot-wheel {
+        width: 30px;
+        height: 30px;
+        color: currentColor;
+        opacity: .82;
+        animation: qqurz-boot-spin .84s steps(12, end) infinite;
+      }
+      .qqurz-boot-wheel line {
+        stroke: currentColor;
+        stroke-width: 2.4;
+        stroke-linecap: round;
+      }
+      .qqurz-boot-label {
+        font: 700 13px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+        letter-spacing: .02em;
+        opacity: .58;
+      }
+      @keyframes qqurz-boot-show { to { opacity: 1; } }
+      @keyframes qqurz-boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .qqurz-boot-wheel { animation-duration: 1.6s; }
+        #qqurz-boot { animation-delay: 0s; }
+      }
+    </style>
   </head>
   <body>
+    <div id="qqurz-boot" role="status" aria-label="Loading QQURZ Chess">
+      <svg class="qqurz-boot-wheel" viewBox="0 0 32 32" aria-hidden="true">
+        <g transform="translate(16 16)">
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity="1" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".92" transform="rotate(30)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".84" transform="rotate(60)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".76" transform="rotate(90)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".68" transform="rotate(120)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".60" transform="rotate(150)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".52" transform="rotate(180)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".44" transform="rotate(210)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".36" transform="rotate(240)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".28" transform="rotate(270)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".20" transform="rotate(300)" />
+          <line x1="0" y1="-13" x2="0" y2="-9" opacity=".12" transform="rotate(330)" />
+        </g>
+      </svg>
+      <span class="qqurz-boot-label">QQURZ</span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
