@@ -14,9 +14,8 @@ type Props = {
 };
 
 /**
- * Kept under the old export name so existing game code does not need two clock
- * implementations. The normal chessboard is 2D; the physical clock is now the
- * SAME true 3D model used by Premium 3D, rendered front-facing below the board.
+ * Historical export name kept for compatibility. The board stays 2D while the
+ * clock is the shared lightweight 3D physical model used across QQURZ.
  */
 export default function ChessClock2D({
   whiteSeconds,
@@ -42,11 +41,15 @@ export default function ChessClock2D({
       const shell = document.querySelector('.local-fast-shell:not(.setup-only)');
       const frame = shell?.querySelector('.local-board-frame');
       if (!frame?.parentElement) return false;
-      const existing = frame.parentElement.querySelector<HTMLDivElement>(':scope > .qqurz-clock-dock');
+      const parent = frame.parentElement;
+      const existing = parent.querySelector<HTMLDivElement>(':scope > .qqurz-clock-dock');
       owned = existing ?? document.createElement('div');
       if (!existing) {
         owned.className = 'qqurz-clock-dock';
-        frame.insertAdjacentElement('afterend', owned);
+        // Keep the Lichess-style captured material directly against the board;
+        // the physical clock sits immediately below that strip.
+        const captured = parent.querySelector(':scope > .captured-strip');
+        (captured ?? frame).insertAdjacentElement('afterend', owned);
       }
       setDock(owned);
       return true;
@@ -72,7 +75,10 @@ export default function ChessClock2D({
   return createPortal(
     <section className={`qqurz-physical-clock-panel ${visible ? '' : 'clock-hidden'}`} aria-label="Tournament clock">
       <div className="qqurz-clock-panel-head">
-        <div><b>3D TOURNAMENT CLOCK</b><span>{pendingSlap ? `${pendingSlap.toUpperCase()} · press the white rocker` : activeColor ? `${activeColor.toUpperCase()} clock running` : 'Ready'}</span></div>
+        <div>
+          <b>TOURNAMENT CLOCK</b>
+          <span>{pendingSlap ? `${pendingSlap.toUpperCase()} · press your rocker` : activeColor ? `${activeColor.toUpperCase()} clock running` : 'Ready'}</span>
+        </div>
         <button type="button" className="clock-visibility-toggle" onClick={() => setClockVisible(!visible)}>{visible ? 'Hide clock' : 'Show clock'}</button>
       </div>
       {visible ? (
