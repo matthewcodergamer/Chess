@@ -2,7 +2,8 @@
 
 /* Fast, quiet page loading. This intentionally has no card/backdrop: it occupies
    the page naturally and disappears as soon as the lazy screen is ready. */
-.qqurz-route-loader{
+.qqurz-route-loader,
+.chess-loading.qqurz-loading{
   min-height:calc(100dvh - 76px);
   width:100%;
   display:grid;
@@ -10,15 +11,26 @@
   justify-items:center;
   gap:12px;
   color:var(--q-muted,#aaa79f);
-  background:transparent;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
   animation:qqurz-loader-enter .14s ease-out both;
 }
-.qqurz-route-loader-label{
+.qqurz-route-loader-label,
+.chess-loading.qqurz-loading strong{
   font-size:.86rem;
   font-weight:700;
   letter-spacing:.01em;
-  opacity:.72;
+  opacity:.68;
 }
+/* Keep the old accessible text in the DOM, but visually reduce it to one quiet label. */
+.chess-loading.qqurz-loading strong{font-size:0}
+.chess-loading.qqurz-loading strong::after{content:"Loading";font-size:.86rem}
+
+/* Apple-like small activity wheel for route loading. */
 .qqurz-spinner{
   position:relative;
   width:30px;
@@ -51,6 +63,24 @@
 .qqurz-spinner i:nth-child(10){--spoke-angle:270deg;--spoke-delay:-.166s}
 .qqurz-spinner i:nth-child(11){--spoke-angle:300deg;--spoke-delay:-.083s}
 .qqurz-spinner i:nth-child(12){--spoke-angle:330deg;--spoke-delay:0s}
+
+/* Existing Suspense fallback uses a knight span. Turn that span into the same
+   quiet activity indicator instead of showing a big chess glyph/popup. */
+.chess-loading.qqurz-loading .qqurz-loading-knight{
+  display:block!important;
+  width:28px!important;
+  height:28px!important;
+  margin:0!important;
+  font-size:0!important;
+  border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 0 13%,currentColor 28% 100%);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 0);
+  mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 0);
+  color:var(--q-text,#f4f1ea)!important;
+  animation:qqurz-wheel .72s linear infinite!important;
+  opacity:.82;
+}
+@keyframes qqurz-wheel{to{transform:rotate(360deg)}}
 @keyframes qqurz-spoke{
   0%,12%{opacity:.92}
   62%,100%{opacity:.13}
@@ -110,7 +140,8 @@
 .home-live-board-shell{z-index:2}
 
 @media(max-width:900px){
-  .qqurz-route-loader{min-height:calc(100dvh - 70px - env(safe-area-inset-top))}
+  .qqurz-route-loader,
+  .chess-loading.qqurz-loading{min-height:calc(100dvh - 70px - env(safe-area-inset-top))}
   .chess-hero-v24{position:relative!important;isolation:isolate}
   .chess-hero-v24::before{
     display:block!important;
@@ -129,4 +160,5 @@
   .tournament-page-v22,
   .profile-page{animation:none!important}
   .qqurz-spinner i{animation-duration:1.6s}
+  .chess-loading.qqurz-loading .qqurz-loading-knight{animation-duration:1.6s!important}
 }
