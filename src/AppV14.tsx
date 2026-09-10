@@ -160,12 +160,12 @@ export default function AppV14() {
               <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
             </div>
             <nav className="drawer-links" aria-label="Chess menu">
-              <button onClick={() => openLocal('ai')}><span>♞</span><div><b>Play Stockfish</b><small>Choose a level and play</small></div></button>
+              <button onClick={() => openScreen('tournaments')}><span>♛</span><div><b>Play a tournament</b><small>QQURZ competitive events</small></div></button>
+              <button onClick={openFriends}><span>♘</span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
               <button onClick={() => openLocal('human')}><span>♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
-              <button onClick={openFriends}><span>♘</span><div><b>Friends online</b><small>Create or join a room</small></div></button>
-              <button onClick={() => openScreen('tournaments')}><span>♛</span><div><b>Tournaments</b><small>QQURZ competitive events</small></div></button>
               <button onClick={() => openScreen('3d')}><span>♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
               <button onClick={() => openScreen('account')}><span>♙</span><div><b>Profile</b><small>Your player identity</small></div></button>
+              <button className="drawer-ai-choice" onClick={() => openLocal('ai')}><span>♞</span><div><b>Play with AI</b><small>Practice against Stockfish</small></div></button>
             </nav>
             <div className="drawer-settings">
               <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><b>{theme === 'dark' ? 'Dark board theme' : 'Light board theme'}</b></button>
@@ -182,10 +182,10 @@ export default function AppV14() {
             <div className="chess-hero-copy">
               <span className="chess-eyebrow">THE QQURZ CHESS CLUB</span>
               <h1>Chess,<br/><em>remixed.</em></h1>
-              <p>Chess960 with serious boards, fast games, private rooms and competitive tournaments — designed to feel like chess, not a dashboard.</p>
+              <p>Enter a tournament, challenge a friend, or sit across the same board. Chess960 competition is the focus; AI stays available when you want to practice.</p>
               <div className="chess-hero-actions">
-                <button className="chess-primary-action" onClick={() => openLocal('ai')}><span>♞</span><b>Play now</b><i>→</i></button>
-                <button className="chess-secondary-action" onClick={() => openScreen('tournaments')}><span>♛</span><b>Tournaments</b></button>
+                <button className="chess-primary-action" onClick={() => openScreen('tournaments')}><span>♛</span><b>Play a tournament</b><i>→</i></button>
+                <button className="chess-secondary-action" onClick={openFriends}><span>♘</span><b>Play a friend</b></button>
               </div>
             </div>
 
@@ -199,12 +199,12 @@ export default function AppV14() {
           </section>
 
           <section className="chess-play-section">
-            <div className="section-title-v24"><span>PLAY</span><h2>Choose your board.</h2></div>
+            <div className="section-title-v24"><span>PLAY</span><h2>Choose your match.</h2></div>
             <div className="chess-mode-list">
-              <button className="featured" onClick={() => openLocal('ai')}><span className="chess-mode-icon">♞</span><span><b>Stockfish</b><small>Easy, Hard or Crazy Hard</small></span><i>Play →</i></button>
+              <button className="featured" onClick={() => openScreen('tournaments')}><span className="chess-mode-icon">♛</span><span><b>Play a tournament</b><small>Fields, brackets and prize events</small></span><i>Enter →</i></button>
+              <button onClick={openFriends}><span className="chess-mode-icon">♘</span><span><b>Play a friend</b><small>Private room and invite code</small></span><i>Connect →</i></button>
               <button onClick={() => openLocal('human')}><span className="chess-mode-icon">♟</span><span><b>Same device</b><small>Pass the board across the table</small></span><i>Open →</i></button>
-              <button onClick={openFriends}><span className="chess-mode-icon">♘</span><span><b>Friends online</b><small>Private room and invite code</small></span><i>Connect →</i></button>
-              <button onClick={() => openScreen('tournaments')}><span className="chess-mode-icon">♛</span><span><b>Tournaments</b><small>Fields, brackets and prize events</small></span><i>Browse →</i></button>
+              <button className="ai-secondary-choice" onClick={() => openLocal('ai')}><span className="chess-mode-icon">♞</span><span><b>Play with AI</b><small>Practice against Stockfish at your level</small></span><i>Practice →</i></button>
             </div>
           </section>
 
