@@ -11,6 +11,7 @@ import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
 import { playChessSound } from './ui/sound';
 import ChessClock2D from './ui/ChessClock2D';
+import CapturedPieces from './ui/CapturedPieces';
 
 type GameMode = 'human' | 'ai';
 type Phase = 'setup' | 'strategy' | 'playing' | 'ended';
@@ -327,6 +328,10 @@ export default function LocalGame({ initialMode }: Props) {
     setPendingSlap(null);
   }, [pendingSlap, phase]);
   const playerName = (color: Color) => mode === 'ai' && aiColor === color ? `Stockfish · ${DIFFICULTIES[difficulty].label}` : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
+  const topColor = opposite(orientation);
+  const bottomColor = orientation;
+  const clockFor = (color: Color) => formatClock(color === 'white' ? whiteClock : blackClock);
+  const activeColor = phase === 'playing' ? (pendingSlap ?? turn) : null;
 
   if (phase === 'setup') {
     return (
@@ -334,7 +339,7 @@ export default function LocalGame({ initialMode }: Props) {
         <div className="local-fast-setup">
           <span className="qqurz-kicker">LOCAL PLAY</span>
           <h1>{mode === 'ai' ? 'Play Stockfish.' : 'Play together.'}</h1>
-          <p>The board opens immediately. Stockfish is not downloaded until an AI position is created.</p>
+          <p>Choose your game. Then the board takes over — no dashboard, no clutter.</p>
 
           <div className="local-mode-switch" role="radiogroup" aria-label="Game mode">
             <button className={mode === 'human' ? 'selected' : ''} onClick={() => setMode('human')}>Human vs Human</button>
@@ -364,32 +369,32 @@ export default function LocalGame({ initialMode }: Props) {
             </div>
           )}
 
-          <button className="primary-black local-start" onClick={createPosition}>Create Position</button>
+          <button className="primary-black local-start" onClick={createPosition}>Start game</button>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="local-fast-shell">
+    <section className="local-fast-shell local-chess-layout">
       <aside className="local-fast-side">
         <div>
-          <span className="qqurz-kicker">POSITION #{positionId}</span>
+          <span className="qqurz-kicker">CHESS960 · #{positionId}</span>
           <h2>{backRank}</h2>
           <p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Human vs Human'}</p>
         </div>
         <ChessClock2D
           whiteSeconds={whiteClock}
           blackSeconds={blackClock}
-          activeColor={phase === 'playing' ? (pendingSlap ?? turn) : null}
+          activeColor={activeColor}
           pendingSlap={pendingSlap}
           disabled={!pendingSlap || pendingSlap === aiColor}
           onSlap={slapClock}
         />
-        {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish in background…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
+        {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
         <div className="local-side-actions">
-          <button onClick={() => setOrientation(value => opposite(value))}>Flip board</button>
-          <button onClick={createPosition} disabled={phase === 'playing'}>{phase === 'playing' ? 'Pattern locked' : 'Choose Pattern'}</button>
+          <button onClick={() => setOrientation(value => opposite(value))}>↻ Flip board</button>
+          <button onClick={createPosition} disabled={phase === 'playing'}>{phase === 'playing' ? 'Position locked' : '♜ New position'}</button>
         </div>
         <div className="local-moves">
           <span>Moves</span>
@@ -397,17 +402,23 @@ export default function LocalGame({ initialMode }: Props) {
         </div>
       </aside>
 
-      <div className="local-board-area">
+      <div className="local-board-area chess-game-stage">
+        <div className={`board-player-bar board-player-top ${activeColor === topColor ? 'active' : ''}`}>
+          <span className={`player-status-dot ${topColor}`} />
+          <span className="board-player-copy"><b>{playerName(topColor)}</b><small>{topColor === 'white' ? 'White' : 'Black'}</small></span>
+          <strong>{clockFor(topColor)}</strong>
+        </div>
+
         <div className="local-board-frame">
           <div ref={boardNode} className="cg-wrap board-mount" aria-label="Interactive Chess960 board" />
           {phase === 'strategy' && (
             <div className="local-board-overlay">
               <span>STRATEGY</span>
               <strong>{formatClock(strategyTime)}</strong>
-              <p>Green dots show legal destinations. QQURZ still gives no tactical danger warnings, so blunders remain yours to make.</p>
+              <p>Green dots show legal destinations. Take your time, then start when you are ready.</p>
               <div>
                 <button onPointerDown={() => setFastForward(true)} onPointerUp={() => setFastForward(false)} onPointerCancel={() => setFastForward(false)}>Hold ×4</button>
-                <button className="primary-black" onClick={startNow}>Start Now</button>
+                <button className="primary-black" onClick={startNow}>Start game</button>
               </div>
             </div>
           )}
@@ -415,7 +426,16 @@ export default function LocalGame({ initialMode }: Props) {
             <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{result}</strong><button className="primary-black" onClick={createPosition}>New position</button></div>
           )}
         </div>
-        <div className="local-mobile-clocks">
+
+        <CapturedPieces fen={fen} orientation={orientation} />
+
+        <div className={`board-player-bar board-player-bottom ${activeColor === bottomColor ? 'active' : ''}`}>
+          <span className={`player-status-dot ${bottomColor}`} />
+          <span className="board-player-copy"><b>{playerName(bottomColor)}</b><small>{bottomColor === 'white' ? 'White' : 'Black'}{activeColor === bottomColor ? ' · Your turn' : ''}</small></span>
+          <strong>{clockFor(bottomColor)}</strong>
+        </div>
+
+        <div className="local-mobile-clocks" aria-hidden="true">
           <div><span>{playerName('white')}</span><strong>{formatClock(whiteClock)}</strong></div>
           <div><span>{playerName('black')}</span><strong>{formatClock(blackClock)}</strong></div>
         </div>
