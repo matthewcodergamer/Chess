@@ -1,0 +1,127 @@
+/* QQURZ v2.5 — larger clock readout, lighter 3D clock rendering, competition-first home */
+
+/* Make the physical clock easy to read without making the whole panel noisy. */
+.qqurz-clock-dock{
+  width:100%;
+  margin-top:12px;
+}
+.qqurz-physical-clock-panel{
+  padding:14px 16px 16px;
+  border:1px solid var(--q-line);
+  border-radius:20px;
+  background:color-mix(in srgb,var(--q-surface) 92%,transparent);
+  overflow:hidden;
+}
+.qqurz-clock-panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:6px;
+}
+.qqurz-clock-panel-head>div{display:grid;gap:3px}
+.qqurz-clock-panel-head b{
+  font-size:1.02rem!important;
+  letter-spacing:.035em;
+}
+.qqurz-clock-panel-head span{
+  font-size:.94rem!important;
+  color:var(--q-muted);
+}
+.qqurz-clock-3d-view{
+  width:min(100%,760px);
+  height:240px;
+  margin:0 auto;
+  contain:layout paint style;
+  transform:translateZ(0);
+}
+.qqurz-clock-3d-view.compact{
+  height:205px;
+}
+.qqurz-clock-3d-view canvas{
+  display:block;
+  width:100%!important;
+  height:100%!important;
+}
+.qqurz-clock-3d-view.ready{
+  cursor:pointer;
+}
+.qqurz-clock-3d-view.ready:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--q-accent) 55%,transparent);
+  outline-offset:3px;
+  border-radius:16px;
+}
+.clock-visibility-toggle{
+  min-height:44px!important;
+  padding:0 14px!important;
+  font-size:.92rem!important;
+}
+
+/* The flat player clocks should also be readable at a glance. */
+.board-player-bar>strong{
+  min-width:104px;
+  font-size:clamp(1.7rem,4.4vw,2.45rem)!important;
+  line-height:1;
+  font-weight:850;
+  letter-spacing:-.045em;
+  font-variant-numeric:tabular-nums;
+}
+.online-clock-row strong{
+  font-size:clamp(1.55rem,3.7vw,2.15rem)!important;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.04em;
+}
+
+/* AI remains available, but it is deliberately not the product's main call to action. */
+.chess-mode-list>.ai-secondary-choice{
+  background:color-mix(in srgb,var(--q-surface-2) 78%,var(--q-surface));
+  border-style:dashed;
+}
+.chess-mode-list>.ai-secondary-choice .chess-mode-icon{
+  color:var(--q-muted);
+  background:color-mix(in srgb,var(--q-surface-3) 72%,transparent);
+}
+.drawer-links>.drawer-ai-choice{
+  margin-top:8px;
+  padding-top:15px;
+  border-top:1px solid var(--q-line);
+  border-radius:0 0 16px 16px;
+}
+.drawer-links>.drawer-ai-choice>span{
+  color:var(--q-muted);
+}
+
+@media(max-width:760px){
+  .qqurz-physical-clock-panel{
+    padding:12px 12px 14px;
+    border-radius:17px;
+  }
+  .qqurz-clock-panel-head{
+    align-items:flex-start;
+  }
+  .qqurz-clock-panel-head b{font-size:1rem!important}
+  .qqurz-clock-panel-head span{font-size:.9rem!important}
+  .qqurz-clock-3d-view,
+  .qqurz-clock-3d-view.compact{
+    height:205px;
+  }
+  .board-player-bar>strong{
+    min-width:88px;
+    font-size:1.9rem!important;
+  }
+}
+
+@media(max-width:430px){
+  .qqurz-clock-3d-view,
+  .qqurz-clock-3d-view.compact{
+    height:184px;
+  }
+  .clock-visibility-toggle{
+    min-height:40px!important;
+    padding-inline:11px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .qqurz-clock-3d-view{transform:none}
+}
