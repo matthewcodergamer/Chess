@@ -21,6 +21,7 @@ import './v2.4.css';
 import './v2.5.css';
 import './v2.6.css';
 import './v2.7.css';
+import './experience.css';
 import AppV14 from './AppV14';
 
 createRoot(document.getElementById('root')!).render(
@@ -28,3 +29,14 @@ createRoot(document.getElementById('root')!).render(
     <AppV14 />
   </StrictMode>,
 );
+
+// Keep the refresh experience seamless: the tiny static loader in index.html
+// stays visible until React has actually mounted, then fades rather than popping.
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    const boot = document.getElementById('qqurz-boot');
+    if (!boot) return;
+    boot.classList.add('is-hidden');
+    window.setTimeout(() => boot.remove(), 260);
+  });
+});
