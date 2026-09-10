@@ -73,7 +73,6 @@ export default function ChessClock3DView({
     clock.group.position.set(0, -0.07, 0);
     scene.add(clock.group);
 
-    // Two cheap lights are enough for a small matte-plastic object.
     scene.add(new THREE.HemisphereLight(0xffffff, 0x34383c, 2.4));
     const key = new THREE.DirectionalLight(0xffffff, 3.7);
     key.position.set(-4, 6, 7);
@@ -90,6 +89,7 @@ export default function ChessClock3DView({
     let lastFrame = 0;
     let inViewport = true;
     let destroyed = false;
+    let lastActiveColor = state.current.activeColor;
 
     const renderOnce = (now = performance.now()) => {
       if (destroyed || !inViewport || document.hidden) return;
@@ -108,6 +108,17 @@ export default function ChessClock3DView({
 
     const requestRender = (animateMs = 0) => {
       if (destroyed) return;
+      const value = state.current;
+
+      // A clock transfer is a physical press, not just an LED change. The side
+      // whose clock was running is the side that just slapped its rocker. This
+      // also makes Stockfish visibly press the clock when its move is finished.
+      if (value.activeColor !== lastActiveColor) {
+        if (lastActiveColor && value.activeColor) clock.slap(lastActiveColor);
+        lastActiveColor = value.activeColor;
+        animateMs = Math.max(animateMs, 250);
+      }
+
       animateUntil = Math.max(animateUntil, performance.now() + animateMs);
       renderOnce();
       if (animateMs > 0 && !frame) frame = requestAnimationFrame(animate);
@@ -140,9 +151,8 @@ export default function ChessClock3DView({
       const value = state.current;
       const canSlap = Boolean(value.pendingSlap && value.onSlap && !value.disabled);
       if (!moved && pressed && canSlap && hitsRocker(event)) {
-        clock.slap(value.pendingSlap!);
-        requestRender(240);
         value.onSlap?.();
+        requestRender(250);
       }
       pressed = false;
     };
@@ -195,8 +205,6 @@ export default function ChessClock3DView({
     };
   }, [compact]);
 
-  // Time updates render once. Turn/press changes animate long enough for the
-  // seesaw to visibly switch direction, including Stockfish's automatic slap.
   useEffect(() => {
     invalidate.current?.(260);
   }, [activeColor, pendingSlap]);
