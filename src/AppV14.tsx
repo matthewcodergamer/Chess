@@ -7,12 +7,12 @@ const TournamentHub = lazy(() => import('./tournaments/TournamentHub'));
 const Premium3DGate = lazy(() => import('./premium/Premium3DGate'));
 const ProfileHub = lazy(() => import('./profile/ProfileHub'));
 
-const BRAND_LOGO = `${import.meta.env.BASE_URL}brand/qqurz-logo.jpg`;
-
 type Screen = 'home' | 'local' | 'online' | 'tournaments' | '3d' | 'account';
 type LocalMode = 'human' | 'ai';
 type Theme = 'light' | 'dark';
 type FontScale = 'default' | 'large' | 'extra';
+
+const HERO_PIECES = ['♜', '♞', '♝', '♛', '♟', '♟', '♟', '♟', '', '', '', '', '♙', '♙', '♙', '♙'];
 
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
@@ -28,7 +28,7 @@ function initialScreen(): Screen {
 function initialTheme(): Theme {
   const saved = window.localStorage.getItem('qqurz:theme');
   if (saved === 'dark' || saved === 'light') return saved;
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'dark';
 }
 
 function initialFontScale(): FontScale {
@@ -38,9 +38,9 @@ function initialFontScale(): FontScale {
 
 function LoadingView() {
   return (
-    <div className="qqurz-loading" role="status" aria-live="polite">
+    <div className="qqurz-loading chess-loading" role="status" aria-live="polite">
       <span className="qqurz-loading-knight">♞</span>
-      <strong>Opening board…</strong>
+      <strong>Setting the board…</strong>
     </div>
   );
 }
@@ -51,6 +51,7 @@ export default function AppV14() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [fontScale, setFontScale] = useState<FontScale>(initialFontScale);
   const [displayOpen, setDisplayOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(soundEnabled);
   const [onlineVariant, setOnlineVariant] = useState<'friends' | 'tournament'>('friends');
 
@@ -72,24 +73,37 @@ export default function AppV14() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [menuOpen]);
+
+  const closeMenus = () => { setDisplayOpen(false); setMenuOpen(false); };
   const goHome = () => {
     const url = new URL(window.location.href);
     ['room', 'checkout', 'kind', 'item', 'session_id', 'color'].forEach(key => url.searchParams.delete(key));
     window.history.replaceState({}, '', url);
-    setDisplayOpen(false);
+    closeMenus();
     setScreen('home');
   };
 
   const openLocal = (mode: LocalMode) => {
     setLocalMode(mode);
-    setDisplayOpen(false);
+    closeMenus();
     setScreen('local');
   };
 
   const openFriends = () => {
     setOnlineVariant('friends');
-    setDisplayOpen(false);
+    closeMenus();
     setScreen('online');
+  };
+
+  const openScreen = (next: Screen) => {
+    closeMenus();
+    setScreen(next);
   };
 
   const toggleSound = () => {
@@ -99,28 +113,26 @@ export default function AppV14() {
   };
 
   return (
-    <main className="qqurz-app-v14 qqurz-app-v22">
-      <header className="qqurz-nav qqurz-nav-v22">
-        <button className="qqurz-brand-button" onClick={goHome} aria-label="QQURZ Chess home">
-          <img src={BRAND_LOGO} alt="QQURZ" />
-          <span>Chess</span>
+    <main className="qqurz-app-v14 qqurz-app-v22 qqurz-app-v24">
+      <header className="qqurz-nav chess-topbar">
+        <button className="mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</button>
+
+        <button className="qqurz-wordmark" onClick={goHome} aria-label="QQURZ Chess home">
+          <span className="wordmark-piece" aria-hidden="true">♞</span>
+          <span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span>
         </button>
 
-        <nav aria-label="Primary navigation">
-          <button onClick={goHome} className={screen === 'home' ? 'active' : ''}>Home</button>
-          <button onClick={() => setScreen('tournaments')} className={screen === 'tournaments' ? 'active' : ''}>Tournaments</button>
-          <button onClick={openFriends} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''}>Friends</button>
-          <button onClick={() => setScreen('3d')} className={screen === '3d' ? 'active' : ''}>3D</button>
+        <nav className="desktop-chess-nav" aria-label="Primary navigation">
+          <button onClick={goHome} className={screen === 'home' ? 'active' : ''}><span>♚</span> Home</button>
+          <button onClick={() => openScreen('tournaments')} className={screen === 'tournaments' ? 'active' : ''}><span>♛</span> Tournaments</button>
+          <button onClick={openFriends} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''}><span>♞</span> Friends</button>
+          <button onClick={() => openScreen('3d')} className={screen === '3d' ? 'active' : ''}><span>♜</span> 3D</button>
         </nav>
 
-        <div className="qqurz-nav-end">
-          <button className="nav-account-button" onClick={() => setScreen('account')} aria-label="Open player profile">
-            <span aria-hidden="true">♟</span><span className="nav-control-label">Profile</span>
-          </button>
+        <div className="qqurz-nav-end chess-nav-actions">
+          <button className="nav-account-button" onClick={() => openScreen('account')} aria-label="Open player profile"><span aria-hidden="true">♙</span><span className="nav-control-label">Profile</span></button>
           <div className="display-control-wrap">
-            <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu">
-              <span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span>
-            </button>
+            <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu"><span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span></button>
             {displayOpen && (
               <section className="display-popover" id="qqurz-display-menu" aria-label="Display settings">
                 <div className="display-popover-heading"><strong>Display</strong><button onClick={() => setDisplayOpen(false)} aria-label="Close display settings">×</button></div>
@@ -132,7 +144,7 @@ export default function AppV14() {
                     <button className={fontScale === 'extra' ? 'selected' : ''} onClick={() => setFontScale('extra')}>Extra large</button>
                   </div>
                 </div>
-                <div className="display-setting-row"><span>Theme</span><button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Light' : 'Dark'}</button></div>
+                <div className="display-setting-row"><span>Board theme</span><button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Light' : 'Dark'}</button></div>
                 <div className="display-setting-row"><span>Game sounds</span><button onClick={toggleSound}>{soundOn ? 'On' : 'Off'}</button></div>
               </section>
             )}
@@ -140,53 +152,69 @@ export default function AppV14() {
         </div>
       </header>
 
+      {menuOpen && (
+        <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
+          <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="QQURZ menu" onPointerDown={event => event.stopPropagation()}>
+            <div className="drawer-head">
+              <button className="qqurz-wordmark" onClick={goHome}><span className="wordmark-piece">♞</span><span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span></button>
+              <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
+            </div>
+            <nav className="drawer-links" aria-label="Chess menu">
+              <button onClick={() => openLocal('ai')}><span>♞</span><div><b>Play Stockfish</b><small>Choose a level and play</small></div></button>
+              <button onClick={() => openLocal('human')}><span>♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
+              <button onClick={openFriends}><span>♘</span><div><b>Friends online</b><small>Create or join a room</small></div></button>
+              <button onClick={() => openScreen('tournaments')}><span>♛</span><div><b>Tournaments</b><small>QQURZ competitive events</small></div></button>
+              <button onClick={() => openScreen('3d')}><span>♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
+              <button onClick={() => openScreen('account')}><span>♙</span><div><b>Profile</b><small>Your player identity</small></div></button>
+            </nav>
+            <div className="drawer-settings">
+              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><b>{theme === 'dark' ? 'Dark board theme' : 'Light board theme'}</b></button>
+              <button onClick={toggleSound}><span>{soundOn ? '♪' : '×'}</span><b>Sounds {soundOn ? 'on' : 'off'}</b></button>
+              <button onClick={() => { setMenuOpen(false); setDisplayOpen(true); }}><span>Aa</span><b>Text & display</b></button>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {screen === 'home' && (
-        <div className="qqurz-home-v14 qqurz-home-v22">
-          <section className="home-hero-v22">
-            <div className="hero-copy-v22">
-              <span className="qqurz-kicker">CHESS960 · SIMPLE BY DESIGN</span>
-              <h1>Play chess.<br/>No clutter.</h1>
-              <p>Pick how you want to play and get to the board. The complicated stuff stays out of your way until you actually need it.</p>
-              <div className="hero-actions-v22">
-                <button className="hero-primary-v22" onClick={() => openLocal('ai')}>Play the AI <span>→</span></button>
-                <button className="hero-secondary-v22" onClick={openFriends}>Play a friend</button>
+        <div className="qqurz-home-v24">
+          <section className="chess-hero-v24">
+            <div className="chess-hero-copy">
+              <span className="chess-eyebrow">THE QQURZ CHESS CLUB</span>
+              <h1>Chess,<br/><em>remixed.</em></h1>
+              <p>Chess960 with serious boards, fast games, private rooms and competitive tournaments — designed to feel like chess, not a dashboard.</p>
+              <div className="chess-hero-actions">
+                <button className="chess-primary-action" onClick={() => openLocal('ai')}><span>♞</span><b>Play now</b><i>→</i></button>
+                <button className="chess-secondary-action" onClick={() => openScreen('tournaments')}><span>♛</span><b>Tournaments</b></button>
               </div>
             </div>
-            <div className="hero-board-mark-v22" aria-hidden="true">
-              <div className="hero-piece-v22">♞</div>
-              <span>960</span>
+
+            <div className="hero-board-shell" aria-hidden="true">
+              <div className="hero-board-top"><span>QQURZ BOARD</span><b>960</b></div>
+              <div className="hero-mini-board">
+                {HERO_PIECES.map((piece, index) => <span key={index} className={(Math.floor(index / 4) + index) % 2 ? 'dark' : 'light'}>{piece}</span>)}
+              </div>
+              <div className="hero-board-caption"><span>♙ Your move</span><strong>10:00</strong></div>
             </div>
           </section>
 
-          <section className="home-mode-grid-v22" aria-label="Choose a way to play">
-            <button onClick={() => openLocal('ai')}>
-              <span className="mode-icon-v22">♞</span>
-              <span><b>Play AI</b><small>Choose a strength and start.</small></span>
-              <i>›</i>
-            </button>
-            <button onClick={() => openLocal('human')}>
-              <span className="mode-icon-v22">♟</span>
-              <span><b>Same device</b><small>Two players, one board.</small></span>
-              <i>›</i>
-            </button>
-            <button onClick={openFriends}>
-              <span className="mode-icon-v22">◎</span>
-              <span><b>Friends online</b><small>Create or join a private room.</small></span>
-              <i>›</i>
-            </button>
-            <button onClick={() => setScreen('tournaments')}>
-              <span className="mode-icon-v22">♛</span>
-              <span><b>Tournaments</b><small>Pick a field and entry tier.</small></span>
-              <i>›</i>
-            </button>
+          <section className="chess-play-section">
+            <div className="section-title-v24"><span>PLAY</span><h2>Choose your board.</h2></div>
+            <div className="chess-mode-list">
+              <button className="featured" onClick={() => openLocal('ai')}><span className="chess-mode-icon">♞</span><span><b>Stockfish</b><small>Easy, Hard or Crazy Hard</small></span><i>Play →</i></button>
+              <button onClick={() => openLocal('human')}><span className="chess-mode-icon">♟</span><span><b>Same device</b><small>Pass the board across the table</small></span><i>Open →</i></button>
+              <button onClick={openFriends}><span className="chess-mode-icon">♘</span><span><b>Friends online</b><small>Private room and invite code</small></span><i>Connect →</i></button>
+              <button onClick={() => openScreen('tournaments')}><span className="chess-mode-icon">♛</span><span><b>Tournaments</b><small>Fields, brackets and prize events</small></span><i>Browse →</i></button>
+            </div>
           </section>
 
-          <section className="home-premium-strip-v22">
-            <div><span className="qqurz-kicker">PREMIUM 3D</span><h2>The same game, rendered in 3D.</h2><p>Physical board, physical clock, touch camera controls.</p></div>
-            <button onClick={() => setScreen('3d')}>See 3D <span>→</span></button>
+          <section className="chess-feature-band">
+            <div className="feature-piece-stack" aria-hidden="true"><span>♜</span><span>♝</span><span>♞</span></div>
+            <div><span className="chess-eyebrow">PREMIUM 3D</span><h2>Bring the table to the screen.</h2><p>Play on a physical-style 3D board with the same clock and touch-first controls.</p></div>
+            <button onClick={() => openScreen('3d')}>Explore 3D <span>→</span></button>
           </section>
 
-          <footer className="qqurz-home-footer qqurz-home-footer-v22"><span>QQURZ Chess</span><span>Fast to learn. Easy to read. Built for touch.</span></footer>
+          <footer className="qqurz-home-footer-v24"><span>♚ QQURZ Chess</span><span>Chess960 · Private rooms · Tournaments · 3D</span></footer>
         </div>
       )}
 
@@ -195,14 +223,6 @@ export default function AppV14() {
       {screen === 'tournaments' && <Suspense fallback={<LoadingView/>}><TournamentHub onBack={goHome} onPlayOnline={() => { setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => setScreen('3d')}/></Suspense>}
       {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
       {screen === 'account' && <Suspense fallback={<LoadingView/>}><ProfileHub onBack={goHome}/></Suspense>}
-
-      <nav className="mobile-dock-v22" aria-label="Mobile navigation">
-        <button className={screen === 'home' ? 'active' : ''} onClick={goHome}><span>⌂</span><b>Home</b></button>
-        <button className={screen === 'local' && localMode === 'ai' ? 'active' : ''} onClick={() => openLocal('ai')}><span>♞</span><b>Play</b></button>
-        <button className={screen === 'tournaments' ? 'active' : ''} onClick={() => setScreen('tournaments')}><span>♛</span><b>Events</b></button>
-        <button className={screen === 'online' ? 'active' : ''} onClick={openFriends}><span>◎</span><b>Friends</b></button>
-        <button className={screen === 'account' ? 'active' : ''} onClick={() => setScreen('account')}><span>♟</span><b>Profile</b></button>
-      </nav>
     </main>
   );
 }
