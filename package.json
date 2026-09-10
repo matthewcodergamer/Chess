@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "prepare:engine": "node scripts/copy-stockfish.mjs",
-    "dev": "npm run prepare:engine && vite",
-    "build": "npm run prepare:engine && tsc -b && vite build",
+    "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
+    "dev": "npm run prepare:engine && npm run prepare:quarter && vite",
+    "build": "npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
