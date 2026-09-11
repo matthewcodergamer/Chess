@@ -1,0 +1,36 @@
+name: Migrate online arena to authoritative session
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/migrate-online-session.mjs'
+      - '.github/workflows/migrate-online-session.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Apply online session migration
+        run: node scripts/migrate-online-session.mjs
+      - name: Verify production build
+        run: npm run build
+      - name: Commit migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/multiplayer/OnlineArena.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Use authoritative GameSession in online arena"
+          git push origin main
