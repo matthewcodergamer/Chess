@@ -16,7 +16,7 @@ function sendError(ws: WebSocket, message: string): void {
 }
 
 export class CoinGateChessRoom extends TournamentChessRoom {
-  private internals(): {
+  private gateInternals(): {
     room: InternalRoom | null;
     ctx: DurableObjectState;
     env: { STRIPE_SECRET_KEY?: string; PAYMENTS_MODE?: string; LIVE_COLOR_BIDS?: string };
@@ -29,7 +29,7 @@ export class CoinGateChessRoom extends TournamentChessRoom {
   }
 
   private gateEnabled(): boolean {
-    const { env } = this.internals();
+    const { env } = this.gateInternals();
     const key = env.STRIPE_SECRET_KEY ?? '';
     if (env.PAYMENTS_MODE === 'test') return key.startsWith('sk_test_');
     return env.PAYMENTS_MODE === 'live' && key.startsWith('sk_live_') && env.LIVE_COLOR_BIDS === 'enabled';
@@ -37,18 +37,18 @@ export class CoinGateChessRoom extends TournamentChessRoom {
 
   private async gate(): Promise<GateState> {
     if (!this.gateEnabled()) return { open: true, optedOut: [] };
-    return (await this.internals().ctx.storage.get<GateState>(GATE_KEY)) ?? { open: false, optedOut: [] };
+    return (await this.gateInternals().ctx.storage.get<GateState>(GATE_KEY)) ?? { open: false, optedOut: [] };
   }
 
   private async putGate(gate: GateState): Promise<void> {
-    await this.internals().ctx.storage.put(GATE_KEY, {
+    await this.gateInternals().ctx.storage.put(GATE_KEY, {
       open: Boolean(gate.open),
       optedOut: [...new Set(gate.optedOut)].slice(-2),
     } satisfies GateState);
   }
 
   private eventFor(token: string, gate: GateState) {
-    const room = this.internals().room;
+    const room = this.gateInternals().room;
     return {
       type: 'color_gate' as const,
       enabled: this.gateEnabled(),
@@ -65,7 +65,7 @@ export class CoinGateChessRoom extends TournamentChessRoom {
 
   private async broadcastGate(): Promise<void> {
     const gate = await this.gate();
-    for (const ws of this.internals().ctx.getWebSockets()) {
+    for (const ws of this.gateInternals().ctx.getWebSockets()) {
       const attachment = ws.deserializeAttachment() as SeatAttachment | null;
       const token = typeof attachment?.token === 'string' ? attachment.token : null;
       if (!token || attachment?.role === 'spectator') continue;
@@ -74,7 +74,7 @@ export class CoinGateChessRoom extends TournamentChessRoom {
   }
 
   private async chooseToss(ws: WebSocket, token: string): Promise<void> {
-    const room = this.internals().room;
+    const room = this.gateInternals().room;
     if (!room?.players.black || room.session.state !== 'COIN_TOSS' || room.coin.result) {
       sendError(ws, 'The color toss is not available right now.');
       return;
@@ -148,12 +148,12 @@ export class CoinGateChessRoom extends TournamentChessRoom {
     }
 
     if (payload?.type === 'claim_color_bid') {
-      const room = this.internals().room;
+      const room = this.gateInternals().room;
       const before = room?.colorAuction.usedSessions.length ?? 0;
       const previous = await this.gate();
       if (this.gateEnabled()) await this.putGate({ open: false, optedOut: [] });
       await super.webSocketMessage(ws, message);
-      const after = this.internals().room?.colorAuction.usedSessions.length ?? 0;
+      const after = this.gateInternals().room?.colorAuction.usedSessions.length ?? 0;
       if (this.gateEnabled() && after === before) await this.putGate(previous);
       await this.broadcastGate();
       return;
