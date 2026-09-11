@@ -8,7 +8,7 @@
 @media (max-width:1100px) and (min-width:721px){
   .chess-topbar{padding-inline:max(var(--q-space-12),env(safe-area-inset-left));gap:var(--q-space-8)}
   .qqurz-wordmark{gap:var(--q-space-8);padding-inline:var(--q-space-4)}.chess-topbar>.qqurz-wordmark .wordmark-copy small{display:none}
-  .desktop-chess-nav{gap:0}.desktop-chess-nav button{width:var(--q-control-sm);padding:0;justify-content:center}.desktop-chess-nav button .desktop-nav-label{display:none}
+  .desktop-chess-nav{gap:0}.desktop-chess-nav button{width:var(--q-control-sm);padding:0;justify-content:center;font-size:0;overflow:hidden}.desktop-chess-nav button span{font-size:var(--q-type-body-lg)}
   .chess-nav-actions{gap:var(--q-space-4)}.live-presence-pill,.nav-account-button,.display-toggle{width:var(--q-control-sm);padding:0}.live-presence-copy,.nav-control-label{display:none}
 }
 
