@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "check:css": "node scripts/check-css-architecture.mjs",
+    "check:ui": "node scripts/check-controls.mjs",
     "prepare:engine": "node scripts/copy-stockfish.mjs",
     "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
-    "dev": "npm run check:css && npm run prepare:engine && npm run prepare:quarter && vite",
-    "build": "npm run check:css && npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build",
+    "dev": "npm run check:css && npm run check:ui && npm run prepare:engine && npm run prepare:quarter && vite",
+    "build": "npm run check:css && npm run check:ui && npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
