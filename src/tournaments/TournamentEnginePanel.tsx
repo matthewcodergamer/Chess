@@ -120,8 +120,9 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
   }, [refreshList, refreshSelected, selectedId]);
 
   useEffect(() => {
+    if (format === 'round_robin' && capacity < 3) { setCapacity(3); return; }
+    if (format === 'round_robin' && capacity > 16) { setCapacity(16); return; }
     setRoundCount(roundDefault(format, capacity));
-    if (format === 'round_robin' && capacity > 16) setCapacity(16);
   }, [format, capacity]);
 
   const createDefinition = (): EngineTournamentDefinition => {
@@ -204,7 +205,7 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
           <div className="engine-form-grid">
             <label><span>Title</span><input value={title} maxLength={100} onChange={event => setTitle(event.target.value)} /></label>
             <label><span>Format</span><select value={format} onChange={event => setFormat(event.target.value as EngineTournamentFormat)}><option value="single_elimination">Single elimination</option><option value="swiss">Swiss · FIDE Dutch</option><option value="round_robin">Round robin · Berger</option></select></label>
-            <label><span>Capacity</span><input type="number" min="2" max={format === 'round_robin' ? 16 : 4096} value={capacity} onChange={event => setCapacity(Math.max(2, Number(event.target.value) || 2))} /></label>
+            <label><span>Capacity</span><input type="number" min={format === 'round_robin' ? 3 : 2} max={format === 'round_robin' ? 16 : 4096} value={capacity} onChange={event => setCapacity(Math.max(format === 'round_robin' ? 3 : 2, Number(event.target.value) || (format === 'round_robin' ? 3 : 2)))} /></label>
             <label><span>Start time</span><input type="datetime-local" value={startTime} onChange={event => setStartTime(event.target.value)} /></label>
             <label><span>Base minutes</span><input type="number" min="0.25" max="180" step="0.25" value={baseMinutes} onChange={event => setBaseMinutes(Number(event.target.value) || 10)} /></label>
             <label><span>Increment seconds</span><input type="number" min="0" max="60" value={incrementSeconds} onChange={event => setIncrementSeconds(Number(event.target.value) || 0)} /></label>
