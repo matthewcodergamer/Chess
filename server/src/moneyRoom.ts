@@ -1,3 +1,4 @@
+import { positiveCents } from '../../shared/money';
 import { CoinGateChessRoom } from './coinGateRoom';
 import { holdCompetitionFunds, releaseCompetitionHold, settleCompetitionFunds, type PaymentsEnv } from './paymentApi';
 
@@ -15,7 +16,6 @@ type InternalRoom = {
 type MoneyMatchControl = {
   contestId: string;
   stakeCents: number;
-  platformFeeBps: 2000;
   creatorAccountId: string;
   holdByAccount: Record<string, string>;
   status: 'awaiting_opponent' | 'funded' | 'settled' | 'released' | 'expired';
@@ -32,8 +32,8 @@ function json(data: unknown, status = 200): Response {
 }
 
 function stakeCents(value: unknown): number {
-  const amount = Math.floor(Number(value));
-  return Number.isFinite(amount) && amount >= 100 && amount <= 100_000 ? amount : 0;
+  const amount = positiveCents(value, 100_000);
+  return amount >= 100 ? amount : 0;
 }
 
 export class MoneyChessRoom extends CoinGateChessRoom {
@@ -78,7 +78,6 @@ export class MoneyChessRoom extends CoinGateChessRoom {
     await this.putControl({
       contestId,
       stakeCents: amount,
-      platformFeeBps: 2000,
       creatorAccountId: accountId,
       holdByAccount: { [accountId]: held.holdId },
       status: 'awaiting_opponent',
@@ -159,7 +158,6 @@ export class MoneyChessRoom extends CoinGateChessRoom {
       contestId: control.contestId,
       winnerAccountId: winner.accountId,
       holdIds,
-      platformFeeBps: control.platformFeeBps,
       prizePurpose: 'friend_match_prize',
     });
     if (settled.ok) {
