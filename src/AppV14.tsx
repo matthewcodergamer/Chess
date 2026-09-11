@@ -3,7 +3,7 @@ import { getPresenceId, multiplayerConfigured, pingPresence } from './multiplaye
 import type { RoomSeat } from './multiplayer/types';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
 import { IconButton } from './ui/controls';
-import HomeBoardPreview from './ui/HomeBoardPreview';
+import HomeDashboard from './ui/HomeDashboard';
 
 const LocalGame = lazy(() => import('./LocalGame'));
 const OnlineArena = lazy(() => import('./multiplayer/OnlineArena'));
@@ -261,48 +261,16 @@ export default function AppV14() {
       )}
 
       {screen === 'home' && (
-        <div className="qqurz-home-v24">
-          <section className="chess-hero-v24">
-            <div className="chess-hero-copy">
-              <span className="chess-eyebrow">COMPETITIVE CHESS960</span>
-              <h1>Chess960.<br/><em>Compete differently.</em></h1>
-              <p>Enter a tournament, challenge a friend, or sit across the same board. QQURZ is built around competitive Chess960; Stockfish stays available when you want to practice.</p>
-              <div className="chess-hero-actions">
-                <button className="chess-primary-action" onClick={() => openScreen('tournaments')}><span>♛</span><b>Play a tournament</b><i>→</i></button>
-                <button className="chess-secondary-action" onClick={openFriends}><span>♘</span><b>Play a friend</b></button>
-              </div>
-            </div>
-
-            <HomeBoardPreview />
-          </section>
-
-          <section className="qqurz-live-strip" aria-label="Live QQURZ players">
-            <div><span className="presence-dot"/><span><b>{onlineLabel}</b><small>Random Chess960 matchmaking</small></span></div>
-            <button onClick={openMatchmaking}><span>♞</span> Find an opponent</button>
-          </section>
-
-          <section className="chess-play-section">
-            <div className="section-title-v24"><span>PLAY</span><h2>Choose your match.</h2></div>
-            <div className="chess-mode-list competitive-mode-list">
-              <button className="featured" onClick={() => openScreen('tournaments')}><span className="chess-mode-icon">♛</span><span><b>Play a tournament</b><small>Fields, brackets and prize events</small></span><i>Enter →</i></button>
-              <button onClick={openFriends}><span className="chess-mode-icon">♘</span><span><b>Play a friend</b><small>Private room and invite code</small></span><i>Connect →</i></button>
-              <button onClick={() => openLocal('human')}><span className="chess-mode-icon">♟</span><span><b>Same device</b><small>Pass the board across the table</small></span><i>Open →</i></button>
-            </div>
-          </section>
-
-          <section className="chess-feature-band">
-            <div className="feature-piece-stack" aria-hidden="true"><span>♜</span><span>♝</span><span>♞</span></div>
-            <div><span className="chess-eyebrow">PREMIUM 3D</span><h2>Bring the table to the screen.</h2><p>Play on a physical-style 3D board with the same clock and touch-first controls.</p></div>
-            <button onClick={() => openScreen('3d')}>Explore 3D <span>→</span></button>
-          </section>
-
-          <section className="ai-practice-card" aria-label="Practice with Stockfish">
-            <div><span className="ai-practice-icon">♞</span><span><b>Practice with AI</b><small>Stockfish is here for training, not the center of QQURZ.</small></span></div>
-            <button onClick={() => openLocal('ai')}>Practice →</button>
-          </section>
-
-          <footer className="qqurz-home-footer-v24"><span>♚ QQURZ Chess</span><span>Competitive Chess960 · Live players · Private rooms · Tournaments · 3D</span></footer>
-        </div>
+        <HomeDashboard
+          onlineLabel={onlineLabel}
+          onProfile={() => openScreen('account')}
+          onTournament={() => openScreen('tournaments')}
+          onFriend={openFriends}
+          onSameDevice={() => openLocal('human')}
+          onMatchmaking={openMatchmaking}
+          onPremium3D={() => openScreen('3d')}
+          onAI={() => openLocal('ai')}
+        />
       )}
 
       {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
