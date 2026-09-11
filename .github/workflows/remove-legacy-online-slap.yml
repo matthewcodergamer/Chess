@@ -1,0 +1,36 @@
+name: Remove legacy online clock slap observer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/remove-legacy-online-slap.mjs'
+      - '.github/workflows/remove-legacy-online-slap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Remove duplicate online slap observer
+        run: node scripts/remove-legacy-online-slap.mjs
+      - name: Verify production build
+        run: npm run build
+      - name: Commit cleanup
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/multiplayer/OnlineArena.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Let shared physical clock own online slap feedback"
+          git push origin main
