@@ -6,12 +6,14 @@ import { motionTokenMs, useReducedMotion } from './motion';
 
 const HOME_POSITION = 518;
 
+type Props = { playerName?: string };
+
 /**
  * Homepage preview built with the exact same Chessground renderer and cburnett
  * piece set used by the playable board. This is intentionally not a decorative
  * CSS/mock chessboard.
  */
-export default function HomeBoardPreview() {
+export default function HomeBoardPreview({ playerName = 'You' }: Props) {
   const node = useRef<HTMLDivElement | null>(null);
   const ground = useRef<ChessgroundApi | null>(null);
   const reducedMotion = useReducedMotion();
@@ -37,16 +39,16 @@ export default function HomeBoardPreview() {
   return (
     <section className="home-live-board-shell" aria-label="QQURZ Chess960 game board preview">
       <div className="home-live-board-title">
-        <span>QQURZ BOARD</span>
+        <span>CHESS960 BOARD</span>
         <strong>960</strong>
       </div>
       <div className="home-preview-player top">
-        <span><i className="preview-status-dot" />Tournament table</span>
+        <span><i className="preview-status-dot" />Opponent</span>
         <strong>10:00</strong>
       </div>
       <div ref={node} className="cg-wrap board-mount home-live-board" />
       <div className="home-preview-player bottom">
-        <span><i className="preview-status-dot active" />Your move</span>
+        <span><i className="preview-status-dot active" />{playerName}</span>
         <strong>10:00</strong>
       </div>
     </section>
