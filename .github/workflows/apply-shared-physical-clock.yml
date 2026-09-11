@@ -24,6 +24,18 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Apply shared physical clock migration
         run: node scripts/apply-shared-physical-clock.mjs
+      - name: Normalize Premium clock preference import
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/premium/PremiumBoard3D.tsx')
+          source = path.read_text()
+          source = source.replace(
+              "import { showClock as getClockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';",
+              "import { clockVisible as getClockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';",
+          )
+          path.write_text(source)
+          PY
       - name: Verify production build
         run: npm run build
       - name: Commit clock consolidation
