@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Chessground } from '@lichess-org/chessground';
-import type { Api as ChessgroundApi } from '@lichess-org/chessground/api';
 import type { Color, Key } from '@lichess-org/chessground/types';
 import { Chess } from 'chessops/chess';
 import { chessgroundDests } from 'chessops/compat';
@@ -13,6 +11,8 @@ import { playChessSound } from './ui/sound';
 import { motionTokenMs, useReducedMotion } from './ui/motion';
 import ChessClock2D from './ui/ChessClock2D';
 import CapturedPieces from './ui/CapturedPieces';
+import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from './ui/ChessBoardSurface';
+import ChessPieceAsset from './ui/ChessPieceAsset';
 
 type GameMode = 'human' | 'ai';
 type Phase = 'setup' | 'strategy' | 'playing' | 'ended';
@@ -56,8 +56,7 @@ function gameResult(pos: Chess): string | null {
 }
 
 export default function LocalGame({ initialMode }: Props) {
-  const boardNode = useRef<HTMLDivElement | null>(null);
-  const ground = useRef<ChessgroundApi | null>(null);
+  const ground = useRef<QQurzChessgroundApi | null>(null);
   const position = useRef<Chess | null>(null);
   const moveHandler = useRef<(orig: Key, dest: Key) => void>(() => {});
   const engine = useRef<Engine | null>(null);
@@ -209,24 +208,6 @@ export default function LocalGame({ initialMode }: Props) {
     if (move) finishMove(move, pending.orig, pending.dest);
   };
 
-  useEffect(() => {
-    if (positionId === null || !boardNode.current) return;
-    ground.current?.destroy();
-    ground.current = Chessground(boardNode.current, {
-      orientation,
-      coordinates: true,
-      coordinatesOnSquares: true,
-      autoCastle: true,
-      blockTouchScroll: true,
-      disableContextMenu: true,
-      movable: { free: false, rookCastle: true, events: { after: (orig, dest) => moveHandler.current(orig, dest) } },
-    });
-    syncBoard();
-    const resize = new ResizeObserver(() => ground.current?.redrawAll());
-    resize.observe(boardNode.current);
-    return () => { resize.disconnect(); ground.current?.destroy(); ground.current = null; };
-  }, [positionId]);
-
   useEffect(() => { syncBoard(); }, [fen, orientation, phase, syncBoard, turn]);
 
   useEffect(() => {
@@ -335,6 +316,16 @@ export default function LocalGame({ initialMode }: Props) {
   const bottomColor = orientation;
   const clockFor = (color: Color) => formatClock(color === 'white' ? whiteClock : blackClock);
   const activeColor = phase === 'playing' ? (pendingSlap ?? turn) : null;
+  const boardConfig = useMemo<QQurzChessgroundConfig>(() => ({
+    fen,
+    orientation,
+    coordinates: true,
+    coordinatesOnSquares: true,
+    autoCastle: true,
+    blockTouchScroll: true,
+    disableContextMenu: true,
+    movable: { free: false, rookCastle: true, events: { after: (orig, dest) => moveHandler.current(orig, dest) } },
+  }), [fen, orientation]);
 
   if (phase === 'setup') {
     return (
@@ -413,7 +404,13 @@ export default function LocalGame({ initialMode }: Props) {
         </div>
 
         <div className="local-board-frame">
-          <div ref={boardNode} className="cg-wrap board-mount" aria-label="Interactive Chess960 board" />
+          <ChessBoardSurface
+            apiRef={ground}
+            instanceKey={positionId ?? 'local'}
+            config={boardConfig}
+            ariaLabel="Interactive Chess960 board"
+            onReady={() => syncBoard()}
+          />
           {phase === 'strategy' && (
             <div className="local-board-overlay">
               <span>STRATEGY</span>
@@ -450,10 +447,10 @@ export default function LocalGame({ initialMode }: Props) {
             <span className="qqurz-kicker">PROMOTION</span>
             <h2>Choose a piece</h2>
             <div className="promotion-grid">
-              <button onClick={() => promote('queen')}>♕ Queen</button>
-              <button onClick={() => promote('rook')}>♖ Rook</button>
-              <button onClick={() => promote('bishop')}>♗ Bishop</button>
-              <button onClick={() => promote('knight')}>♘ Knight</button>
+              <button onClick={() => promote('queen')}><ChessPieceAsset role="queen" color={turn} size="lg" /><span>Queen</span></button>
+              <button onClick={() => promote('rook')}><ChessPieceAsset role="rook" color={turn} size="lg" /><span>Rook</span></button>
+              <button onClick={() => promote('bishop')}><ChessPieceAsset role="bishop" color={turn} size="lg" /><span>Bishop</span></button>
+              <button onClick={() => promote('knight')}><ChessPieceAsset role="knight" color={turn} size="lg" /><span>Knight</span></button>
             </div>
           </div>
         </div>
