@@ -1,4 +1,5 @@
-import baseHandler, { ChessRoom } from './index';
+import baseHandler from './index';
+import { AuthoritativeChessRoom as ChessRoom } from './authoritativeRoom';
 import { AccountRegistry, handleAccountRequest, type AccountEnv } from './accounts';
 import { handleMatchmakerRequest, Matchmaker, type MatchmakerEnv } from './matchmaker';
 import { handleTournamentRequest, TournamentRegistry, type TournamentEnv } from './tournaments';
