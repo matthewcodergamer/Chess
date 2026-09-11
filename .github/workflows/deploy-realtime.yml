@@ -27,7 +27,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: Install shared app dependencies
+        working-directory: .
+        run: npm install --no-audit --no-fund
+
+      - name: Install server dependencies
         run: npm install --no-audit --no-fund
 
       - name: Typecheck server
