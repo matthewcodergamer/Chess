@@ -14,3 +14,16 @@
 .time-control-custom label span{font-size:var(--q-type-caption);color:var(--q-muted);font-weight:700}
 .time-control-custom input{width:100%;min-height:var(--q-control-sm);border-radius:var(--q-radius-sm);border:1px solid var(--q-line-strong);background:var(--q-surface-2);color:var(--q-text);padding:0 var(--q-space-12)}
 .time-control-plus{padding-bottom:var(--q-space-12);font-weight:900}
+
+.matchmaking-filters{min-width:0;margin:0 0 var(--q-space-16);padding:0;border:0;display:grid;gap:var(--q-space-12)}
+.matchmaking-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--q-space-12)}
+.matchmaking-filter{min-width:0;padding:var(--q-space-12);display:grid;align-content:start;gap:var(--q-space-8);border:1px solid var(--q-line);border-radius:var(--q-radius-md);background:var(--q-surface-1)}
+.matchmaking-filter>span{color:var(--q-muted);font-size:var(--q-type-caption);font-weight:800;letter-spacing:var(--q-tracking-label)}
+.matchmaking-filter>b{font-size:var(--q-type-body-lg)}
+.matchmaking-filter>small{color:var(--q-muted);font-size:var(--q-type-caption);line-height:var(--q-leading-body)}
+.matchmaking-filter select{width:100%;min-height:var(--q-control-sm);padding:0 var(--q-space-12);border:1px solid var(--q-line-strong);border-radius:var(--q-radius-sm);outline:0;background:var(--q-surface-2);color:var(--q-text);font:inherit;font-size:var(--q-type-label);font-weight:760}
+.matchmaking-filter select:focus{border-color:var(--q-action);box-shadow:0 0 0 var(--q-space-4) var(--q-action-soft)}
+.matchmaking-filters:disabled{opacity:.68}
+.matchmaking-search-meta{margin:var(--q-space-12) 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:var(--q-space-8)}
+.matchmaking-search-meta>span{min-width:0;padding:var(--q-space-12);display:grid;gap:var(--q-space-4);border:1px solid var(--q-line);border-radius:var(--q-radius-sm);background:var(--q-surface-2)}
+.matchmaking-search-meta small{color:var(--q-muted);font-size:var(--q-type-caption);font-weight:760}.matchmaking-search-meta b{font-size:var(--q-type-body);font-variant-numeric:tabular-nums}
