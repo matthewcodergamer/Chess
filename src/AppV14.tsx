@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { getPresenceId, multiplayerConfigured, pingPresence } from './multiplayer/client';
 import type { RoomSeat } from './multiplayer/types';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
+import { IconButton } from './ui/controls';
 import HomeBoardPreview from './ui/HomeBoardPreview';
 
 const LocalGame = lazy(() => import('./LocalGame'));
@@ -46,6 +47,12 @@ function profileName(): string {
   } catch {
     return 'Guest';
   }
+}
+
+function fontScaleLabel(value: FontScale): string {
+  if (value === 'large') return 'Large';
+  if (value === 'extra') return 'Extra large';
+  return 'Default';
 }
 
 function LoadingView() {
@@ -155,6 +162,15 @@ export default function AppV14() {
     setScreen(next);
   };
 
+  const openDisplaySettings = () => {
+    setMenuOpen(false);
+    setDisplayOpen(true);
+  };
+
+  const cycleTextSize = () => {
+    setFontScale(value => value === 'default' ? 'large' : value === 'large' ? 'extra' : 'default');
+  };
+
   const handleRandomMatch = (_seat: RoomSeat) => {
     setOnlineVariant('friends');
     closeMenus();
@@ -172,7 +188,7 @@ export default function AppV14() {
   return (
     <main className="qqurz-app-v14 qqurz-app-v22 qqurz-app-v24 qqurz-product-system">
       <header className="qqurz-nav chess-topbar">
-        <button className="mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</button>
+        <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
 
         <button className="qqurz-wordmark" onClick={goHome} aria-label="QQURZ Chess home">
           <span className="wordmark-piece" aria-hidden="true">♞</span>
@@ -187,15 +203,20 @@ export default function AppV14() {
         </nav>
 
         <div className="qqurz-nav-end chess-nav-actions">
-          <button className="live-presence-pill" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" />{onlineLabel}</button>
+          <button className="live-presence-pill" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /><span className="live-presence-copy">{onlineLabel}</span></button>
           <button className="nav-account-button" onClick={() => openScreen('account')} aria-label="Open player profile"><span aria-hidden="true">♙</span><span className="nav-control-label">Profile</span></button>
           <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu"><span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span></button>
+        </div>
+
+        <div className="mobile-nav-actions" aria-label="Quick actions">
+          <IconButton className="mobile-presence-button" size="sm" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /></IconButton>
+          <IconButton className="mobile-account-button" size="sm" onClick={() => openScreen('account')} aria-label="Open player profile">♙</IconButton>
         </div>
       </header>
 
       {displayOpen && (
-        <section className="display-popover app-display-popover" id="qqurz-display-menu" aria-label="Display settings">
-          <div className="display-popover-heading"><strong>Display</strong><button onClick={() => setDisplayOpen(false)} aria-label="Close display settings">×</button></div>
+        <section className="display-popover app-display-popover" id="qqurz-display-menu" aria-label="Display and accessibility settings">
+          <div className="display-popover-heading"><strong>Display & accessibility</strong><button onClick={() => setDisplayOpen(false)} aria-label="Close display settings">×</button></div>
           <div className="display-setting-block">
             <span>Text size</span>
             <div className="font-scale-options" role="radiogroup" aria-label="Text size">
@@ -228,10 +249,12 @@ export default function AppV14() {
               <div><span className="presence-dot"/><b>{onlineLabel}</b><small>Players seen on QQURZ recently</small></div>
               <button onClick={openMatchmaking}>Find an opponent</button>
             </div>
-            <div className="drawer-settings">
-              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><b>{theme === 'dark' ? 'Dark board theme' : 'Light board theme'}</b></button>
-              <button onClick={toggleSound}><span>{soundOn ? '♪' : '×'}</span><b>Sounds {soundOn ? 'on' : 'off'}</b></button>
-              <button onClick={() => { setMenuOpen(false); setDisplayOpen(true); }}><span>Aa</span><b>Text & display</b></button>
+            <div className="drawer-settings" aria-label="Preferences and settings">
+              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><div><b>Theme</b><small>{theme === 'dark' ? 'Dark' : 'Light'}</small></div></button>
+              <button onClick={toggleSound}><span>{soundOn ? '♪' : '×'}</span><div><b>Sound</b><small>{soundOn ? 'On' : 'Off'}</small></div></button>
+              <button onClick={cycleTextSize}><span>Aa</span><div><b>Text size</b><small>{fontScaleLabel(fontScale)}</small></div></button>
+              <button onClick={openDisplaySettings}><span>◎</span><div><b>Accessibility</b><small>Readable display controls</small></div></button>
+              <button onClick={openDisplaySettings}><span>⚙</span><div><b>Settings</b><small>Display and preferences</small></div></button>
             </div>
           </aside>
         </div>
