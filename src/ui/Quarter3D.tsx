@@ -15,8 +15,9 @@ export const QUARTER_THICKNESS_MM = 1.75;
 export const QUARTER_REEDS = 119;
 export const QUARTER_WEIGHT_GRAMS = 5.67;
 
-// These exact public-domain U.S. Treasury/Mint images are downloaded into
-// public/coins by scripts/fetch-quarter-assets.mjs before dev/build.
+// Public-domain photographs are fetched at build time. They provide the real
+// Washington obverse and Crossing the Delaware reverse instead of synthesized
+// coin artwork.
 const QUARTER_FACES = {
   heads: `${import.meta.env.BASE_URL}coins/quarter-obverse-2021.jpg`,
   tails: `${import.meta.env.BASE_URL}coins/quarter-reverse-2021.jpg`,
@@ -27,9 +28,9 @@ function smoothstep(edge0: number, edge1: number, value: number): number {
   return x * x * (3 - 2 * x);
 }
 
-function configureTexture(texture: THREE.Texture, renderer: THREE.WebGLRenderer): void {
+function configureTexture(texture: THREE.Texture, renderer: THREE.WebGLRenderer, compact: boolean): void {
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = Math.min(12, renderer.capabilities.getMaxAnisotropy());
+  texture.anisotropy = Math.min(compact ? 6 : 12, renderer.capabilities.getMaxAnisotropy());
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = true;
@@ -50,6 +51,11 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
     const element = mount.current;
     if (!element) return;
 
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    const compact = window.matchMedia('(max-width: 760px)').matches || deviceMemory <= 4;
+    const radialSegments = compact ? 96 : 160;
+    const shadowSegments = compact ? 48 : 72;
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 140);
     camera.position.set(0, 1.2, 58);
@@ -60,11 +66,13 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
       alpha: true,
       powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.35 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
-    renderer.shadowMap.enabled = true;
+    // The soft contact shadow below is a tiny transparent mesh. Disabling the
+    // full shadow-map pipeline saves GPU memory/bandwidth on mobile.
+    renderer.shadowMap.enabled = false;
     renderer.setClearColor(0x000000, 0);
     element.replaceChildren(renderer.domElement);
 
@@ -81,10 +89,10 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
     scene.add(coin);
 
     const textureLoader = new THREE.TextureLoader();
-    const headsTexture = textureLoader.load(QUARTER_FACES.heads, texture => configureTexture(texture, renderer));
-    const tailsTexture = textureLoader.load(QUARTER_FACES.tails, texture => configureTexture(texture, renderer));
+    const headsTexture = textureLoader.load(QUARTER_FACES.heads, texture => configureTexture(texture, renderer, compact));
+    const tailsTexture = textureLoader.load(QUARTER_FACES.tails, texture => configureTexture(texture, renderer, compact));
 
-    const faceGeometry = new THREE.CircleGeometry(radius * 0.982, 192);
+    const faceGeometry = new THREE.CircleGeometry(radius * 0.982, radialSegments);
     const faceBase = {
       color: 0xf7f8f9,
       metalness: 0.68,
@@ -94,8 +102,8 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
       envMapIntensity: 0.9,
     } as const;
 
-    // The real coin photography supplies the exact relief artwork. Reusing the
-    // image as a subtle bump map gives the engraving visible depth in motion.
+    // The real photography supplies the actual relief artwork. Reusing each
+    // face as a shallow bump map makes the engraving react to studio lighting.
     const headsMaterial = new THREE.MeshPhysicalMaterial({
       ...faceBase,
       map: headsTexture,
@@ -111,14 +119,12 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
 
     const heads = new THREE.Mesh(faceGeometry, headsMaterial);
     heads.position.z = halfThickness + 0.025;
-    heads.castShadow = true;
     coin.add(heads);
 
     const tailsGeometry = faceGeometry.clone();
     const tails = new THREE.Mesh(tailsGeometry, tailsMaterial);
     tails.position.z = -(halfThickness + 0.025);
     tails.rotation.y = Math.PI;
-    tails.castShadow = true;
     coin.add(tails);
 
     const edgeMaterial = new THREE.MeshPhysicalMaterial({
@@ -128,14 +134,14 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
       clearcoat: 0.2,
       clearcoatRoughness: 0.28,
     });
-    const edgeGeometry = new THREE.CylinderGeometry(radius, radius, QUARTER_THICKNESS_MM, 192, 2, false);
+    const edgeGeometry = new THREE.CylinderGeometry(radius, radius, QUARTER_THICKNESS_MM, radialSegments, 1, false);
     const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
     edge.rotation.x = Math.PI / 2;
-    edge.castShadow = true;
     coin.add(edge);
 
-    // Raised outer rims keep the model from reading like two flat photos.
-    const rimGeometry = new THREE.TorusGeometry(radius * 0.972, 0.13, 8, 192);
+    // Raised rims preserve the physical silhouette and make the 1.75 mm edge
+    // thickness visible at the oblique camera angle.
+    const rimGeometry = new THREE.TorusGeometry(radius * 0.972, 0.13, compact ? 6 : 8, radialSegments);
     const rimMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xd5d8dc,
       metalness: 0.96,
@@ -145,11 +151,13 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
     const frontRim = new THREE.Mesh(rimGeometry, rimMaterial);
     frontRim.position.z = halfThickness + 0.055;
     coin.add(frontRim);
-    const backRim = new THREE.Mesh(rimGeometry.clone(), rimMaterial);
+    const backRimGeometry = rimGeometry.clone();
+    const backRim = new THREE.Mesh(backRimGeometry, rimMaterial);
     backRim.position.z = -(halfThickness + 0.055);
     coin.add(backRim);
 
-    // Exactly 119 visible reeds around the edge, matching the Mint spec.
+    // Keep every one of the Mint-spec 119 reeds. Instancing makes them a single
+    // draw call, so authenticity does not require 119 independent meshes.
     const reedGeometry = new THREE.BoxGeometry(0.14, 0.58, QUARTER_THICKNESS_MM * 1.045);
     const reedMaterial = new THREE.MeshStandardMaterial({
       color: 0x8f959b,
@@ -172,8 +180,8 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
     reeds.instanceMatrix.needsUpdate = true;
     coin.add(reeds);
 
-    // Soft studio lighting: bright enough to read the engraving without
-    // turning the quarter into chrome.
+    // A small fixed studio-light rig gives readable relief and realistic metal
+    // without environment maps or dynamic shadows.
     scene.add(new THREE.HemisphereLight(0xffffff, 0x4c535a, 2.2));
     const key = new THREE.DirectionalLight(0xffffff, 5.2);
     key.position.set(-14, 18, 26);
@@ -194,7 +202,8 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
       opacity: 0.14,
       depthWrite: false,
     });
-    const shadow = new THREE.Mesh(new THREE.CircleGeometry(radius * 0.9, 96), shadowMaterial);
+    const shadowGeometry = new THREE.CircleGeometry(radius * 0.9, shadowSegments);
+    const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
     shadow.scale.set(1, 0.18, 1);
     shadow.position.set(0, -(radius + 2.2), -2.5);
     scene.add(shadow);
@@ -216,12 +225,13 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
         const duration = prefersReducedMotion ? 650 : 1850;
         const elapsed = Math.max(0, Date.now() - serverStart);
         const t = THREE.MathUtils.clamp(elapsed / duration, 0, 1);
-        const seed = Math.abs(Math.sin(serverStart * 0.000137));
-        const flipTurns = prefersReducedMotion ? 1 : 7 + Math.floor(seed * 3);
-        const yawTurns = prefersReducedMotion ? 0.25 : 1.5 + seed * 1.5;
+        // This timestamp-derived value changes only the choreography. It can
+        // never choose heads/tails: `target` came from the authoritative room.
+        const motionSeed = Math.abs(Math.sin(serverStart * 0.000137));
+        const flipTurns = prefersReducedMotion ? 1 : 7 + Math.floor(motionSeed * 3);
+        const yawTurns = prefersReducedMotion ? 0.25 : 1.5 + motionSeed * 1.5;
         const travelT = Math.min(1, t / 0.78);
 
-        // Ballistic lift, then a short cushioned landing instead of a flat CSS flip.
         const lift = 4 * travelT * (1 - travelT) * (prefersReducedMotion ? 2.2 : 7.2);
         const landingBounce = t > 0.78
           ? Math.sin(((t - 0.78) / 0.22) * Math.PI * 2) * (1 - t) * 1.1
@@ -236,8 +246,8 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
         );
         flightQuaternion.setFromEuler(flightEuler);
 
-        // End upright on the exact server-selected face. Y=PI exposes tails
-        // without turning the reverse artwork upside-down.
+        // End upright on exactly the face stored by the server. Y=PI exposes
+        // tails without turning the reverse artwork upside-down.
         targetEuler.set(-0.08, target === 'heads' ? 0.12 : Math.PI + 0.12, target === 'heads' ? 0.015 : -0.015, 'XYZ');
         targetQuaternion.setFromEuler(targetEuler);
         const settle = smoothstep(0.72, 1, t);
@@ -260,8 +270,8 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
         shadow.scale.set(1, 0.18, 1);
         shadowMaterial.opacity = 0.14;
       } else {
-        // Before a toss, slowly present the real coin at an angle that exposes
-        // both the relief and the reeded edge.
+        // Before a toss, slowly present the physical coin at an angle that
+        // exposes face relief, edge thickness, and reeds.
         coin.rotation.x = -0.11 + Math.sin(idleSeconds * 0.7) * 0.025;
         coin.rotation.y = 0.26 + Math.sin(idleSeconds * 0.5) * 0.07;
         coin.rotation.z = Math.sin(idleSeconds * 0.45) * 0.025;
@@ -300,9 +310,9 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
       tailsGeometry.dispose();
       edgeGeometry.dispose();
       rimGeometry.dispose();
-      backRim.geometry.dispose();
+      backRimGeometry.dispose();
       reedGeometry.dispose();
-      shadow.geometry.dispose();
+      shadowGeometry.dispose();
       element.replaceChildren();
     };
   }, []);
@@ -314,7 +324,7 @@ export default function Quarter3D({ result, flippedAt = null, className = '' }: 
         className={`qqurz-quarter-3d ${className}`.trim()}
         aria-label="Three-dimensional 2021 U.S. Washington Crossing the Delaware quarter"
       />
-      <small className="qqurz-quarter-spec">Real 2021 quarter · 24.26 mm × 1.75 mm · 119 reeds</small>
+      <small className="qqurz-quarter-spec">2021 U.S. quarter · 24.26 mm × 1.75 mm · 119 reeds</small>
     </div>
   );
 }
