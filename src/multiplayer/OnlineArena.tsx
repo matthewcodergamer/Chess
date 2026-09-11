@@ -15,6 +15,7 @@ import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/cloc
 import { playChessSound } from '../ui/sound';
 import { motionTokenMs, useReducedMotion } from '../ui/motion';
 import { createCheckout, loadTournamentCatalog, type PaymentMode } from '../tournaments/client';
+import WalletPanel from '../payments/WalletPanel';
 import { connectRoom, createRoom, joinRoom, multiplayerConfigured, type RoomConnection, type RoomConnectionStatus } from './client';
 import type { CoinFace, RoomSeat, RoomSnapshot, ServerEvent } from './types';
 import { authoritativeRoomSession } from './session';
@@ -358,6 +359,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   if (!seat) return (
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
       <div className="online-lobby-heading"><div><span className="eyebrow">ONLINE MULTIPLAYER</span><h3>{variant === 'tournament' ? 'Enter the QQURZ tournament room' : 'Play across different internet connections'}</h3><p>Create or join a six-character room. QQURZ keeps color selection, the authoritative quarter toss, shared Chess960 position and clock state on the server.</p></div><span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>{multiplayerConfigured ? 'Server configured' : 'Backend connection required'}</span></div>
+      <WalletPanel />
       <label className="online-field"><span>Your display name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
       <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : undefined} allowCustom={variant !== 'tournament'} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
       <div className="online-actions-grid"><button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy}>{busy ? 'Working…' : 'Create private room'}</button><div className="join-room-box"><input value={roomCode} onChange={event => setRoomCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} placeholder="ROOM CODE"/><button onClick={join} disabled={!multiplayerConfigured || busy}>Join</button></div></div>
