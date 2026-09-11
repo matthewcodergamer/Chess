@@ -316,10 +316,18 @@ export class ChessRoom extends DurableObject<Env> {
       if (this.room.session.state !== 'COUNTDOWN' || !this.room.players.black) return this.sendError(ws, 'The game cannot start yet.');
       this.startPlaying(Date.now()); await this.persist(); await this.scheduleForState(); this.broadcast(); return;
     }
+    if (payload.type === 'offer_draw') return void await this.handleDrawOffer(ws, color);
+    if (payload.type === 'accept_draw') return void await this.handleDrawAccept(ws, color);
+    if (payload.type === 'decline_draw') return void await this.handleDrawDecline(ws, color);
     if (payload.type === 'resign') {
-      if (this.room.session.state !== 'ACTIVE') return this.sendError(ws, 'There is no active game to resign.');
-      this.settleActiveClock(Date.now()); this.room.session.state = 'FINAL'; this.room.session.result = `${color === 'white' ? 'Black' : 'White'} wins by resignation`;
-      this.room.session.pendingClockPress = null; this.room.session.clocks.startedAt = null; this.room.lastActivityAt = Date.now();
+      if (!['ACTIVE', 'PAUSED', 'RECONNECTING'].includes(this.room.session.state)) return this.sendError(ws, 'There is no active game to resign.');
+      const now = Date.now();
+      if (this.room.session.state === 'ACTIVE') this.settleActiveClock(now);
+      if (this.room.session.resultKind === 'TIMEOUT') {
+        this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
+      }
+      this.room.session = reduceGameSession(this.room.session, { type: 'RESIGN', by: color, at: now });
+      this.room.lastActivityAt = now;
       await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }
     this.sendError(ws, 'Unknown command.');
@@ -584,6 +592,10 @@ export class ChessRoom extends DurableObject<Env> {
     const other = opposite(color);
     const now = Date.now();
     if (this.room.session.drawOffers[other]) {
+      this.settleActiveClock(now);
+      if (this.room.session.resultKind === 'TIMEOUT') {
+        this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
+      }
       this.room.session = reduceGameSession(this.room.session, { type: 'OFFER_DRAW', by: color, at: now });
       this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', kind: 'DRAW', text: 'Draw by agreement', winner: null, at: now });
       await this.ctx.storage.deleteAlarm();
@@ -597,6 +609,10 @@ export class ChessRoom extends DurableObject<Env> {
     const other = opposite(color);
     if (!this.room.session.drawOffers[other]) return this.sendError(ws, 'Your opponent has not offered a draw.');
     const now = Date.now();
+    this.settleActiveClock(now);
+    if (this.room.session.resultKind === 'TIMEOUT') {
+      this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
+    }
     this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', kind: 'DRAW', text: 'Draw by agreement', winner: null, at: now });
     this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast();
   }
