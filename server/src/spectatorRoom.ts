@@ -279,16 +279,16 @@ export class SpectatorChessRoom extends AuthoritativeChessRoom {
     await this.broadcastSpectators();
   }
 
-  override async webSocketClose(ws: WebSocket): Promise<void> {
-    const attachment = ws.deserializeAttachment() as ViewerAttachment | null;
+  override async webSocketClose(ws?: WebSocket): Promise<void> {
+    const attachment = ws?.deserializeAttachment() as ViewerAttachment | null | undefined;
     if (attachment?.role === 'spectator') return;
     await super.webSocketClose();
     await this.recordTournamentResultIfNeeded();
     await this.broadcastSpectators();
   }
 
-  override async webSocketError(ws: WebSocket): Promise<void> {
-    const attachment = ws.deserializeAttachment() as ViewerAttachment | null;
+  override async webSocketError(ws?: WebSocket): Promise<void> {
+    const attachment = ws?.deserializeAttachment() as ViewerAttachment | null | undefined;
     if (attachment?.role === 'spectator') return;
     await super.webSocketError();
     await this.recordTournamentResultIfNeeded();
