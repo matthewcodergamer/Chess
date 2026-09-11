@@ -1,0 +1,77 @@
+/* QQURZ design tokens: the single source of truth for color, spacing, shape and elevation. */
+:root{
+  color-scheme:dark;
+  --q-font-scale:1;
+  --q-bg:#312e2b;
+  --q-surface:#262522;
+  --q-surface-2:#3a3835;
+  --q-surface-3:#45423e;
+  --q-text:#f2f0ec;
+  --q-muted:#b9b6b0;
+  --q-subtle:#908d87;
+  --q-line:rgba(255,255,255,.09);
+  --q-line-strong:rgba(255,255,255,.16);
+  --q-accent:#81b64c;
+  --q-accent-strong:#9dcc68;
+  --q-accent-soft:rgba(129,182,76,.14);
+  --q-danger:#d66d63;
+  --q-warning:#d7a75a;
+  --q-board-light:#ead6ac;
+  --q-board-dark:#9a6b48;
+  --q-board-frame:#4d3222;
+  --q-radius-xs:8px;
+  --q-radius-sm:12px;
+  --q-radius-md:18px;
+  --q-radius-lg:24px;
+  --q-radius-xl:34px;
+  --q-shadow-soft:0 10px 30px rgba(0,0,0,.16);
+  --q-shadow-float:0 24px 70px rgba(0,0,0,.28);
+  --q-shadow-board:0 18px 50px rgba(0,0,0,.28);
+  --q-space-1:4px;
+  --q-space-2:8px;
+  --q-space-3:12px;
+  --q-space-4:16px;
+  --q-space-5:20px;
+  --q-space-6:24px;
+  --q-space-8:32px;
+  --q-space-10:40px;
+  --q-space-12:48px;
+  --q-content:1120px;
+  --q-header-h:76px;
+  --chess-display:ui-serif,"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
+  --chess-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+}
+:root[data-theme='light']{
+  color-scheme:light;
+  --q-bg:#eee9df;
+  --q-surface:#faf7f0;
+  --q-surface-2:#e7e0d4;
+  --q-surface-3:#d9d0c1;
+  --q-text:#1f1d1a;
+  --q-muted:#6d6962;
+  --q-subtle:#918b82;
+  --q-line:rgba(42,37,30,.10);
+  --q-line-strong:rgba(42,37,30,.18);
+  --q-accent:#5f8f3f;
+  --q-accent-strong:#476c31;
+  --q-accent-soft:rgba(95,143,63,.12);
+  --q-danger:#b54d45;
+  --q-warning:#9b6b27;
+  --q-shadow-soft:0 10px 30px rgba(42,37,30,.07);
+  --q-shadow-float:0 24px 70px rgba(42,37,30,.13);
+  --q-shadow-board:0 18px 50px rgba(61,43,29,.20);
+}
+:root[data-font-scale='large']{--q-font-scale:1.10}
+:root[data-font-scale='extra']{--q-font-scale:1.22}
+
+*{box-sizing:border-box}
+html{min-width:320px;min-height:100%;font-size:calc(16px * var(--q-font-scale));background:var(--q-bg);scroll-behavior:smooth}
+body,#root{margin:0;min-width:320px;min-height:100%;background:var(--q-bg);color:var(--q-text)}
+body{min-height:100vh;min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select,textarea{font:inherit;color:inherit}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button:not(:disabled){cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.45}
+img,canvas,svg{max-width:100%}
+::selection{background:color-mix(in srgb,var(--q-accent) 28%,transparent)}
+.qqurz-product-system,.qqurz-app-v24{min-height:100dvh;width:100%;max-width:100%;overflow-x:clip;background:var(--q-bg);color:var(--q-text)}
