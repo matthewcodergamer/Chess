@@ -68,13 +68,13 @@ export class CompetitionPaymentLedger extends PaymentLedger {
     return this as unknown as { ctx: DurableObjectState; env: PaymentLedgerEnv };
   }
 
-  private internalAuthorized(request: Request): boolean {
+  private tournamentInternalAuthorized(request: Request): boolean {
     const secret = this.ledgerInternals().env.PAYMENTS_INTERNAL_SECRET ?? '';
     return Boolean(secret) && request.headers.get('x-payments-internal') === secret;
   }
 
   private async settleTournament(request: Request): Promise<Response> {
-    if (!this.internalAuthorized(request)) return json({ error: 'Unauthorized payment subsystem call.' }, 401);
+    if (!this.tournamentInternalAuthorized(request)) return json({ error: 'Unauthorized payment subsystem call.' }, 401);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const contestId = clean(body.contestId, 180);
     const holdIds = Array.isArray(body.holdIds) ? body.holdIds.map(value => clean(value, 80)).filter(Boolean) : [];
