@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/migrate-server-session.mjs'
+      - 'scripts/fix-generated-server-session.mjs'
       - '.github/workflows/migrate-server-session.yml'
 
 permissions:
@@ -26,7 +27,9 @@ jobs:
         run: npm install --no-audit --no-fund
         working-directory: server
       - name: Apply realtime session migration
-        run: node scripts/migrate-server-session.mjs
+        run: |
+          node scripts/migrate-server-session.mjs
+          node scripts/fix-generated-server-session.mjs
       - name: Typecheck realtime server
         run: npm run check
         working-directory: server
