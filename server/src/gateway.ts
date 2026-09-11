@@ -2,12 +2,15 @@ import baseHandler from './index';
 import { AccountRegistry, handleAccountRequest, type AccountEnv } from './accounts';
 import { handleMatchmakerRequest, Matchmaker, type MatchmakerEnv } from './matchmaker';
 import { handleTournamentRequest, type TournamentEnv } from './tournaments';
-import { handleSpectatorRoomRequest, SpectatorChessRoom as ChessRoom, type SpectatorRoomEnv } from './spectatorRoom';
-import { handleTournamentViewingRequest, ViewingTournamentRegistry as TournamentRegistry, type TournamentViewingEnv } from './tournamentViewing';
+import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRoom';
+import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
+import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
+import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngineRegistry';
+import { TournamentChessRoom as ChessRoom } from './tournamentRoom';
 
 export { AccountRegistry, ChessRoom, Matchmaker, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & {
+type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   ALLOWED_ORIGINS?: string;
@@ -31,9 +34,7 @@ function withCors(request: Request, response: Response, env: Env): Response {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') {
-      return withCors(request, new Response(null, { status: 204 }), env);
-    }
+    if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
 
     const accountResponse = await handleAccountRequest(request, env);
     if (accountResponse) return withCors(request, accountResponse, env);
@@ -41,19 +42,18 @@ export default {
     const matchmakerResponse = await handleMatchmakerRequest(request, env);
     if (matchmakerResponse) return withCors(request, matchmakerResponse, env);
 
+    const engineResponse = await handleTournamentEngineRequest(request, env);
+    if (engineResponse) return withCors(request, engineResponse, env);
+
     const tournamentViewingResponse = await handleTournamentViewingRequest(request, env);
     if (tournamentViewingResponse) return withCors(request, tournamentViewingResponse, env);
 
-    // Runtime TOURNAMENTS is the viewing-aware subclass. The existing catalog
-    // handler only needs the Durable Object namespace fetch surface.
     const tournamentResponse = await handleTournamentRequest(request, env as unknown as TournamentEnv);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
 
     const spectatorRoomResponse = await handleSpectatorRoomRequest(request, env);
     if (spectatorRoomResponse) return withCors(request, spectatorRoomResponse, env);
 
-    // Runtime ROOMS is the spectator-aware subclass of AuthoritativeChessRoom.
-    // The base HTTP router only needs the Durable Object namespace fetch surface.
     return baseHandler.fetch(request, env as unknown as BaseHandlerEnv);
   },
 } satisfies ExportedHandler<Env>;
