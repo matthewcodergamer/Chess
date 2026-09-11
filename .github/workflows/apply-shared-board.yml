@@ -1,0 +1,29 @@
+name: Apply shared Chessground renderer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply-shared-board.mjs'
+      - '.github/workflows/apply-shared-board.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply shared renderer migration
+        run: node scripts/apply-shared-board.mjs
+      - name: Commit renderer migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/LocalGame.tsx src/multiplayer/OnlineArena.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Use shared Chessground renderer for active boards"
+          git push origin main
