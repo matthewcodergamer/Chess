@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 
+// One-time migration: active 2D board views must all mount the same Chessground surface.
 function replaceRequired(source, search, replacement, label) {
   if (!source.includes(search)) throw new Error(`Missing migration target: ${label}`);
   return source.replace(search, replacement);
