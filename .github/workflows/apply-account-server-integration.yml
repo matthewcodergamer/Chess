@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/apply-account-server-integration.mjs'
+      - 'scripts/fix-account-integration-typecheck.mjs'
       - '.github/workflows/apply-account-server-integration.yml'
 
 permissions:
@@ -18,7 +19,9 @@ jobs:
         with:
           ref: main
       - name: Apply account integration
-        run: node scripts/apply-account-server-integration.mjs
+        run: |
+          node scripts/apply-account-server-integration.mjs
+          node scripts/fix-account-integration-typecheck.mjs
       - name: Install shared dependencies
         run: npm install --no-audit --no-fund
       - name: Install realtime dependencies
@@ -31,7 +34,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add server/src/index.ts server/src/tournaments.ts
+          git add server/src/accounts.ts server/src/index.ts server/src/tournaments.ts
           git diff --cached --quiet && exit 0
           git commit -m "Bind accounts to online games and tournaments"
           git push origin main
