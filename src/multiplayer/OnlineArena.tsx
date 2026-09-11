@@ -66,7 +66,6 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const colorBidCelebrated = useRef(false);
   const lastMoveSoundCount = useRef(0);
   const lastCoinResult = useRef<CoinFace | null>(null);
-  const lastAwaitingPress = useRef<'white' | 'black' | null>(null);
   const lastResult = useRef<string | null>(null);
 
   const params = new URLSearchParams(location.search);
@@ -223,8 +222,6 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
       playChessSound('coin');
       lastCoinResult.current = snapshot.coin.result;
     }
-    if (lastAwaitingPress.current && !snapshot.awaitingClockPress) playChessSound('slap');
-    lastAwaitingPress.current = snapshot.awaitingClockPress;
     if (snapshot.result && snapshot.result !== lastResult.current) {
       playChessSound('win');
       lastResult.current = snapshot.result;
