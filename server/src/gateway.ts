@@ -9,6 +9,7 @@ import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngi
 import { CoinGateChessRoom as ChessRoom } from './coinGateRoom';
 import { PaymentLedger } from './paymentLedger';
 import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
+import { handlePaymentComplianceWebhook } from './paymentCompliance';
 
 export { AccountRegistry, ChessRoom, Matchmaker, PaymentLedger, TournamentRegistry };
 
@@ -17,6 +18,7 @@ type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv 
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   PAYMENTS: DurableObjectNamespace<PaymentLedger>;
   ALLOWED_ORIGINS?: string;
+  PAYMENTS_COMPLIANCE_WEBHOOK_SECRET?: string;
 };
 
 type BaseHandlerEnv = Parameters<typeof baseHandler.fetch>[1];
@@ -38,6 +40,9 @@ function withCors(request: Request, response: Response, env: Env): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
+
+    const complianceResponse = await handlePaymentComplianceWebhook(request, env);
+    if (complianceResponse) return withCors(request, complianceResponse, env);
 
     const paymentResponse = await handlePaymentRequest(request, env);
     if (paymentResponse) return withCors(request, paymentResponse, env);
