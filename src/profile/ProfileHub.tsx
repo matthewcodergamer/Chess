@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PrimaryButton, SecondaryButton, SegmentedControl } from '../ui/controls';
 import { playChessSound } from '../ui/sound';
 
 type Props = { onBack: () => void };
@@ -10,7 +11,7 @@ type Profile = {
 };
 
 const PROFILE_KEY = 'qqurz:profile';
-const AVATARS = ['♟', '♞', '♜', '♝', '♛', '♚', '960', 'Q'];
+const AVATARS = ['♟', '♞', '♜', '♝', '♛', '♚', '960', 'Q'] as const;
 const FIRST = ['Rapid', 'Quiet', 'Royal', 'Green', 'Park', 'Knight', 'Castle', 'Tempo', 'Sharp', 'Freestyle'];
 const SECOND = ['Rook', 'Pawn', 'Bishop', 'Knight', 'Queen', 'Gambit', 'Clock', 'Hustler', 'File', 'Fork'];
 
@@ -33,7 +34,7 @@ function loadProfile(): Profile | null {
 export default function ProfileHub({ onBack }: Props) {
   const initial = useMemo(loadProfile, []);
   const [username, setUsername] = useState(initial?.username ?? randomUsername());
-  const [avatar, setAvatar] = useState(initial?.avatar ?? '♞');
+  const [avatar, setAvatar] = useState<string>(initial?.avatar ?? '♞');
   const [saved, setSaved] = useState(Boolean(initial));
 
   const save = () => {
@@ -45,10 +46,12 @@ export default function ProfileHub({ onBack }: Props) {
     playChessSound('start');
   };
 
+  const avatarOptions = AVATARS.map(icon => ({ value: icon, label: icon, ariaLabel: `Use ${icon} as your chess icon` }));
+
   return (
     <div className="profile-page qqurz-content-page">
       <section className="page-heading-v14 compact">
-        <button className="text-back" onClick={onBack}>← Home</button>
+        <SecondaryButton size="sm" leadingIcon="←" onClick={onBack}>Home</SecondaryButton>
         <span className="qqurz-kicker">QQURZ PROFILE</span>
         <h1>{saved ? `Welcome, ${username}.` : 'Create your player profile.'}</h1>
         <p>Choose a chess identity for rooms and tournaments. This first version is stored on this device; secure cloud sign-in and cash wallet funding come next.</p>
@@ -57,19 +60,26 @@ export default function ProfileHub({ onBack }: Props) {
       <section className="profile-card">
         <div className="profile-preview"><div className="profile-avatar large">{avatar}</div><div><span>PLAYER</span><strong>{username || 'Choose a username'}</strong><small>{saved ? 'Profile saved on this device' : 'Not saved yet'}</small></div></div>
         <label className="profile-field"><span>Username</span><input value={username} maxLength={24} onChange={event => { setUsername(event.target.value); setSaved(false); }} /></label>
-        <button className="secondary-clean profile-random" onClick={() => { setUsername(randomUsername()); setSaved(false); }}>Generate random username</button>
+        <SecondaryButton fullWidth onClick={() => { setUsername(randomUsername()); setSaved(false); }}>Generate random username</SecondaryButton>
 
         <div className="profile-avatar-picker">
           <span>Chess icon</span>
-          <div>{AVATARS.map(icon => <button key={icon} className={avatar === icon ? 'selected' : ''} onClick={() => { setAvatar(icon); setSaved(false); }}><span>{icon}</span></button>)}</div>
+          <SegmentedControl
+            value={avatar}
+            options={avatarOptions}
+            onChange={value => { setAvatar(value); setSaved(false); }}
+            ariaLabel="Chess icon"
+            size="md"
+            className="profile-avatar-segments"
+          />
         </div>
 
-        <button className="primary-black" onClick={save}>{saved ? 'Save changes' : 'Create profile'}</button>
+        <PrimaryButton fullWidth size="lg" onClick={save}>{saved ? 'Save changes' : 'Create profile'}</PrimaryButton>
       </section>
 
       <section className="wallet-card">
         <div><span className="qqurz-kicker">WALLET</span><h2>$0.00</h2><p>Real cash balances are not stored in the browser. Funding will be enabled only after secure account identity, server ledger, payment-provider controls, withdrawals and compliance checks are wired together.</p></div>
-        <button disabled>Add money · coming next</button>
+        <SecondaryButton disabled>Add money · coming next</SecondaryButton>
       </section>
 
       <section className="profile-roadmap">
