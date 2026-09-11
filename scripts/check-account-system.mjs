@@ -6,8 +6,11 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const errors = [];
 
 const server = read('server/src/accounts.ts');
+const rating = read('server/src/rating.ts');
+const timeControls = read('shared/timeControl.ts');
 const client = read('src/account/client.ts');
 const ui = read('src/profile/ProfileHub.tsx');
+const ratingUi = read('src/profile/RatingIdentity.tsx');
 const rooms = read('server/src/index.ts');
 const matchmaking = read('server/src/matchmaker.ts');
 const tournaments = read('server/src/tournaments.ts');
@@ -26,8 +29,26 @@ for (const securityMarker of ['PBKDF2', 'SHA-256', 'PBKDF2_ITERATIONS', 'tokenHa
   if (!server.includes(securityMarker)) errors.push(`Account security implementation is missing ${securityMarker}.`);
 }
 
-for (const modelMarker of ['chess960Rating', 'gameHistory', 'tournamentHistory', 'trophies', 'blockedPlayerIds', 'notifications', 'privacy', 'sessions']) {
+for (const modelMarker of ['ratingModel', 'chess960Ratings', 'ratingClass', 'ratingDeviationBefore', 'ratingDeviationAfter', 'gameHistory', 'tournamentHistory', 'trophies', 'blockedPlayerIds', 'notifications', 'privacy', 'sessions']) {
   if (!server.includes(modelMarker)) errors.push(`Account model is missing ${modelMarker}.`);
+}
+
+for (const glickoMarker of ['GLICKO2_SCALE', 'DEFAULT_DEVIATION', 'DEFAULT_VOLATILITY', 'nextVolatility', 'rateGlicko2', 'provisional', 'lastRatedAt']) {
+  if (!rating.includes(glickoMarker)) errors.push(`Glicko-2 implementation is missing ${glickoMarker}.`);
+}
+for (const ratingClass of ['rapid', 'blitz', 'bullet']) {
+  if (!server.includes(`${ratingClass}:`) || !client.includes(`'${ratingClass}'`) || !ratingUi.includes(`${ratingClass}:`)) {
+    errors.push(`Chess960 ${ratingClass} rating is not wired through server, client and profile UI.`);
+  }
+}
+if (!timeControls.includes('ratingClassForTimeControl') || !server.includes('ratingClassForTimeControl')) {
+  errors.push('Rated games are not classified by authoritative time control.');
+}
+if (!server.includes('rateGlicko2(whiteBefore, blackBefore') || !server.includes('rateGlicko2(blackBefore, whiteBefore')) {
+  errors.push('Both players must be rated from the same pre-game Glicko-2 snapshot.');
+}
+if (server.includes('const K = 32') || server.includes('this.expected(')) {
+  errors.push('Legacy manual Elo/K-factor rating increments must not be used.');
 }
 
 for (const clientMethod of ['registerAccount', 'loginAccount', 'logoutAccount', 'forgotPassword', 'verifyEmail', 'deleteAccount', 'listAccountSessions', 'listBlockedPlayers']) {
@@ -36,6 +57,9 @@ for (const clientMethod of ['registerAccount', 'loginAccount', 'logoutAccount', 
 
 for (const uiMarker of ['GAME HISTORY', 'TOURNAMENT HISTORY', 'TROPHY CABINET', 'NOTIFICATIONS', 'PRIVACY', 'BLOCKED PLAYERS', 'SESSIONS & DEVICES', 'Delete my account']) {
   if (!ui.includes(uiMarker)) errors.push(`Account center is missing ${uiMarker}.`);
+}
+for (const identityMarker of ['CHESS960 RATINGS', 'Competitive identity', 'Glicko-2', 'Provisional', 'RD ']) {
+  if (!ratingUi.includes(identityMarker)) errors.push(`Chess-first rating identity is missing ${identityMarker}.`);
 }
 
 if (!rooms.includes('resolveAccountSession') || !rooms.includes('recordAccountGame') || !rooms.includes('accountResultRecordedAt')) {
@@ -58,4 +82,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ account system OK: ordinary auth, recovery, profiles, ratings/history, privacy, blocks, sessions and deletion are wired; social login remains gated.');
+console.log('QQURZ account system OK: server-owned profiles use separate Chess960 Rapid, Blitz and Bullet Glicko-2 ratings with RD/provisional state; auth, history, privacy, blocks, sessions and deletion remain wired.');
