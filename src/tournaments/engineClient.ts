@@ -5,6 +5,7 @@ import type { RoomSeat } from '../multiplayer/types';
 export type EngineTournamentFormat = 'single_elimination' | 'swiss' | 'round_robin';
 export type EngineTournamentStatus = 'registration' | 'check_in' | 'seeding' | 'round_active' | 'between_rounds' | 'completed' | 'cancelled';
 export type EngineTieBreak = 'direct_encounter' | 'buchholz' | 'sonneborn_berger' | 'wins' | 'rating' | 'seed';
+export type EngineMoneyStatus = 'registration' | 'active' | 'settled' | 'released' | 'settlement_error';
 
 export type EngineTournamentSummary = {
   id: string;
@@ -19,6 +20,8 @@ export type EngineTournamentSummary = {
   checkedIn: number;
   createdAt: number;
   updatedAt: number;
+  entryFeeCents?: number;
+  moneyStatus?: EngineMoneyStatus;
 };
 
 export type EngineStanding = {
@@ -78,6 +81,8 @@ export type EngineTournamentDetail = EngineTournamentSummary & {
   completedAt: number | null;
   schedule: { registrationClosesAt: number; checkInOpensAt: number; checkInClosesAt: number; startDeadline: number };
   serverNow: number;
+  platformFeeBps?: number;
+  moneySettlementError?: string | null;
 };
 
 export type EngineTournamentDefinition = {
@@ -92,6 +97,7 @@ export type EngineTournamentDefinition = {
     minRating?: number | null;
     maxRating?: number | null;
     registrationClosesBeforeStartMs: number;
+    entryFeeCents?: number;
   };
   checkInRules: { required: boolean; opensBeforeStartMs: number; closesAfterStartMs: number };
   timeControl: { baseMs: number; incrementMs: number };
