@@ -222,7 +222,13 @@ function transition(session: GameSessionModel, to: GameSessionState, at: number)
   return {
     ...session,
     state: to,
-    clocks: { ...session.clocks, startedAt: to === 'ACTIVE' ? at : null },
+    clocks: {
+      ...session.clocks,
+      // Reconnecting is not a pause. Preserve the authoritative start point so
+      // reconnects can never manufacture clock time. ACTIVE only starts a new
+      // interval when there is no running interval to preserve.
+      startedAt: to === 'ACTIVE' ? (session.clocks.startedAt ?? at) : to === 'RECONNECTING' ? session.clocks.startedAt : null,
+    },
     updatedAt: at,
     finalizedAt: to === 'FINAL' ? at : session.finalizedAt,
   };

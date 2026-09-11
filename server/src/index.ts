@@ -53,8 +53,8 @@ type Env = {
 
 const STRATEGY_MS = 2 * 60 * 1000;
 const COIN_SHOW_MS = 2800;
-const LATENCY_CREDIT_CAP_MS = 75;
-const LATENCY_CREDIT_FRACTION = .05;
+const LATENCY_CREDIT_CAP_MS = 50;
+const LATENCY_CREDIT_FRACTION = .03;
 const LATENCY_SAMPLE_MAX_AGE_MS = 30_000;
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BID_VALUES = new Set([200, 500]);
@@ -672,7 +672,10 @@ export class ChessRoom extends DurableObject<Env> {
     if (!this.room) return;
     if (!canColorMove(this.room.session, color)) return this.sendError(ws, this.room.session.pendingClockPress ? 'The previous move is waiting for a clock press.' : 'The game is not accepting that move.');
     const serverReceivedAt = Date.now();
-    const settled = this.settleActiveClock(serverReceivedAt, token);
+    // A move does not receive lag credit because the physical clock keeps
+    // running until its authoritative clock press. Credit is applied once, at
+    // that press, preventing repeated move/invalid-message lag farming.
+    const settled = this.settleActiveClock(serverReceivedAt);
     if (this.room.session.resultKind === 'TIMEOUT') {
       this.room.lastActivityAt = serverReceivedAt; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }

@@ -19,7 +19,7 @@ import { connectRoom, createRoom, joinRoom, multiplayerConfigured } from './clie
 import type { CoinFace, RoomSeat, RoomSnapshot, ServerEvent } from './types';
 import { authoritativeRoomSession } from './session';
 import { canColorMove, canLeaveGameSession, canOfferDraw, canResignGameSession, clockOwner, isTerminalGameState } from '../../shared/gameSession';
-import { TIME_CONTROL_PRESETS, TOURNAMENT_TIME_TEMPLATES, createCustomTimeControl, timeControlLabel, type TimeControl, type TimeControlPresetId, type TournamentTimeTemplateId } from '../../shared/timeControl';
+import { TIME_CONTROL_PRESETS, TOURNAMENT_TIME_TEMPLATES, normalizeTimeControl, timeControlLabel, type TimeControl, type TimeControlPresetId, type TournamentTimeTemplateId } from '../../shared/timeControl';
 
 type PromotionLetter = 'q' | 'r' | 'b' | 'n';
 type DesiredColor = 'white' | 'black';
@@ -62,7 +62,7 @@ function tournamentTimePolicy(): { templateId: TournamentTimeTemplateId; allowed
       : fallback;
     const allowed = (selected?.allowedTimeControls ?? template.allowedControls).filter((id): id is TimeControlPresetId => id in TIME_CONTROL_PRESETS);
     const control = selected?.baseMinutes !== undefined
-      ? createCustomTimeControl(selected.baseMinutes, selected.incrementSeconds ?? 0)
+      ? normalizeTimeControl({ baseMs: selected.baseMinutes * 60_000, incrementMs: (selected.incrementSeconds ?? 0) * 1_000 }, template.defaultControl)
       : { ...TIME_CONTROL_PRESETS[template.defaultControl] };
     return { templateId: template.id, allowed: allowed.length ? allowed : [...template.allowedControls], control };
   } catch { return { templateId: fallback.id, allowed: [...fallback.allowedControls], control: { ...TIME_CONTROL_PRESETS[fallback.defaultControl] } }; }
