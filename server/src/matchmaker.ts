@@ -248,6 +248,11 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
         record.roomCode ??= null;
         record.region ??= { ...DEFAULT_REGION };
       }
+      // Match tickets are intentionally short-lived. Discard entries from the
+      // pre-criteria schema rather than guessing security-sensitive fields.
+      for (const [id, ticket] of Object.entries(this.state.tickets)) {
+        if (!ticket.criteria || !ticket.region || !Number.isFinite(ticket.rating)) delete this.state.tickets[id];
+      }
       this.prune(Date.now());
     });
   }
