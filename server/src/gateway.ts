@@ -1,13 +1,15 @@
 import baseHandler from './index';
-import { AuthoritativeChessRoom as ChessRoom } from './authoritativeRoom';
 import { AccountRegistry, handleAccountRequest, type AccountEnv } from './accounts';
 import { handleMatchmakerRequest, Matchmaker, type MatchmakerEnv } from './matchmaker';
-import { handleTournamentRequest, TournamentRegistry, type TournamentEnv } from './tournaments';
+import { handleTournamentRequest, type TournamentEnv } from './tournaments';
+import { handleSpectatorRoomRequest, SpectatorChessRoom as ChessRoom, type SpectatorRoomEnv } from './spectatorRoom';
+import { handleTournamentViewingRequest, ViewingTournamentRegistry as TournamentRegistry, type TournamentViewingEnv } from './tournamentViewing';
 
 export { AccountRegistry, ChessRoom, Matchmaker, TournamentRegistry };
 
-type Env = TournamentEnv & MatchmakerEnv & AccountEnv & {
+type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
+  TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   ALLOWED_ORIGINS?: string;
 };
 
@@ -39,12 +41,19 @@ export default {
     const matchmakerResponse = await handleMatchmakerRequest(request, env);
     if (matchmakerResponse) return withCors(request, matchmakerResponse, env);
 
-    const tournamentResponse = await handleTournamentRequest(request, env);
+    const tournamentViewingResponse = await handleTournamentViewingRequest(request, env);
+    if (tournamentViewingResponse) return withCors(request, tournamentViewingResponse, env);
+
+    // Runtime TOURNAMENTS is the viewing-aware subclass. The existing catalog
+    // handler only needs the Durable Object namespace fetch surface.
+    const tournamentResponse = await handleTournamentRequest(request, env as unknown as TournamentEnv);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
 
-    // Runtime ROOMS is the exported AuthoritativeChessRoom subclass. The base
-    // HTTP router only needs the Durable Object namespace's fetch surface, so
-    // bridge the nominal RPC generic at this one boundary.
+    const spectatorRoomResponse = await handleSpectatorRoomRequest(request, env);
+    if (spectatorRoomResponse) return withCors(request, spectatorRoomResponse, env);
+
+    // Runtime ROOMS is the spectator-aware subclass of AuthoritativeChessRoom.
+    // The base HTTP router only needs the Durable Object namespace fetch surface.
     return baseHandler.fetch(request, env as unknown as BaseHandlerEnv);
   },
 } satisfies ExportedHandler<Env>;
