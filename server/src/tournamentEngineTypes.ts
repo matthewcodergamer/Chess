@@ -212,7 +212,11 @@ export function pairingPosition(tournament: EngineTournament, round: EngineRound
 export function createTournamentDefinition(body: Record<string, unknown>, organizerAccountId: string, organizerName: string): EngineTournament {
   const now = Date.now();
   const format = normalizedFormat(body.format);
-  const capacity = clampInt(body.capacity, 2, format === 'round_robin' ? 16 : MAX_TOURNAMENT_CAPACITY, format === 'round_robin' ? 8 : 32);
+  const requestedCapacity = Math.floor(Number(body.capacity));
+  if (format === 'round_robin' && Number.isFinite(requestedCapacity) && requestedCapacity < 3) {
+    throw new Error('Round-robin tournaments require at least 3 players.');
+  }
+  const capacity = clampInt(body.capacity, format === 'round_robin' ? 3 : 2, format === 'round_robin' ? 16 : MAX_TOURNAMENT_CAPACITY, format === 'round_robin' ? 8 : 32);
   const startTime = Math.max(now + 60_000, Number(body.startTime) || now + 30 * 60_000);
   const entry = body.entryRules && typeof body.entryRules === 'object' ? body.entryRules as Record<string, unknown> : {};
   const check = body.checkInRules && typeof body.checkInRules === 'object' ? body.checkInRules as Record<string, unknown> : {};
