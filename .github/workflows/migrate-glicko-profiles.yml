@@ -1,0 +1,40 @@
+name: Migrate QQURZ Glicko profiles
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/migrate-glicko-profiles.mjs'
+      - '.github/workflows/migrate-glicko-profiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply Glicko profile migration
+        run: node scripts/migrate-glicko-profiles.mjs
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build frontend
+        run: npm run build
+      - name: Install realtime dependencies
+        working-directory: server
+        run: npm install --no-audit --no-fund
+      - name: Typecheck realtime server
+        working-directory: server
+        run: npm run check
+      - name: Commit Glicko profile migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server/src/accounts.ts src/profile/ProfileHub.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Use Glicko-2 for Chess960 player ratings"
+          git push origin main
