@@ -1,50 +1,153 @@
-/* QQURZ design tokens: the single source of truth for color, spacing, shape and elevation. */
+/*
+ * QQURZ design tokens.
+ * This file is the only place first-party CSS may define visual-system values.
+ * Feature styles consume these variables; they do not invent their own scales.
+ */
 :root{
   color-scheme:dark;
   --q-font-scale:1;
-  --q-bg:#312e2b;
-  --q-surface:#262522;
+
+  /* Spacing: strict 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 scale. */
+  --q-space-4:4px;
+  --q-space-8:8px;
+  --q-space-12:12px;
+  --q-space-16:16px;
+  --q-space-24:24px;
+  --q-space-32:32px;
+  --q-space-48:48px;
+  --q-space-64:64px;
+
+  /* Typography. Mobile body copy intentionally starts at 17px. */
+  --q-type-caption:.875rem;
+  --q-type-label-sm:.9375rem;
+  --q-type-label:1rem;
+  --q-type-body:1.0625rem;
+  --q-type-body-lg:1.125rem;
+  --q-type-action:1.25rem;
+  --q-type-action-lg:1.5rem;
+  --q-type-title:2rem;
+  --q-type-title-lg:2.75rem;
+  --q-type-display-page:clamp(3rem,7vw,5.2rem);
+  --q-type-display-hero:clamp(4rem,8vw,7.2rem);
+  --q-type-display-page-mobile:clamp(2.75rem,12vw,3.75rem);
+  --q-type-display-hero-mobile:clamp(2.85rem,14vw,4.6rem);
+  --q-type-section-mobile:clamp(2rem,10vw,3.25rem);
+  --q-leading-tight:1;
+  --q-leading-body:1.55;
+  --q-leading-copy:1.65;
+  --q-tracking-tight:-.04em;
+  --q-tracking-ui:-.012em;
+  --q-tracking-label:.08em;
+
+  /* Controls: only three standard interactive heights. */
+  --q-control-sm:48px;
+  --q-control-md:56px;
+  --q-control-lg:64px;
+
+  /* Shape. */
+  --q-radius-xs:8px;
+  --q-radius-sm:12px;
+  --q-radius-md:16px;
+  --q-radius-lg:24px;
+  --q-radius-xl:32px;
+  --q-radius-pill:999px;
+
+  /* Surfaces. */
+  --q-surface-canvas:#312e2b;
+  --q-surface-1:#262522;
   --q-surface-2:#3a3835;
   --q-surface-3:#45423e;
+  --q-surface-board-shell:#171714;
   --q-text:#f2f0ec;
+  --q-text-inverse:#ffffff;
+  --q-ink-inverse:#111111;
   --q-muted:#b9b6b0;
   --q-subtle:#908d87;
   --q-line:rgba(255,255,255,.09);
   --q-line-strong:rgba(255,255,255,.16);
-  --q-accent:#81b64c;
-  --q-accent-strong:#9dcc68;
-  --q-accent-soft:rgba(129,182,76,.14);
+
+  /* Primary green action system. */
+  --q-action:#81b64c;
+  --q-action-hover:#91c65a;
+  --q-action-active:#74a943;
+  --q-action-strong:#9dcc68;
+  --q-action-ink:#17200f;
+  --q-action-soft:rgba(129,182,76,.14);
+  --q-focus-ring:color-mix(in srgb,var(--q-action) 68%,white);
+
+  /* Semantic states. */
+  --q-success:#66b87c;
+  --q-success-strong:#8bd69c;
+  --q-success-soft:rgba(102,184,124,.15);
   --q-danger:#d66d63;
+  --q-danger-strong:#ec8a80;
+  --q-danger-soft:rgba(214,109,99,.14);
   --q-warning:#d7a75a;
-  --q-board-light:#ead6ac;
-  --q-board-dark:#9a6b48;
+  --q-warning-soft:rgba(215,167,90,.14);
+
+  /* Board palette. */
+  --q-board-light:#b98a5e;
+  --q-board-dark:#6f452a;
   --q-board-frame:#4d3222;
-  --q-radius-xs:8px;
-  --q-radius-sm:12px;
-  --q-radius-md:18px;
-  --q-radius-lg:24px;
-  --q-radius-xl:34px;
-  --q-shadow-soft:0 10px 30px rgba(0,0,0,.16);
-  --q-shadow-float:0 24px 70px rgba(0,0,0,.28);
-  --q-shadow-board:0 18px 50px rgba(0,0,0,.28);
-  --q-space-1:4px;
-  --q-space-2:8px;
-  --q-space-3:12px;
-  --q-space-4:16px;
-  --q-space-5:20px;
-  --q-space-6:24px;
-  --q-space-8:32px;
-  --q-space-10:40px;
-  --q-space-12:48px;
+  --q-board-legal:#46ae5c;
+  --q-board-legal-soft:rgba(70,174,92,.18);
+  --q-board-piece-light:#efebe2;
+  --q-board-piece-dark:#24231f;
+  --q-board-status-white:#ddd8ca;
+  --q-board-status-black:#6e6b63;
+
+  /* Overlay / modal system. */
+  --q-overlay-modal:rgba(0,0,0,.62);
+  --q-overlay-drawer:rgba(0,0,0,.58);
+  --q-overlay-board:rgba(18,18,16,.76);
+  --q-overlay-card:rgba(35,34,30,.94);
+  --q-overlay-control:rgba(255,255,255,.12);
+  --q-overlay-control-line:rgba(255,255,255,.24);
+  --q-overlay-copy:rgba(255,255,255,.80);
+  --q-blur-nav:22px;
+  --q-blur-overlay:8px;
+
+  /* Elevation. */
+  --q-elevation-1:0 10px 30px rgba(0,0,0,.16);
+  --q-elevation-2:0 18px 50px rgba(0,0,0,.24);
+  --q-elevation-3:0 24px 70px rgba(0,0,0,.28);
+  --q-elevation-board:0 18px 50px rgba(0,0,0,.28);
+  --q-elevation-action:inset 0 1px 0 rgba(255,255,255,.20),0 3px 0 rgba(51,82,31,.42),0 7px 16px rgba(0,0,0,.13);
+
+  /* Motion. */
+  --q-motion-press:100ms;
+  --q-motion-fast:140ms;
+  --q-motion-base:180ms;
+  --q-motion-slow:260ms;
+  --q-motion-progress:360ms;
+  --q-motion-spin:720ms;
+  --q-motion-confetti:1220ms;
+  --q-ease-standard:cubic-bezier(.2,.7,.2,1);
+  --q-ease-enter:cubic-bezier(.22,.72,.24,1);
+  --q-ease-drawer:cubic-bezier(.2,.8,.2,1);
+
+  /* Layout primitives. */
   --q-content:1120px;
   --q-header-h:76px;
+  --q-page-gutter:var(--q-space-24);
   --chess-display:ui-serif,"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
   --chess-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+
+  /* Compatibility names: values still resolve to the canonical tokens above. */
+  --q-bg:var(--q-surface-canvas);
+  --q-surface:var(--q-surface-1);
+  --q-accent:var(--q-action);
+  --q-accent-strong:var(--q-action-strong);
+  --q-accent-soft:var(--q-action-soft);
+  --q-shadow-soft:var(--q-elevation-1);
+  --q-shadow-float:var(--q-elevation-3);
+  --q-shadow-board:var(--q-elevation-board);
 }
+
 :root[data-theme='light']{
   color-scheme:light;
-  --q-bg:#eee9df;
-  --q-surface:#faf7f0;
+  --q-surface-canvas:#eee9df;
+  --q-surface-1:#faf7f0;
   --q-surface-2:#e7e0d4;
   --q-surface-3:#d9d0c1;
   --q-text:#1f1d1a;
@@ -52,15 +155,25 @@
   --q-subtle:#918b82;
   --q-line:rgba(42,37,30,.10);
   --q-line-strong:rgba(42,37,30,.18);
-  --q-accent:#5f8f3f;
-  --q-accent-strong:#476c31;
-  --q-accent-soft:rgba(95,143,63,.12);
+  --q-action:#5f8f3f;
+  --q-action-hover:#6f9f4d;
+  --q-action-active:#527c37;
+  --q-action-strong:#476c31;
+  --q-action-soft:rgba(95,143,63,.12);
+  --q-success:#3e8b5f;
+  --q-success-strong:#2f704b;
+  --q-success-soft:rgba(62,139,95,.12);
   --q-danger:#b54d45;
+  --q-danger-strong:#943c36;
+  --q-danger-soft:rgba(181,77,69,.12);
   --q-warning:#9b6b27;
-  --q-shadow-soft:0 10px 30px rgba(42,37,30,.07);
-  --q-shadow-float:0 24px 70px rgba(42,37,30,.13);
-  --q-shadow-board:0 18px 50px rgba(61,43,29,.20);
+  --q-warning-soft:rgba(155,107,39,.12);
+  --q-elevation-1:0 10px 30px rgba(42,37,30,.07);
+  --q-elevation-2:0 18px 50px rgba(42,37,30,.10);
+  --q-elevation-3:0 24px 70px rgba(42,37,30,.13);
+  --q-elevation-board:0 18px 50px rgba(61,43,29,.20);
 }
+
 :root[data-font-scale='large']{--q-font-scale:1.10}
 :root[data-font-scale='extra']{--q-font-scale:1.22}
 
@@ -73,5 +186,5 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 button:not(:disabled){cursor:pointer}
 button:disabled{cursor:not-allowed;opacity:.45}
 img,canvas,svg{max-width:100%}
-::selection{background:color-mix(in srgb,var(--q-accent) 28%,transparent)}
+::selection{background:color-mix(in srgb,var(--q-action) 28%,transparent)}
 .qqurz-product-system,.qqurz-app-v24{min-height:100dvh;width:100%;max-width:100%;overflow-x:clip;background:var(--q-bg);color:var(--q-text)}

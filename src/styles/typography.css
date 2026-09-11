@@ -1,18 +1,17 @@
-/* Application typography. Chess identity comes from content and pieces; app copy stays highly readable. */
-body,.qqurz-product-system,.qqurz-product-system button,.qqurz-product-system input,.qqurz-product-system select,.qqurz-product-system textarea{font-family:var(--chess-ui);line-height:1.45;letter-spacing:-.012em}
+/* Application typography. Screens choose roles; tokens own the actual sizes. */
+body,.qqurz-product-system,.qqurz-product-system button,.qqurz-product-system input,.qqurz-product-system select,.qqurz-product-system textarea{font-family:var(--chess-ui);font-size:var(--q-type-body);line-height:var(--q-leading-body);letter-spacing:var(--q-tracking-ui)}
 h1,h2,h3,p{margin-top:0}
-.qqurz-product-system h1,.qqurz-product-system h2,.qqurz-product-system h3,.qqurz-product-system .end-title{font-family:var(--chess-ui);font-weight:800;letter-spacing:-.04em}
-/* The brand mark is deliberately the one editorial exception. */
-.wordmark-copy b{font-family:var(--chess-display);font-size:1.32rem;letter-spacing:-.035em}
-.wordmark-copy small{margin-top:3px;color:var(--q-muted);font-size:.72rem;font-weight:720;letter-spacing:.08em;text-transform:uppercase}
-.qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-accent-strong);font-size:.8rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
-.page-heading-v14 h1,.tournament-title-v22 h1{margin:10px 0 12px;font-size:clamp(3rem,7vw,5.2rem);line-height:.94}
-.page-heading-v14 p,.tournament-title-v22 p{max-width:720px;margin:0;color:var(--q-muted);font-size:1.08rem;line-height:1.6}
-.chess-hero-copy h1{margin:14px 0 20px;font-size:clamp(4rem,8vw,7.2rem);line-height:.84;letter-spacing:-.06em}
-.chess-hero-copy h1 em{font-style:normal;font-weight:800;color:var(--q-accent-strong)}
-.chess-hero-copy p{max-width:620px;margin:0;color:var(--q-muted);font-size:1.14rem;line-height:1.6}
-.section-title-v24>span{color:var(--q-accent-strong);font-size:.78rem;font-weight:850;letter-spacing:.14em}
-.section-title-v24 h2{margin:0;font-size:clamp(2.2rem,5vw,3.8rem)}
+.qqurz-product-system h1,.qqurz-product-system h2,.qqurz-product-system h3,.qqurz-product-system .end-title{font-family:var(--chess-ui);font-weight:800;letter-spacing:var(--q-tracking-tight)}
+.wordmark-copy b{font-family:var(--chess-display);font-size:var(--q-type-action-lg);letter-spacing:-.035em}
+.wordmark-copy small{margin-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-caption);font-weight:720;letter-spacing:var(--q-tracking-label);text-transform:uppercase}
+.qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+.page-heading-v14 h1,.tournament-title-v22 h1{margin:var(--q-space-12) 0 var(--q-space-12);font-size:var(--q-type-display-page);line-height:.94}
+.page-heading-v14 p,.tournament-title-v22 p{max-width:720px;margin:0;color:var(--q-muted);font-size:var(--q-type-body-lg);line-height:var(--q-leading-copy)}
+.chess-hero-copy h1{margin:var(--q-space-16) 0 var(--q-space-24);font-size:var(--q-type-display-hero);line-height:.84;letter-spacing:-.06em}
+.chess-hero-copy h1 em{font-style:normal;font-weight:800;color:var(--q-action-strong)}
+.chess-hero-copy p{max-width:620px;margin:0;color:var(--q-muted);font-size:var(--q-type-body-lg);line-height:var(--q-leading-copy)}
+.section-title-v24>span{color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:850;letter-spacing:.14em}
+.section-title-v24 h2{margin:0;font-size:clamp(var(--q-type-title),5vw,var(--q-type-title-lg))}
 .board-player-bar>strong,.online-clock-row strong,.qqurz-clock-lcd strong,.strategy-overlay>div>strong{font-variant-numeric:tabular-nums}
 code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace}
-.text-back{font-size:.98rem;font-weight:720}
+.text-back{font-size:var(--q-type-label);font-weight:720}
