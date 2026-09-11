@@ -1,5 +1,6 @@
 export type TimeControlPresetId = '3+2' | '5+0' | '10+5';
 export type TournamentTimeTemplateId = 'club-blitz' | 'open-rapid' | 'championship';
+export type Chess960RatingClass = 'bullet' | 'blitz' | 'rapid';
 
 export type TimeControl = {
   id: string;
@@ -39,6 +40,8 @@ export const TOURNAMENT_TIME_TEMPLATES: Record<TournamentTimeTemplateId, Tournam
   'open-rapid': { id: 'open-rapid', label: 'Open Rapid', defaultControl: '10+5', allowedControls: ['5+0', '10+5'] },
   championship: { id: 'championship', label: 'Championship', defaultControl: '10+5', allowedControls: ['10+5'] },
 };
+
+export const CHESS960_RATING_CLASSES: readonly Chess960RatingClass[] = ['rapid', 'blitz', 'bullet'] as const;
 
 function finite(value: unknown, fallback: number): number {
   const numeric = Number(value);
@@ -83,6 +86,25 @@ export function isTournamentControlAllowed(templateId: TournamentTimeTemplateId,
     const preset = TIME_CONTROL_PRESETS[id];
     return preset.baseMs === control.baseMs && preset.incrementMs === control.incrementMs;
   });
+}
+
+/**
+ * QQURZ uses the common estimated-game-duration convention: base time plus
+ * forty increments. Under three minutes is Bullet, under eight is Blitz,
+ * and eight minutes or more is Rapid. The current 3+2 and 5+0 presets are
+ * therefore Blitz, while 10+5 is Rapid; very fast custom controls are Bullet.
+ */
+export function ratingClassForTimeControl(baseMs: number, incrementMs: number): Chess960RatingClass {
+  const estimatedGameMs = Math.max(0, finite(baseMs, 0)) + Math.max(0, finite(incrementMs, 0)) * 40;
+  if (estimatedGameMs < 3 * 60_000) return 'bullet';
+  if (estimatedGameMs < 8 * 60_000) return 'blitz';
+  return 'rapid';
+}
+
+export function ratingClassLabel(value: Chess960RatingClass): string {
+  if (value === 'bullet') return 'Bullet';
+  if (value === 'blitz') return 'Blitz';
+  return 'Rapid';
 }
 
 export function timeControlLabel(baseMs: number, incrementMs: number): string {
