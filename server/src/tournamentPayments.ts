@@ -20,8 +20,7 @@ export async function settleTournamentFunds(env: PaymentsEnv, input: {
   contestId: string;
   holdIds: string[];
   payouts: TournamentPrizeShare[];
-  platformFeeBps?: number;
-}): Promise<{ ok: boolean; duplicate?: boolean; error?: string; settlement?: { potCents: number; feeCents: number; prizePoolCents: number; payouts: Array<TournamentPrizeShare & { amountCents: number }> } }> {
+}): Promise<{ ok: boolean; duplicate?: boolean; error?: string; settlement?: { potCents: number; feeCents: number; prizePoolCents: number; feePolicyId: string; payouts: Array<TournamentPrizeShare & { amountCents: number }> } }> {
   const response = await stub(env).fetch(new Request('https://payments.internal/internal/settle-tournament', {
     method: 'POST',
     headers: headers(env),
@@ -31,7 +30,7 @@ export async function settleTournamentFunds(env: PaymentsEnv, input: {
     ok?: boolean;
     duplicate?: boolean;
     error?: string;
-    settlement?: { potCents: number; feeCents: number; prizePoolCents: number; payouts: Array<TournamentPrizeShare & { amountCents: number }> };
+    settlement?: { potCents: number; feeCents: number; prizePoolCents: number; feePolicyId: string; payouts: Array<TournamentPrizeShare & { amountCents: number }> };
   };
   return response.ok ? { ok: true, duplicate: payload.duplicate, settlement: payload.settlement } : { ok: false, error: payload.error || 'Tournament settlement failed.' };
 }
