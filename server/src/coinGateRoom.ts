@@ -19,18 +19,20 @@ export class CoinGateChessRoom extends TournamentChessRoom {
   private internals(): {
     room: InternalRoom | null;
     ctx: DurableObjectState;
-    env: { PAYMENTS_MODE?: string; LIVE_COLOR_BIDS?: string };
+    env: { STRIPE_SECRET_KEY?: string; PAYMENTS_MODE?: string; LIVE_COLOR_BIDS?: string };
   } {
     return this as unknown as {
       room: InternalRoom | null;
       ctx: DurableObjectState;
-      env: { PAYMENTS_MODE?: string; LIVE_COLOR_BIDS?: string };
+      env: { STRIPE_SECRET_KEY?: string; PAYMENTS_MODE?: string; LIVE_COLOR_BIDS?: string };
     };
   }
 
   private gateEnabled(): boolean {
     const { env } = this.internals();
-    return env.PAYMENTS_MODE === 'test' || (env.PAYMENTS_MODE === 'live' && env.LIVE_COLOR_BIDS === 'enabled');
+    const key = env.STRIPE_SECRET_KEY ?? '';
+    if (env.PAYMENTS_MODE === 'test') return key.startsWith('sk_test_');
+    return env.PAYMENTS_MODE === 'live' && key.startsWith('sk_live_') && env.LIVE_COLOR_BIDS === 'enabled';
   }
 
   private async gate(): Promise<GateState> {
