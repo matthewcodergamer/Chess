@@ -1,4 +1,4 @@
-import { pair as pairSwiss, type Game as PairingGame, type Player as PairingPlayer } from '@echecs/swiss';
+import { pair as pairSwiss, type CompletedRound, type Game as PairingGame, type Player as PairingPlayer } from '@echecs/swiss';
 import { pair as pairRoundRobin } from '@echecs/round-robin';
 import {
   type EnginePairing,
@@ -61,32 +61,54 @@ export function newBye(round: number, board: number, playerId: string): EnginePa
   };
 }
 
-export function pairingGames(tournament: EngineTournament): PairingGame[][] {
-  return tournament.rounds.map(round => round.pairings.flatMap(pairing => {
-    if (pairing.status === 'bye') {
-      return [{ white: pairing.whiteId, black: '', result: 1 as const, kind: 'pairing-bye' as const }];
+export function pairingRounds(tournament: EngineTournament): CompletedRound[] {
+  return tournament.rounds.filter(isRoundComplete).map(round => {
+    const games: PairingGame[] = [];
+    const byes: CompletedRound['byes'] = [];
+    for (const pairing of round.pairings) {
+      if (pairing.status === 'bye') {
+        byes.push({ player: pairing.whiteId, kind: 'pairing' });
+        continue;
+      }
+      if (pairing.status !== 'verified' || !pairing.blackId || pairing.whiteScore === null) continue;
+      games.push({
+        white: pairing.whiteId,
+        black: pairing.blackId,
+        result: pairing.whiteScore === 1 ? 'white' : pairing.whiteScore === 0 ? 'black' : 'draw',
+        rated: true,
+      });
     }
-    if (pairing.status !== 'verified' || !pairing.blackId || pairing.whiteScore === null) return [];
-    return [{ white: pairing.whiteId, black: pairing.blackId, result: pairing.whiteScore }];
+    return { games, byes };
+  });
+}
+
+function libraryPlayers(tournament: EngineTournament, players: Participant[]): PairingPlayer[] {
+  const scores = scoreMap(tournament);
+  const rankById = new Map(standingsFor(tournament).map(row => [row.participantId, row.rank]));
+  return players.map((player, index) => ({
+    id: player.id,
+    rating: player.rating,
+    points: scores.get(player.id) ?? 0,
+    rank: rankById.get(player.id) ?? player.seed ?? index + 1,
+    startingRank: player.seed ?? index + 1,
   }));
 }
 
 function swissPairings(tournament: EngineTournament, round: number, players: Participant[]): EnginePairing[] {
-  const pairingPlayers: PairingPlayer[] = players.map(player => ({ id: player.id, rating: player.rating }));
-  const result = pairSwiss(pairingPlayers, pairingGames(tournament));
+  const result = pairSwiss(libraryPlayers(tournament, players), pairingRounds(tournament), { expectedRounds: tournament.roundCount });
   const rows: EnginePairing[] = [];
   let board = 1;
-  for (const pairing of result.pairings) rows.push(newPairing(round, board++, String(pairing.white), String(pairing.black)));
+  for (const pairing of result.games) rows.push(newPairing(round, board++, String(pairing.white), String(pairing.black)));
   for (const bye of result.byes) rows.push(newBye(round, board++, String(bye.player)));
   return rows;
 }
 
 function roundRobinPairings(tournament: EngineTournament, round: number, players: Participant[]): EnginePairing[] {
-  const pairingPlayers = players.map(player => ({ id: player.id, rating: player.rating }));
-  const result = pairRoundRobin(pairingPlayers, pairingGames(tournament));
+  if (players.length < 3 || players.length > 16) throw new RangeError('Round-robin tournaments require 3–16 checked-in players.');
+  const result = pairRoundRobin(libraryPlayers(tournament, players), pairingRounds(tournament));
   const rows: EnginePairing[] = [];
   let board = 1;
-  for (const pairing of result.pairings) rows.push(newPairing(round, board++, String(pairing.white), String(pairing.black)));
+  for (const pairing of result.games) rows.push(newPairing(round, board++, String(pairing.white), String(pairing.black)));
   for (const bye of result.byes) rows.push(newBye(round, board++, String(bye.player)));
   return rows;
 }
