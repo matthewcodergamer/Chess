@@ -44,6 +44,10 @@ export type MatchmakingSnapshot = {
   presence?: PresenceCounts;
 };
 
+type PresenceIdentity = { name: string; presenceId: string };
+let currentPresence: PresenceIdentity | null = null;
+let presenceLifecycleInstalled = false;
+
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!MULTIPLAYER_API) {
     throw new Error('The live multiplayer server has not been connected yet.');
@@ -64,6 +68,36 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   return payload;
 }
 
+function inferredPresenceState(): PresenceState {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return 'away';
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('room')) return 'game';
+  return 'online';
+}
+
+function sendPresence(identity: PresenceIdentity, state: PresenceState, keepalive = false): Promise<PresenceSnapshot> {
+  return requestJson<PresenceSnapshot>('/presence/ping', {
+    method: 'POST',
+    keepalive,
+    body: JSON.stringify({ ...identity, state }),
+  });
+}
+
+function installPresenceLifecycle(): void {
+  if (presenceLifecycleInstalled || typeof window === 'undefined' || typeof document === 'undefined') return;
+  presenceLifecycleInstalled = true;
+
+  document.addEventListener('visibilitychange', () => {
+    if (!currentPresence || !multiplayerConfigured) return;
+    const state: PresenceState = document.visibilityState === 'hidden' ? 'away' : inferredPresenceState();
+    void sendPresence(currentPresence, state, true).catch(() => undefined);
+  });
+
+  window.addEventListener('pagehide', () => {
+    if (!currentPresence || !multiplayerConfigured) return;
+    void sendPresence(currentPresence, 'offline', true).catch(() => undefined);
+  });
+}
+
 export function getPresenceId(): string {
   const key = 'qqurz:presence-id';
   try {
@@ -79,12 +113,10 @@ export function getPresenceId(): string {
   }
 }
 
-export async function pingPresence(name: string, presenceId: string, state: PresenceState = 'online', keepalive = false): Promise<PresenceSnapshot> {
-  return requestJson<PresenceSnapshot>('/presence/ping', {
-    method: 'POST',
-    keepalive,
-    body: JSON.stringify({ name, presenceId, state }),
-  });
+export async function pingPresence(name: string, presenceId: string, state?: PresenceState, keepalive = false): Promise<PresenceSnapshot> {
+  currentPresence = { name, presenceId };
+  installPresenceLifecycle();
+  return sendPresence(currentPresence, state ?? inferredPresenceState(), keepalive);
 }
 
 export async function loadPresence(): Promise<PresenceSnapshot> {
