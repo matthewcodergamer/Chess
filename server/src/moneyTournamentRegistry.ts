@@ -1,19 +1,19 @@
+import { positiveCents } from '../../shared/money';
 import { EngineTournamentRegistry } from './tournamentEngineRegistry';
 import type { EngineTournament } from './tournamentEngineTypes';
 import type { TournamentEngineEnv } from './tournamentEngineApi';
 import { holdCompetitionFunds, releaseCompetitionHold, type PaymentsEnv } from './paymentApi';
+import { feePolicyForPurpose } from './paymentPolicy';
 import { settleTournamentFunds, type TournamentPrizeShare } from './tournamentPayments';
 
 const TOURNAMENT_KEY = 'engine:tournament:v1:';
 const MONEY_KEY = 'engine:tournament-money:v1:';
 const MONEY_INDEX = 'engine:tournament-money-index:v1';
-const PLATFORM_FEE_BPS = 2000;
 const MAX_REAL_MONEY_ENTRANTS = 128;
 
 type MoneyTournamentControl = {
   tournamentId: string;
   entryFeeCents: number;
-  platformFeeBps: number;
   holdByAccount: Record<string, string>;
   status: 'registration' | 'active' | 'settled' | 'released' | 'settlement_error';
   settlementError: string | null;
@@ -30,8 +30,8 @@ function json(data: unknown, status = 200): Response {
 function entryFeeCents(definition: Record<string, unknown> | undefined): number {
   const entry = definition?.entryRules && typeof definition.entryRules === 'object' ? definition.entryRules as Record<string, unknown> : {};
   const raw = entry.entryFeeCents ?? definition?.entryFeeCents;
-  const amount = Math.floor(Number(raw));
-  return Number.isFinite(amount) && amount >= 100 && amount <= 100_000 ? amount : 0;
+  const amount = positiveCents(raw, 100_000);
+  return amount >= 100 ? amount : 0;
 }
 
 function payoutShares(definition: Record<string, unknown> | undefined): Array<{ place: number; shareBps: number }> {
@@ -39,8 +39,11 @@ function payoutShares(definition: Record<string, unknown> | undefined): Array<{ 
   if (payout.mode !== 'percent' || !Array.isArray(payout.places)) return [];
   return payout.places.map(raw => {
     const row = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
-    return { place: Math.floor(Number(row.place)), shareBps: Math.floor(Number(row.value)) };
-  }).filter(row => Number.isInteger(row.place) && row.place > 0 && Number.isInteger(row.shareBps) && row.shareBps > 0);
+    return {
+      place: Number.isSafeInteger(row.place) ? Number(row.place) : Math.floor(Number(row.place)),
+      shareBps: Number.isSafeInteger(row.value) ? Number(row.value) : Math.floor(Number(row.value)),
+    };
+  }).filter(row => Number.isSafeInteger(row.place) && row.place > 0 && Number.isSafeInteger(row.shareBps) && row.shareBps > 0 && row.shareBps <= 10_000);
 }
 
 export class MoneyTournamentRegistry extends EngineTournamentRegistry {
@@ -74,7 +77,6 @@ export class MoneyTournamentRegistry extends EngineTournamentRegistry {
     await this.putControl({
       tournamentId,
       entryFeeCents: fee,
-      platformFeeBps: PLATFORM_FEE_BPS,
       holdByAccount: {},
       status: 'registration',
       settlementError: null,
@@ -148,7 +150,6 @@ export class MoneyTournamentRegistry extends EngineTournamentRegistry {
       contestId: control.tournamentId,
       holdIds,
       payouts,
-      platformFeeBps: control.platformFeeBps,
     });
     if (!result.ok) {
       control.status = 'settlement_error';
@@ -195,7 +196,15 @@ export class MoneyTournamentRegistry extends EngineTournamentRegistry {
     const id = tournamentId ?? String(payload.tournament?.id ?? '');
     const control = id ? await this.control(id) : null;
     if (control && payload.tournament && typeof payload.tournament === 'object') {
-      payload.tournament = { ...payload.tournament, entryFeeCents: control.entryFeeCents, platformFeeBps: control.platformFeeBps, moneyStatus: control.status, moneySettlementError: control.settlementError };
+      const feePolicy = feePolicyForPurpose('tournament_prize');
+      payload.tournament = {
+        ...payload.tournament,
+        entryFeeCents: control.entryFeeCents,
+        platformFeeBps: feePolicy.platformFeeBps,
+        feePolicyId: feePolicy.id,
+        moneyStatus: control.status,
+        moneySettlementError: control.settlementError,
+      };
     }
     return json(payload, response.status);
   }
