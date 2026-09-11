@@ -1,3 +1,4 @@
+import { positiveCents } from '../../shared/money';
 import { ratingClassForTimeControl, type Chess960RatingClass } from '../../shared/timeControl';
 import { handleAccountRequest, resolveAccountSession, type AccountEnv } from './accounts';
 import type { PaymentsEnv } from './paymentApi';
@@ -26,8 +27,8 @@ function cleanName(value: unknown): string {
 }
 
 function stakeCents(value: unknown): number {
-  const amount = Math.floor(Number(value));
-  return Number.isFinite(amount) && amount >= 100 && amount <= 100_000 ? amount : 0;
+  const amount = positiveCents(value, 100_000);
+  return amount >= 100 ? amount : 0;
 }
 
 function cleanTournamentId(value: unknown): string | null {
