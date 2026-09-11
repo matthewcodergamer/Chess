@@ -1,9 +1,10 @@
 import baseHandler, { ChessRoom } from './index';
+import { handleMatchmakerRequest, Matchmaker, type MatchmakerEnv } from './matchmaker';
 import { handleTournamentRequest, TournamentRegistry, type TournamentEnv } from './tournaments';
 
-export { ChessRoom, TournamentRegistry };
+export { ChessRoom, Matchmaker, TournamentRegistry };
 
-type Env = TournamentEnv & {
+type Env = TournamentEnv & MatchmakerEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   ALLOWED_ORIGINS?: string;
 };
@@ -25,8 +26,13 @@ function withCors(request: Request, response: Response, env: Env): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return baseHandler.fetch(request, env);
+
+    const matchmakerResponse = await handleMatchmakerRequest(request, env);
+    if (matchmakerResponse) return withCors(request, matchmakerResponse, env);
+
     const tournamentResponse = await handleTournamentRequest(request, env);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
+
     return baseHandler.fetch(request, env);
   },
 } satisfies ExportedHandler<Env>;
