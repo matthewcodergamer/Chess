@@ -1,3 +1,4 @@
+import type { TournamentTimeTemplateId } from '../../shared/timeControl';
 export const PLATFORM_RAKE_BPS = 2_000 as const;
 export const REGULAR_TOURNAMENT_SEEDS = [16, 32, 64, 128, 256, 512, 1024, 2048] as const;
 export const ANNUAL_CHAMPIONSHIP_SEATS = 4096 as const;
@@ -31,6 +32,8 @@ export type TournamentSelection = {
   timeControl: string;
   baseMinutes: number;
   incrementSeconds: number;
+  timeControlTemplateId: TournamentTimeTemplateId;
+  allowedTimeControls: string[];
   format: string;
   platformRakeBps?: number;
   grossCents?: number;

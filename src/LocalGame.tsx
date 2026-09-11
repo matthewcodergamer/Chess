@@ -15,6 +15,8 @@ import PhysicalChessClock from './ui/PhysicalChessClock';
 import MatchPlayerBar from './ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from './ui/ChessBoardSurface';
 import ChessPieceAsset from './ui/ChessPieceAsset';
+import TimeControlPicker from './ui/TimeControlPicker';
+import { TIME_CONTROL_PRESETS, type TimeControl } from '../shared/timeControl';
 
 type GameMode = 'human' | 'ai';
 type Difficulty = 'easy' | 'hard' | 'crazy';
@@ -32,7 +34,7 @@ type Engine = {
 
 type Props = { initialMode: GameMode };
 
-const GAME_MS = 10 * 60 * 1000;
+const DEFAULT_TIME_CONTROL = TIME_CONTROL_PRESETS['10+5'];
 const STRATEGY_MS = 2 * 60 * 1000;
 const DIFFICULTIES: Record<Difficulty, { label: string; note: string }> = {
   easy: { label: 'Easy', note: 'Relaxed and forgiving' },
@@ -70,8 +72,8 @@ export default function LocalGame({ initialMode }: Props) {
 
   const { session, dispatchSession } = useGameSession({
     state: 'LOBBY',
-    clockMs: GAME_MS,
-    incrementMs: 0,
+    clockMs: DEFAULT_TIME_CONTROL.baseMs,
+    incrementMs: DEFAULT_TIME_CONTROL.incrementMs,
     connectionStatus: 'LOCAL',
   });
 
@@ -86,6 +88,7 @@ export default function LocalGame({ initialMode }: Props) {
   const [engineError, setEngineError] = useState('');
   const [promotion, setPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [timeControl, setTimeControl] = useState<TimeControl>(() => ({ ...DEFAULT_TIME_CONTROL }));
 
   const phase = sessionUiPhase(session);
   const positionId = session.positionId;
@@ -158,8 +161,8 @@ export default function LocalGame({ initialMode }: Props) {
         positionId: id,
         fen: makeFen(pos.toSetup()),
         sideToMove: 'white',
-        clockMs: GAME_MS,
-        incrementMs: 0,
+        clockMs: timeControl.baseMs,
+        incrementMs: timeControl.incrementMs,
         countdownMs: STRATEGY_MS,
         connectionStatus: 'LOCAL',
       },
@@ -170,7 +173,7 @@ export default function LocalGame({ initialMode }: Props) {
     setFastForward(false);
     setPromotion(null);
     setEngineError('');
-  }, [dispatchSession, mode, sideChoice]);
+  }, [dispatchSession, mode, sideChoice, timeControl]);
 
   const finishMove = useCallback((move: Move, orig: Key, dest: Key) => {
     const pos = position.current;
@@ -264,15 +267,17 @@ export default function LocalGame({ initialMode }: Props) {
   }, [dispatchSession, fastForward, session.countdownMs, session.state]);
 
   useEffect(() => {
-    if (session.state !== 'ACTIVE') return;
+    if (session.state !== 'ACTIVE' || !activeColor) return;
+    if (mode === 'ai' && activeColor === aiColor && engineStatus === 'loading') return;
+    let previous = performance.now();
     const timer = window.setInterval(() => {
-      const owner = clockOwner(session);
-      if (!owner) return;
-      if (mode === 'ai' && owner === aiColor && engineStatus === 'loading') return;
-      dispatchSession({ type: 'CLOCK_TICK', elapsedMs: 1000 });
-    }, 1000);
+      const current = performance.now();
+      const elapsedMs = Math.max(0, current - previous);
+      previous = current;
+      if (elapsedMs > 0) dispatchSession({ type: 'CLOCK_TICK', elapsedMs, at: Date.now() });
+    }, 100);
     return () => window.clearInterval(timer);
-  }, [aiColor, dispatchSession, engineStatus, mode, session]);
+  }, [activeColor, aiColor, dispatchSession, engineStatus, mode, session.state]);
 
   useEffect(() => {
     if (!session.resultKind || terminalSoundPlayed.current) return;
@@ -378,6 +383,8 @@ export default function LocalGame({ initialMode }: Props) {
             <button className={mode === 'ai' ? 'selected' : ''} onClick={() => setMode('ai')}>Play AI</button>
           </div>
 
+          <TimeControlPicker value={timeControl} onChange={setTimeControl} />
+
           {mode === 'ai' && (
             <div className="local-ai-options">
               <div>
@@ -412,7 +419,7 @@ export default function LocalGame({ initialMode }: Props) {
       <div className="match-board-stack">
         <div className="match-game-meta">
           <b>Chess960 · #{positionId}</b>
-          <span>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Same-device game'}</span>
+          <span>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Same-device game'} · {timeControl.label}</span>
         </div>
 
         {mode === 'ai' && <div className={`local-engine-state match-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}

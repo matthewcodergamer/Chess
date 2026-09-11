@@ -7,6 +7,16 @@ export type SeatColor = GroundColor;
 export type CoinFace = 'heads' | 'tails';
 
 export type RoomPlayer = { name: string; connected: boolean };
+export type MoveTiming = {
+  moveNumber: number;
+  clientSequence: number | null;
+  clientSentAt: number | null;
+  serverReceivedAt: number;
+  serverCommittedAt: number;
+  chargedElapsedMs: number;
+  latencyCreditMs: number;
+  nextClockStartedAt: number | null;
+};
 
 export type RoomSnapshot = {
   code: string;
@@ -27,6 +37,7 @@ export type RoomSnapshot = {
   turnStartedAt: number | null;
   strategyEndsAt: number | null;
   serverNow: number;
+  lastMoveTiming: MoveTiming | null;
   moves: string[];
   result: string | null;
   check: boolean;
@@ -62,4 +73,6 @@ export type RoomSeat = { code: string; token: string; color: SeatColor };
 
 export type ServerEvent =
   | { type: 'snapshot'; room: RoomSnapshot }
+  | { type: 'move_ack'; timing: MoveTiming }
+  | { type: 'time_sync'; nonce: string; serverSentAt: number }
   | { type: 'error'; message: string };

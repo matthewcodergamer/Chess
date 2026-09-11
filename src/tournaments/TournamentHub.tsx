@@ -69,6 +69,8 @@ function asSelection(event: Tournament): TournamentSelection {
     timeControl: event.timeControl,
     baseMinutes: event.baseMinutes,
     incrementSeconds: event.incrementSeconds,
+    timeControlTemplateId: event.timeControlTemplateId,
+    allowedTimeControls: event.allowedTimeControls,
     format: event.format,
     platformRakeBps: event.platformRakeBps,
     grossCents: event.grossCents,
@@ -363,6 +365,7 @@ export default function TournamentHub({ onBack, onPlayOnline }: Props) {
               <div className="detail-heading-v22"><div><span className="qqurz-kicker">CLOCK RULES</span><h2>{selectedEvent.timeControl} tournament clock</h2></div><span>Server authoritative</span></div>
               <div className="timing-rule-grid timing-rule-grid-v22">
                 <article><span>Game clock</span><b>{selectedEvent.baseMinutes}+{selectedEvent.incrementSeconds}</b><p>{selectedEvent.baseMinutes} minutes each, plus {selectedEvent.incrementSeconds} seconds after a completed move.</p></article>
+                <article><span>Allowed controls</span><b>{selectedEvent.allowedTimeControls.join(' · ')}</b><p>This tournament template rejects custom controls and any clock outside this list.</p></article>
                 <article><span>First move</span><b>{firstMoveSeconds}s</b><p>Opening anti-stall allowance for this speed.</p></article>
                 <article><span>Early move limit</span><b>{Math.floor(earlyMoveSeconds / 60)}:{String(earlyMoveSeconds % 60).padStart(2, '0')}</b><p>During the first ten moves, using more than half the base time on one move can trigger abandonment.</p></article>
                 <article><span>Disconnect</span><b>{Math.floor(disconnectSeconds / 60)}:{String(disconnectSeconds % 60).padStart(2, '0')}</b><p>Reconnect before the server abandonment window expires.</p></article>

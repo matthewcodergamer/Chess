@@ -1,4 +1,5 @@
 import type { RoomSeat, ServerEvent } from './types';
+import type { TimeControl, TournamentTimeTemplateId } from '../../shared/timeControl';
 
 const configuredBase = (import.meta.env.VITE_MULTIPLAYER_API as string | undefined)?.trim().replace(/\/$/, '');
 
@@ -80,10 +81,10 @@ export async function cancelMatch(ticket: string): Promise<{ cancelled: boolean;
   });
 }
 
-export async function createRoom(name: string): Promise<RoomSeat> {
+export async function createRoom(name: string, timeControl?: TimeControl, tournamentTemplateId?: TournamentTimeTemplateId): Promise<RoomSeat> {
   return requestJson<RoomSeat>('/rooms', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, timeControl, tournamentTemplateId }),
   });
 }
 
@@ -111,6 +112,11 @@ export function connectRoom(
   socket.addEventListener('message', event => {
     try {
       const payload = JSON.parse(String(event.data)) as ServerEvent;
+      if (payload.type === 'time_sync') {
+        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'time_sync_ack', nonce: payload.nonce }));
+        return;
+      }
+      if (payload.type === 'move_ack') return;
       onEvent(payload);
     } catch {
       onEvent({ type: 'error', message: 'The multiplayer server sent an unreadable update.' });

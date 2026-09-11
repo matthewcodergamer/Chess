@@ -5,6 +5,7 @@ import { makeSan } from 'chessops/san';
 import { parseUci } from 'chessops/util';
 import { chess960Fen, randomChess960Id } from './chess960';
 import { canColorMove, clockOwner, createGameSession, isTerminalGameState, reduceGameSession, type GameResultKind, type GameSessionModel, type GameSessionState } from '../../shared/gameSession';
+import { TOURNAMENT_TIME_TEMPLATES, isTournamentControlAllowed, normalizeTimeControl, type TimeControlRequest, type TournamentTimeTemplateId } from '../../shared/timeControl';
 
 type Color = 'white' | 'black';
 type CoinFace = 'heads' | 'tails';
@@ -14,9 +15,12 @@ type PaidColorBid = { cents: number; desiredColor: Color; paidAt: number; sessio
 type CoinState = { claimedFace: CoinFace | null; claimedByToken: string | null; result: CoinFace | null; winnerToken: string | null; flippedAt: number | null; endsAt: number | null };
 type AuctionState = { bids: Record<string, PaidBid>; leaderToken: string | null; leadingBidCents: number; rerollCount: number; usedSessions: string[] };
 type ColorAuctionState = { bids: Record<string, PaidColorBid>; leaderToken: string | null; leadingBidCents: number; desiredColor: Color | null; usedSessions: string[]; settled: boolean };
+type MoveTiming = { moveNumber: number; clientSequence: number | null; clientSentAt: number | null; serverReceivedAt: number; serverCommittedAt: number; chargedElapsedMs: number; latencyCreditMs: number; nextClockStartedAt: number | null };
+type LatencyState = { nonce: string | null; sentAt: number; bestRttMs: number | null; sampledAt: number | null };
 type RoomState = {
   code: string;
   session: GameSessionModel;
+  lastMoveTiming: MoveTiming | null;
   createdAt: number;
   lastActivityAt: number;
   players: { white: PlayerSeat; black: PlayerSeat | null };
@@ -26,7 +30,8 @@ type RoomState = {
 };
 type SocketAttachment = { token: string };
 type ClientMessage =
-  | { type: 'move'; uci: string }
+  | { type: 'move'; uci: string; clientSentAt?: number; clientMonotonicMs?: number; clientSequence?: number }
+  | { type: 'time_sync_ack'; nonce: string }
   | { type: 'clock_slap' }
   | { type: 'start_now' }
   | { type: 'call_coin'; face: CoinFace }
@@ -46,10 +51,11 @@ type Env = {
   LIVE_COLOR_BIDS?: string;
 };
 
-const GAME_CLOCK_MS = 10 * 60 * 1000;
-const GAME_INCREMENT_MS = 0;
 const STRATEGY_MS = 2 * 60 * 1000;
 const COIN_SHOW_MS = 2800;
+const LATENCY_CREDIT_CAP_MS = 75;
+const LATENCY_CREDIT_FRACTION = .05;
+const LATENCY_SAMPLE_MAX_AGE_MS = 30_000;
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BID_VALUES = new Set([200, 500]);
 
@@ -94,9 +100,10 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
     positionId: Number.isInteger(legacy.positionId) ? legacy.positionId : null,
     fen: typeof legacy.fen === 'string' ? legacy.fen : '',
     sideToMove: legacy.turn === 'black' ? 'black' : 'white',
-    whiteClockMs: Number(legacy.whiteClockMs ?? GAME_CLOCK_MS),
-    blackClockMs: Number(legacy.blackClockMs ?? GAME_CLOCK_MS),
-    incrementMs: GAME_INCREMENT_MS,
+    whiteClockMs: Number(legacy.whiteClockMs ?? 10 * 60_000),
+    blackClockMs: Number(legacy.blackClockMs ?? 10 * 60_000),
+    clockMs: Number(legacy.baseClockMs ?? legacy.whiteClockMs ?? 10 * 60_000),
+    incrementMs: Number(legacy.incrementMs ?? 0),
     countdownEndsAt: legacy.strategyEndsAt ?? null,
     countdownMs: legacy.strategyEndsAt ? Math.max(0, legacy.strategyEndsAt - now) : 0,
     connectionStatus: 'DISCONNECTED',
@@ -111,7 +118,7 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
   session.checkmate = Boolean(legacy.checkmate);
   session.clocks.startedAt = typeof legacy.turnStartedAt === 'number' ? legacy.turnStartedAt : null;
   return {
-    code: String(legacy.code), session,
+    code: String(legacy.code), session, lastMoveTiming: legacy.lastMoveTiming ?? null,
     createdAt: Number(legacy.createdAt ?? now), lastActivityAt: Number(legacy.lastActivityAt ?? now),
     players: legacy.players, coin: legacy.coin ?? emptyCoin(), auction: legacy.auction ?? emptyAuction(), colorAuction: legacy.colorAuction ?? emptyColorAuction(),
   };
@@ -185,6 +192,7 @@ function makeSnapshot(room: RoomState, connected: Set<Color>, viewerToken: strin
     activeClock: clockOwner(session), awaitingClockPress: session.pendingClockPress,
     whiteClockMs: session.clocks.whiteMs, blackClockMs: session.clocks.blackMs,
     turnStartedAt: session.clocks.startedAt, strategyEndsAt: session.countdownEndsAt, serverNow: now,
+    lastMoveTiming: room.lastMoveTiming,
     moves: session.movesSan, result: session.result, check: session.check, checkmate: session.checkmate, yourColor: viewerColor,
     players: {
       white: { name: room.players.white.name, connected: whiteConnected },
@@ -223,7 +231,7 @@ export default {
       const name = normalizeName(body.name);
       for (let attempt = 0; attempt < 12; attempt += 1) {
         const code = roomCode(); const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
-        const internal = await stub.fetch(new Request('https://room.internal/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name }) }));
+        const internal = await stub.fetch(new Request('https://room.internal/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name, timeControl: body.timeControl, tournamentTemplateId: body.tournamentTemplateId }) }));
         if (internal.status === 409) continue;
         return cors(request, internal, env);
       }
@@ -245,6 +253,7 @@ export default {
 
 export class ChessRoom extends DurableObject<Env> {
   private room: RoomState | null = null;
+  private latency = new Map<string, LatencyState>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -262,13 +271,17 @@ export class ChessRoom extends DurableObject<Env> {
     const url = new URL(request.url);
     if (url.hostname === 'room.internal' && url.pathname === '/create' && request.method === 'POST') {
       if (this.room) return json({ error: 'Room already exists.' }, 409);
-      const body = await request.json() as { code?: string; name?: string };
+      const body = await request.json() as { code?: string; name?: string; timeControl?: TimeControlRequest; tournamentTemplateId?: TournamentTimeTemplateId };
       const code = String(body.code ?? '').toUpperCase();
       if (!/^[A-Z0-9]{6}$/.test(code)) return json({ error: 'Invalid room code.' }, 400);
       const now = Date.now(), token = seatToken(), positionId = randomChess960Id();
+      const timeControl = normalizeTimeControl(body.timeControl, '10+5');
+      const templateId = body.tournamentTemplateId && TOURNAMENT_TIME_TEMPLATES[body.tournamentTemplateId] ? body.tournamentTemplateId : null;
+      if (templateId && !isTournamentControlAllowed(templateId, timeControl)) return json({ error: 'That time control is not allowed by this tournament template.' }, 400);
       this.room = {
         code,
-        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: chess960Fen(positionId), sideToMove: 'white', clockMs: GAME_CLOCK_MS, incrementMs: GAME_INCREMENT_MS, connectionStatus: 'DISCONNECTED', now }),
+        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: chess960Fen(positionId), sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'DISCONNECTED', now }),
+        lastMoveTiming: null,
         createdAt: now, lastActivityAt: now,
         players: { white: { name: normalizeName(body.name), token }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
       };
@@ -306,12 +319,13 @@ export class ChessRoom extends DurableObject<Env> {
     try { payload = JSON.parse(typeof message === 'string' ? message : new TextDecoder().decode(message)) as ClientMessage; }
     catch { return this.sendError(ws, 'Unreadable command.'); }
 
+    if (payload.type === 'time_sync_ack') return void this.handleTimeSyncAck(attachment.token, payload.nonce);
     if (payload.type === 'call_coin') return void await this.callCoin(ws, attachment.token, payload.face);
     if (payload.type === 'claim_position_bid') return void await this.claimPositionBid(ws, attachment.token, payload.sessionId);
     if (payload.type === 'claim_color_bid') return void await this.claimColorBid(ws, attachment.token, payload.sessionId);
     if (payload.type === 'settle_color_bid') return void await this.settleColorBid(ws, attachment.token);
-    if (payload.type === 'move') return void await this.handleMove(ws, color, payload.uci);
-    if (payload.type === 'clock_slap') return void await this.handleClockSlap(ws, color);
+    if (payload.type === 'move') return void await this.handleMove(ws, attachment.token, color, payload);
+    if (payload.type === 'clock_slap') return void await this.handleClockSlap(ws, attachment.token, color);
     if (payload.type === 'start_now') {
       if (this.room.session.state !== 'COUNTDOWN' || !this.room.players.black) return this.sendError(ws, 'The game cannot start yet.');
       this.startPlaying(Date.now()); await this.persist(); await this.scheduleForState(); this.broadcast(); return;
@@ -322,7 +336,7 @@ export class ChessRoom extends DurableObject<Env> {
     if (payload.type === 'resign') {
       if (!['ACTIVE', 'PAUSED', 'RECONNECTING'].includes(this.room.session.state)) return this.sendError(ws, 'There is no active game to resign.');
       const now = Date.now();
-      if (this.room.session.state === 'ACTIVE') this.settleActiveClock(now);
+      if (this.room.session.state === 'ACTIVE' || this.room.session.state === 'RECONNECTING') this.settleActiveClock(now);
       if (this.room.session.resultKind === 'TIMEOUT') {
         this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
       }
@@ -347,7 +361,7 @@ export class ChessRoom extends DurableObject<Env> {
       if ((this.room.session.countdownEndsAt ?? 0) <= now) this.startPlaying(now);
       await this.persist(); await this.scheduleForState(); this.broadcast(); return;
     }
-    if (this.room.session.state === 'ACTIVE') {
+    if (this.room.session.state === 'ACTIVE' || this.room.session.state === 'RECONNECTING') {
       this.settleActiveClock(now);
       if (this.room.session.resultKind === 'TIMEOUT') {
         this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
@@ -366,7 +380,33 @@ export class ChessRoom extends DurableObject<Env> {
     return colors;
   }
   private snapshotForToken(token: string | null) { if (!this.room) throw new Error('Room state unavailable.'); return makeSnapshot(this.room, this.connectedColors(), token); }
-  private sendSnapshot(ws: WebSocket, token: string): void { try { ws.send(JSON.stringify({ type: 'snapshot', room: this.snapshotForToken(token) })); } catch { /* socket closing */ } }
+  private sendSnapshot(ws: WebSocket, token: string): void {
+    try { ws.send(JSON.stringify({ type: 'snapshot', room: this.snapshotForToken(token) })); this.sendTimeSync(ws, token); } catch { /* socket closing */ }
+  }
+  private sendTimeSync(ws: WebSocket, token: string): void {
+    const now = Date.now();
+    const current = this.latency.get(token);
+    if (current?.nonce && now - current.sentAt < 5_000) return;
+    if (current?.sampledAt && now - current.sampledAt < 10_000) return;
+    const nonce = crypto.randomUUID();
+    this.latency.set(token, { nonce, sentAt: now, bestRttMs: current?.bestRttMs ?? null, sampledAt: current?.sampledAt ?? null });
+    try { ws.send(JSON.stringify({ type: 'time_sync', nonce, serverSentAt: now })); } catch { /* socket closing */ }
+  }
+  private handleTimeSyncAck(token: string, nonce: string): void {
+    const current = this.latency.get(token);
+    if (!current?.nonce || current.nonce !== nonce) return;
+    const now = Date.now();
+    const rtt = Math.max(0, now - current.sentAt);
+    if (rtt > 3_000) { this.latency.set(token, { ...current, nonce: null, sampledAt: now }); return; }
+    const bestRttMs = current.bestRttMs === null ? rtt : Math.min(current.bestRttMs, rtt);
+    this.latency.set(token, { nonce: null, sentAt: current.sentAt, bestRttMs, sampledAt: now });
+  }
+  private latencyCreditMs(token: string, rawElapsedMs: number, at: number): number {
+    const sample = this.latency.get(token);
+    if (!sample || sample.bestRttMs === null || sample.sampledAt === null || at - sample.sampledAt > LATENCY_SAMPLE_MAX_AGE_MS) return 0;
+    // Only server-measured RTT is trusted. The small cap and elapsed-time fraction make artificial delayed ACKs unprofitable.
+    return Math.max(0, Math.floor(Math.min(LATENCY_CREDIT_CAP_MS, sample.bestRttMs / 4, rawElapsedMs * LATENCY_CREDIT_FRACTION)));
+  }
   private broadcast(): void {
     if (!this.room) return;
     for (const ws of this.ctx.getWebSockets()) { const attachment = ws.deserializeAttachment() as SocketAttachment | null; if (attachment?.token) this.sendSnapshot(ws, attachment.token); }
@@ -378,7 +418,7 @@ export class ChessRoom extends DurableObject<Env> {
     const current = this.room.session;
     let next = createGameSession({
       id: current.id, state: 'LOBBY', positionId: current.positionId, fen: current.fen, sideToMove: 'white',
-      clockMs: GAME_CLOCK_MS, incrementMs: GAME_INCREMENT_MS, connectionStatus: 'CONNECTED', now,
+      clockMs: current.clocks.baseMs, incrementMs: current.clocks.incrementMs, connectionStatus: 'CONNECTED', now,
     });
     next = reduceGameSession(next, { type: 'TRANSITION', to: 'READY', at: now });
     next = reduceGameSession(next, { type: 'TRANSITION', to: 'COIN_TOSS', at: now });
@@ -563,6 +603,7 @@ export class ChessRoom extends DurableObject<Env> {
       movesSan: [], moveNumber: 0, result: null, resultKind: null, winner: null,
       drawOffers: { white: false, black: false }, resignedBy: null, check: false, checkmate: false,
     };
+    this.room.lastMoveTiming = null;
   }
   private startPlaying(now: number): void {
     if (!this.room || this.room.session.state !== 'COUNTDOWN') return;
@@ -570,16 +611,19 @@ export class ChessRoom extends DurableObject<Env> {
     this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
     this.room.lastActivityAt = now;
   }
-  private settleActiveClock(now: number): void {
-    if (!this.room || this.room.session.state !== 'ACTIVE' || this.room.session.clocks.startedAt === null) return;
-    const elapsed = Math.max(0, now - this.room.session.clocks.startedAt);
-    if (!elapsed) return;
-    this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TICK', elapsedMs: elapsed, at: now });
+  private settleActiveClock(now: number, token?: string): { chargedElapsedMs: number; latencyCreditMs: number } {
+    if (!this.room || !['ACTIVE', 'RECONNECTING'].includes(this.room.session.state) || this.room.session.clocks.startedAt === null) return { chargedElapsedMs: 0, latencyCreditMs: 0 };
+    const rawElapsedMs = Math.max(0, now - this.room.session.clocks.startedAt);
+    if (!rawElapsedMs) return { chargedElapsedMs: 0, latencyCreditMs: 0 };
+    const latencyCreditMs = token ? this.latencyCreditMs(token, rawElapsedMs, now) : 0;
+    const chargedElapsedMs = Math.max(0, rawElapsedMs - latencyCreditMs);
+    this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TICK', elapsedMs: chargedElapsedMs, at: now });
+    return { chargedElapsedMs, latencyCreditMs };
   }
-  private async handleClockSlap(ws: WebSocket, color: Color): Promise<void> {
+  private async handleClockSlap(ws: WebSocket, token: string, color: Color): Promise<void> {
     if (!this.room || this.room.session.state !== 'ACTIVE' || this.room.session.result) return this.sendError(ws, 'The clock is not accepting presses.');
     if (this.room.session.pendingClockPress !== color) return this.sendError(ws, 'Make your move before pressing your clock.');
-    const now = Date.now(); this.settleActiveClock(now);
+    const now = Date.now(); this.settleActiveClock(now, token);
     if (this.room.session.resultKind === 'TIMEOUT') {
       this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }
@@ -624,29 +668,44 @@ export class ChessRoom extends DurableObject<Env> {
     this.room.session = reduceGameSession(this.room.session, { type: 'CLEAR_DRAW_OFFER', by: other, at: now });
     this.room.lastActivityAt = now; await this.persist(); this.broadcast();
   }
-  private async handleMove(ws: WebSocket, color: Color, rawUci: unknown): Promise<void> {
+  private async handleMove(ws: WebSocket, token: string, color: Color, payload: Extract<ClientMessage, { type: 'move' }>): Promise<void> {
     if (!this.room) return;
     if (!canColorMove(this.room.session, color)) return this.sendError(ws, this.room.session.pendingClockPress ? 'The previous move is waiting for a clock press.' : 'The game is not accepting that move.');
-    const now = Date.now(); this.settleActiveClock(now);
+    const serverReceivedAt = Date.now();
+    const settled = this.settleActiveClock(serverReceivedAt, token);
     if (this.room.session.resultKind === 'TIMEOUT') {
-      this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
+      this.room.lastActivityAt = serverReceivedAt; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }
-    const uci = String(rawUci ?? '').trim().toLowerCase();
+    const uci = String(payload.uci ?? '').trim().toLowerCase();
     if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return this.sendError(ws, 'Invalid move format.');
     let position: Chess;
     try { position = Chess.fromSetup(parseFen(this.room.session.fen).unwrap()).unwrap(); }
     catch { return this.sendError(ws, 'The server could not read the room position.'); }
     const move = parseUci(uci);
-    if (!move || !position.isLegal(move)) { this.room.session.clocks.startedAt = now; await this.persist(); await this.scheduleForState(); return this.sendError(ws, 'That move is not legal.'); }
+    if (!move || !position.isLegal(move)) { this.room.session.clocks.startedAt = serverReceivedAt; await this.persist(); await this.scheduleForState(); return this.sendError(ws, 'That move is not legal.'); }
     const san = makeSan(position, move); position.play(move);
     this.room.session = reduceGameSession(this.room.session, {
       type: 'MOVE_COMMITTED', fen: makeFen(position.toSetup()), sideToMove: position.turn, mover: color, san,
-      check: position.isCheck(), checkmate: position.isCheckmate(), at: now,
+      check: position.isCheck(), checkmate: position.isCheckmate(), at: serverReceivedAt,
     });
-    this.room.lastActivityAt = now;
+    const serverCommittedAt = Date.now();
+    this.room.session.clocks.startedAt = serverCommittedAt;
+    const timing: MoveTiming = {
+      moveNumber: this.room.session.moveNumber,
+      clientSequence: Number.isInteger(payload.clientSequence) ? Number(payload.clientSequence) : null,
+      clientSentAt: Number.isFinite(payload.clientSentAt) ? Number(payload.clientSentAt) : null,
+      serverReceivedAt,
+      serverCommittedAt,
+      chargedElapsedMs: settled.chargedElapsedMs,
+      latencyCreditMs: settled.latencyCreditMs,
+      nextClockStartedAt: this.room.session.clocks.startedAt,
+    };
+    this.room.lastMoveTiming = timing;
+    try { ws.send(JSON.stringify({ type: 'move_ack', timing })); } catch { /* socket closing */ }
+    this.room.lastActivityAt = serverCommittedAt;
     const ending = resultInfo(position);
     if (ending) {
-      this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', ...ending, at: now });
+      this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', ...ending, at: serverCommittedAt });
       await this.ctx.storage.deleteAlarm();
     }
     await this.persist(); await this.scheduleForState(); this.broadcast();
@@ -664,7 +723,8 @@ export class ChessRoom extends DurableObject<Env> {
       this.settleActiveClock(now);
       if (this.room.session.state === 'ACTIVE') this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'RECONNECTING', white, black, at: now });
     } else if (this.room.session.state === 'RECONNECTING' && both) {
-      this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
+      this.settleActiveClock(now);
+      if (this.room.session.state === 'RECONNECTING') this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
     } else {
       const status = both ? 'CONNECTED' : 'DISCONNECTED';
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status, white, black, at: now });
@@ -675,7 +735,7 @@ export class ChessRoom extends DurableObject<Env> {
     if (!this.room) return;
     if (this.room.session.state === 'COIN_TOSS' && this.room.coin.endsAt) { await this.ctx.storage.setAlarm(this.room.coin.endsAt); return; }
     if (this.room.session.state === 'COUNTDOWN' && this.room.session.countdownEndsAt) { await this.ctx.storage.setAlarm(this.room.session.countdownEndsAt); return; }
-    if (this.room.session.state === 'ACTIVE' && this.room.session.clocks.startedAt !== null) {
+    if ((this.room.session.state === 'ACTIVE' || this.room.session.state === 'RECONNECTING') && this.room.session.clocks.startedAt !== null) {
       const owner = activeClockColor(this.room); if (!owner) return;
       const remaining = owner === 'white' ? this.room.session.clocks.whiteMs : this.room.session.clocks.blackMs;
       await this.ctx.storage.setAlarm(Date.now() + Math.max(1, remaining)); return;

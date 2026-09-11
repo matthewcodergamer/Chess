@@ -10,6 +10,7 @@ import PhysicalChessClock from '../ui/PhysicalChessClock';
 import MatchPlayerBar from '../ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from '../ui/ChessBoardSurface';
 import ChessPieceAsset from '../ui/ChessPieceAsset';
+import TimeControlPicker from '../ui/TimeControlPicker';
 import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';
 import { playChessSound } from '../ui/sound';
 import { motionTokenMs, useReducedMotion } from '../ui/motion';
@@ -18,6 +19,7 @@ import { connectRoom, createRoom, joinRoom, multiplayerConfigured } from './clie
 import type { CoinFace, RoomSeat, RoomSnapshot, ServerEvent } from './types';
 import { authoritativeRoomSession } from './session';
 import { canColorMove, canLeaveGameSession, canOfferDraw, canResignGameSession, clockOwner, isTerminalGameState } from '../../shared/gameSession';
+import { TIME_CONTROL_PRESETS, TOURNAMENT_TIME_TEMPLATES, createCustomTimeControl, timeControlLabel, type TimeControl, type TimeControlPresetId, type TournamentTimeTemplateId } from '../../shared/timeControl';
 
 type PromotionLetter = 'q' | 'r' | 'b' | 'n';
 type DesiredColor = 'white' | 'black';
@@ -50,6 +52,22 @@ function profileName(): string {
     return value?.username?.trim() || 'Guest';
   } catch { return 'Guest'; }
 }
+function tournamentTimePolicy(): { templateId: TournamentTimeTemplateId; allowed: TimeControlPresetId[]; control: TimeControl } {
+  const fallback = TOURNAMENT_TIME_TEMPLATES['open-rapid'];
+  try {
+    const raw = sessionStorage.getItem('qqurz:selected-tournament');
+    const selected = raw ? JSON.parse(raw) as { timeControlTemplateId?: TournamentTimeTemplateId; allowedTimeControls?: string[]; baseMinutes?: number; incrementSeconds?: number } : null;
+    const template = selected?.timeControlTemplateId && TOURNAMENT_TIME_TEMPLATES[selected.timeControlTemplateId]
+      ? TOURNAMENT_TIME_TEMPLATES[selected.timeControlTemplateId]
+      : fallback;
+    const allowed = (selected?.allowedTimeControls ?? template.allowedControls).filter((id): id is TimeControlPresetId => id in TIME_CONTROL_PRESETS);
+    const control = selected?.baseMinutes !== undefined
+      ? createCustomTimeControl(selected.baseMinutes, selected.incrementSeconds ?? 0)
+      : { ...TIME_CONTROL_PRESETS[template.defaultControl] };
+    return { templateId: template.id, allowed: allowed.length ? allowed : [...template.allowedControls], control };
+  } catch { return { templateId: fallback.id, allowed: [...fallback.allowedControls], control: { ...TIME_CONTROL_PRESETS[fallback.defaultControl] } }; }
+}
+
 function inviteUrl(code: string): string {
   const url = new URL(location.href);
   url.search = '';
@@ -69,6 +87,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const lastMoveSoundCount = useRef(0);
   const lastCoinResult = useRef<CoinFace | null>(null);
   const lastResult = useRef<string | null>(null);
+  const moveSequence = useRef(0);
 
   const params = new URLSearchParams(location.search);
   const queryRoom = params.get('room')?.toUpperCase() ?? '';
@@ -96,6 +115,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [liveColorBidsEnabled, setLiveColorBidsEnabled] = useState(false);
   const [showClock, setShowClock] = useState(clockVisible);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const tournamentPolicy = useMemo(() => tournamentTimePolicy(), []);
+  const [roomTimeControl, setRoomTimeControl] = useState<TimeControl>(() => variant === 'tournament' ? tournamentTimePolicy().control : { ...TIME_CONTROL_PRESETS['10+5'] });
   const reducedMotion = useReducedMotion();
   const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
 
@@ -157,7 +178,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
       setPromotion({ orig, dest });
       return requestAnimationFrame(syncBoard);
     }
-    send({ type: 'move', uci: `${orig}${dest}` });
+    moveSequence.current += 1;
+    send({ type: 'move', uci: `${orig}${dest}`, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
   }, [pos, send, syncBoard, yourTurn]);
   moveHandler.current = handleMove;
 
@@ -167,6 +189,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     setMessage('');
     const ws = connectRoom(seat, (event: ServerEvent) => {
       if (event.type === 'error') return setMessage(event.message);
+      if (event.type !== 'snapshot') return;
       const receivedAt = Date.now();
       setSnapshot(event.room);
       setSnapshotAt(receivedAt);
@@ -260,7 +283,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   };
   const create = async () => {
     setBusy(true); setMessage('');
-    try { const created = await createRoom(name.trim() || 'Guest'); setRoomCode(created.code); rememberSeat(created); setSeat(created); setRoomUrl(created.code); }
+    try { const created = await createRoom(name.trim() || 'Guest', roomTimeControl, variant === 'tournament' ? tournamentPolicy.templateId : undefined); setRoomCode(created.code); rememberSeat(created); setSeat(created); setRoomUrl(created.code); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not create room.'); }
     finally { setBusy(false); }
   };
@@ -280,7 +303,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   };
   const choosePromotion = (piece: PromotionLetter) => {
     if (!promotion) return;
-    send({ type: 'move', uci: `${promotion.orig}${promotion.dest}${piece}` });
+    moveSequence.current += 1;
+    send({ type: 'move', uci: `${promotion.orig}${promotion.dest}${piece}`, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
     setPromotion(null);
   };
   const buyBid = async (cents: 200 | 500) => {
@@ -313,6 +337,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
       <div className="online-lobby-heading"><div><span className="eyebrow">ONLINE MULTIPLAYER</span><h3>{variant === 'tournament' ? 'Enter the QQURZ tournament room' : 'Play across different internet connections'}</h3><p>Create or join a six-character room. QQURZ keeps the color toss, shared Chess960 position and clock state on the server.</p></div><span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>{multiplayerConfigured ? 'Server configured' : 'Backend connection required'}</span></div>
       <label className="online-field"><span>Your display name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
+      <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : undefined} allowCustom={variant !== 'tournament'} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
       <div className="online-actions-grid"><button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy}>{busy ? 'Working…' : 'Create private room'}</button><div className="join-room-box"><input value={roomCode} onChange={event => setRoomCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} placeholder="ROOM CODE"/><button onClick={join} disabled={!multiplayerConfigured || busy}>Join</button></div></div>
       {message && <p className="online-error">{message}</p>}<button className="online-back" onClick={onClose}>Back to match choices</button>
     </section>
@@ -326,7 +351,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
       </header>
       {snapshot ? <div className="online-game-grid match-game-grid">
         <div className="online-board-column match-board-column">
-          <div className="match-game-meta"><b>Chess960 · #{gameSession?.positionId ?? snapshot.positionId}</b><span>{variant === 'tournament' ? 'Tournament game' : 'Live game'}</span></div>
+          <div className="match-game-meta"><b>Chess960 · #{gameSession?.positionId ?? snapshot.positionId}</b><span>{variant === 'tournament' ? 'Tournament game' : 'Live game'} · {gameSession ? timeControlLabel(gameSession.clocks.baseMs, gameSession.clocks.incrementMs) : roomTimeControl.label}</span></div>
 
           <MatchPlayerBar
             color={opponentColor}
@@ -397,6 +422,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             <div><span>Moves</span><b>{gameSession?.moveNumber ?? 0}</b></div>
             <div><span>State</span><b>{gameSession?.state ?? 'LOBBY'}</b></div>
             <div><span>Connection</span><b>{gameSession?.connection.status ?? 'DISCONNECTED'}</b></div>
+            <div><span>Time control</span><b>{gameSession ? timeControlLabel(gameSession.clocks.baseMs, gameSession.clocks.incrementMs) : roomTimeControl.label}</b></div>
             <div><span>Increment</span><b>{(gameSession?.clocks.incrementMs ?? 0) / 1000}s</b></div>
             <div className="match-options-actions"><button onClick={copyInvite}>{copied ? 'Invite copied ✓' : 'Copy invite link'}</button>{canLeave && <button onClick={onClose}>Leave room</button>}</div>
             <div className="match-move-list"><span className="qqurz-kicker">MOVES</span>{gameSession?.movesSan.length ? <ol>{gameSession.movesSan.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div>

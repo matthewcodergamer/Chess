@@ -27,6 +27,7 @@ export type GameSessionModel = {
   clocks: {
     whiteMs: number;
     blackMs: number;
+    baseMs: number;
     incrementMs: number;
     startedAt: number | null;
   };
@@ -78,6 +79,7 @@ export type GameSessionEvent =
   | { type: 'CLOCK_TRANSFERRED'; at?: number }
   | { type: 'SET_CLOCKS'; whiteMs: number; blackMs: number; startedAt?: number | null; at?: number }
   | { type: 'SET_INCREMENT'; incrementMs: number; at?: number }
+  | { type: 'SET_TIME_CONTROL'; baseMs: number; incrementMs: number; resetClocks?: boolean; at?: number }
   | { type: 'SET_COUNTDOWN'; remainingMs: number; endsAt?: number | null; at?: number }
   | { type: 'COUNTDOWN_TICK'; elapsedMs: number; at?: number }
   | { type: 'SET_CONNECTION'; status: GameConnectionStatus; white?: boolean; black?: boolean; at?: number }
@@ -130,6 +132,7 @@ export function createGameSession(options: CreateGameSessionOptions = {}): GameS
     clocks: {
       whiteMs: Math.max(0, options.whiteClockMs ?? clockMs),
       blackMs: Math.max(0, options.blackClockMs ?? clockMs),
+      baseMs: clockMs,
       incrementMs: Math.max(0, options.incrementMs ?? 0),
       startedAt: options.clockStartedAt ?? null,
     },
@@ -177,7 +180,7 @@ export function isPreGameState(state: GameSessionState): boolean {
 }
 
 export function clockOwner(session: GameSessionModel): GameColor | null {
-  if (session.state !== 'ACTIVE') return null;
+  if (session.state !== 'ACTIVE' && session.state !== 'RECONNECTING') return null;
   return session.pendingClockPress ?? session.sideToMove;
 }
 
@@ -306,6 +309,23 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
       };
     case 'SET_INCREMENT':
       return { ...session, clocks: { ...session.clocks, incrementMs: Math.max(0, event.incrementMs) }, updatedAt: at };
+    case 'SET_TIME_CONTROL': {
+      if (!isPreGameState(session.state)) return session;
+      const baseMs = Math.max(0, event.baseMs);
+      const incrementMs = Math.max(0, event.incrementMs);
+      return {
+        ...session,
+        clocks: {
+          ...session.clocks,
+          baseMs,
+          incrementMs,
+          whiteMs: event.resetClocks === false ? session.clocks.whiteMs : baseMs,
+          blackMs: event.resetClocks === false ? session.clocks.blackMs : baseMs,
+          startedAt: null,
+        },
+        updatedAt: at,
+      };
+    }
     case 'SET_COUNTDOWN':
       return { ...session, countdownMs: Math.max(0, event.remainingMs), countdownEndsAt: event.endsAt ?? null, updatedAt: at };
     case 'COUNTDOWN_TICK': {
@@ -325,10 +345,10 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
         updatedAt: at,
       };
       if (session.state === 'ACTIVE' && (event.status === 'RECONNECTING' || event.status === 'DISCONNECTED')) {
-        return { ...next, state: 'RECONNECTING', clocks: { ...next.clocks, startedAt: null } };
+        return { ...next, state: 'RECONNECTING' };
       }
       if (session.state === 'RECONNECTING' && (event.status === 'CONNECTED' || event.status === 'LOCAL')) {
-        return { ...next, state: 'ACTIVE', clocks: { ...next.clocks, startedAt: at } };
+        return { ...next, state: 'ACTIVE', clocks: { ...next.clocks, startedAt: next.clocks.startedAt ?? at } };
       }
       return next;
     }

@@ -1,4 +1,5 @@
 import { MULTIPLAYER_API, multiplayerConfigured } from '../multiplayer/client';
+import { TIME_CONTROL_PRESETS, tournamentTimeTemplateFor, type TournamentTimeTemplateId } from '../../shared/timeControl';
 import {
   ANNUAL_CHAMPIONSHIP_ENTRY_CENTS,
   ANNUAL_CHAMPIONSHIP_GUARANTEE_CENTS,
@@ -33,6 +34,8 @@ export type Tournament = {
   timeControl: string;
   baseMinutes: number;
   incrementSeconds: number;
+  timeControlTemplateId: TournamentTimeTemplateId;
+  allowedTimeControls: string[];
   seats: number;
   rounds: number;
   registeredSeats: number;
@@ -74,15 +77,19 @@ function fallbackTournament(seats: number, entryCents: number): Tournament {
   const feeCents = platformFeeCents(grossCents);
   const prizePoolCents = playerPrizePoolCents(grossCents);
   const annualOnly = isAnnualChampionship(seats, entryCents);
+  const timeTemplate = tournamentTimeTemplateFor(seats, entryCents);
+  const defaultControl = TIME_CONTROL_PRESETS[timeTemplate.defaultControl];
   return {
     id: tournamentId(seats, entryCents),
     name: tournamentName(seats, entryCents),
     entryCents,
     prizeLabel: annualOnly ? '$2,000,000 guarantee requires operator or sponsor funding' : '80% of collected entries allocated to the player prize pool',
     format: 'Single elimination',
-    timeControl: '10+0',
-    baseMinutes: 10,
-    incrementSeconds: 0,
+    timeControl: defaultControl.label,
+    baseMinutes: defaultControl.baseMs / 60_000,
+    incrementSeconds: defaultControl.incrementMs / 1_000,
+    timeControlTemplateId: timeTemplate.id,
+    allowedTimeControls: [...timeTemplate.allowedControls],
     seats,
     rounds: bracketRounds(seats),
     registeredSeats: 0,
