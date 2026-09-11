@@ -6,7 +6,7 @@ export type RoomStatus = 'waiting' | 'coin' | 'strategy' | 'playing' | 'ended';
 export type SeatColor = GroundColor;
 export type CoinFace = 'heads' | 'tails';
 
-export type RoomPlayer = { name: string; connected: boolean };
+export type RoomPlayer = { name: string; connected: boolean; rating?: number | null };
 export type MoveTiming = {
   moveNumber: number;
   clientSequence: number | null;
@@ -44,6 +44,9 @@ export type RoomSnapshot = {
   checkmate: boolean;
   yourColor: GroundColor | null;
   players: { white: RoomPlayer | null; black: RoomPlayer | null };
+  spectator?: boolean;
+  tournamentId?: string | null;
+  permissions?: { readOnly: boolean; analysis: boolean };
   coin: {
     claimedFace: CoinFace | null;
     claimedBy: string | null;
