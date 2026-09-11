@@ -5,6 +5,7 @@ import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles/index.css';
 import AppV14 from './AppV14';
+import { motionTokenMs } from './ui/motion';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -12,13 +13,14 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// Keep the refresh experience seamless: the tiny static loader in index.html
-// stays visible until React has actually mounted, then fades rather than popping.
+// Keep refresh seamless: the static activity indicator survives until React
+// mounts, then leaves on the same short route-motion timing used by the app.
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
     const boot = document.getElementById('qqurz-boot');
     if (!boot) return;
     boot.classList.add('is-hidden');
-    window.setTimeout(() => boot.remove(), 260);
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    window.setTimeout(() => boot.remove(), reduced ? 0 : motionTokenMs('--q-motion-route', 180));
   });
 });
