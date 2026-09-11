@@ -48,7 +48,7 @@ assert(blackKnight.includes('#ececec'), 'black knight eye/highlight detail is mi
 const whiteQueen = svgFor('queen', 'white');
 assert((whiteQueen.match(/<path/g) ?? []).length >= 3 && (whiteQueen.match(/a2 2/g) ?? []).length >= 3, 'queen crown openings/details are missing');
 const blackBishop = svgFor('bishop', 'black');
-assert(blackBishop.includes('M22.5 14.5v5') || blackBishop.includes('M22.5 14.5'), 'bishop cut/detail path is missing');
+assert(blackBishop.includes('m-7.5-14.5v5') && blackBishop.includes('stroke="#ececec"'), 'bishop cut/detail path is missing');
 const blackRook = svgFor('rook', 'black');
 assert(blackRook.includes('V9h4') && blackRook.includes('stroke-linecap'), 'rook battlement edges are missing');
 const whiteKing = svgFor('king', 'white');
