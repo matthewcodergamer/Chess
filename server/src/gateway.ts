@@ -11,6 +11,8 @@ type Env = TournamentEnv & MatchmakerEnv & AccountEnv & {
   ALLOWED_ORIGINS?: string;
 };
 
+type BaseHandlerEnv = Parameters<typeof baseHandler.fetch>[1];
+
 function withCors(request: Request, response: Response, env: Env): Response {
   const origin = request.headers.get('origin');
   const allowed = new Set((env.ALLOWED_ORIGINS ?? '').split(',').map(value => value.trim()).filter(Boolean));
@@ -40,6 +42,9 @@ export default {
     const tournamentResponse = await handleTournamentRequest(request, env);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
 
-    return baseHandler.fetch(request, env);
+    // Runtime ROOMS is the exported AuthoritativeChessRoom subclass. The base
+    // HTTP router only needs the Durable Object namespace's fetch surface, so
+    // bridge the nominal RPC generic at this one boundary.
+    return baseHandler.fetch(request, env as unknown as BaseHandlerEnv);
   },
 } satisfies ExportedHandler<Env>;
