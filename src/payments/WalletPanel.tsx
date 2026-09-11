@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { formatUsdCents } from '../../shared/money';
 import { accountToken } from '../account/client';
 import { openWalletDeposit } from './actions';
 import { loadWallet, type WalletEnvelope } from './client';
-
-function money(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 export default function WalletPanel() {
   const [wallet, setWallet] = useState<WalletEnvelope | null>(null);
@@ -57,17 +54,17 @@ export default function WalletPanel() {
   return (
     <section className="wallet-balance-panel" aria-label="QQURZ wallet">
       <div className="wallet-balance-heading">
-        <div><span className="eyebrow">PLAYER WALLET</span><h3>{money(wallet.wallet.availableCents)}</h3><p>Available balance</p></div>
+        <div><span className="eyebrow">PLAYER WALLET</span><h3>{formatUsdCents(wallet.wallet.availableCents)}</h3><p>Available balance</p></div>
         <button onClick={() => void refresh()} disabled={loading}>Refresh</button>
       </div>
       <div className="wallet-balance-breakdown">
-        <div><span>Available</span><b>{money(wallet.wallet.availableCents)}</b></div>
-        <div><span>In play</span><b>{money(wallet.wallet.heldCents)}</b></div>
-        <div><span>Pending withdrawal</span><b>{money(wallet.wallet.pendingWithdrawalCents)}</b></div>
+        <div><span>Available</span><b>{formatUsdCents(wallet.wallet.availableCents)}</b></div>
+        <div><span>In play</span><b>{formatUsdCents(wallet.wallet.heldCents)}</b></div>
+        <div><span>Pending withdrawal</span><b>{formatUsdCents(wallet.wallet.pendingWithdrawalCents)}</b></div>
       </div>
       {depositDecision.allowed ? (
         <div className="wallet-deposit-row" aria-label="Add money">
-          {[500, 1000, 2500, 5000].map(amount => <button key={amount} onClick={() => void deposit(amount)} disabled={loading}>Add {money(amount)}</button>)}
+          {[500, 1000, 2500, 5000].map(amount => <button key={amount} onClick={() => void deposit(amount)} disabled={loading}>Add {formatUsdCents(amount)}</button>)}
         </div>
       ) : (
         <div className="wallet-policy-note"><b>Real-money funding unavailable</b><span>{depositDecision.reason || 'Your jurisdiction or verification status is not approved.'}</span></div>
