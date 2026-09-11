@@ -1,3 +1,5 @@
+import ChessPieceAsset, { type PieceAssetRole } from './ChessPieceAsset';
+
 type Orientation = 'white' | 'black';
 
 type Props = {
@@ -11,10 +13,13 @@ type PieceKey = 'q' | 'r' | 'b' | 'n' | 'p';
 const STARTING: Record<PieceKey, number> = { q: 1, r: 2, b: 2, n: 2, p: 8 };
 const VALUE: Record<PieceKey, number> = { q: 9, r: 5, b: 3, n: 3, p: 1 };
 const ORDER: PieceKey[] = ['q', 'r', 'b', 'n', 'p'];
-const GLYPH = {
-  white: { q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-  black: { q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
-} as const;
+const ROLE: Record<PieceKey, PieceAssetRole> = {
+  q: 'queen',
+  r: 'rook',
+  b: 'bishop',
+  n: 'knight',
+  p: 'pawn',
+};
 
 function currentCounts(fen: string, color: Orientation): Record<PieceKey, number> {
   const result: Record<PieceKey, number> = { q: 0, r: 0, b: 0, n: 0, p: 0 };
@@ -38,8 +43,16 @@ function material(pieces: PieceKey[]): number {
 function PieceRun({ pieces, color }: { pieces: PieceKey[]; color: Orientation }) {
   if (!pieces.length) return <span className="captured-empty">No captures</span>;
   return (
-    <span className={`captured-glyphs ${color}`} aria-label={`${pieces.length} ${color} pieces captured`}>
-      {pieces.map((piece, index) => <span key={`${piece}-${index}`}>{GLYPH[color][piece]}</span>)}
+    <span className={`captured-piece-set ${color}`} aria-label={`${pieces.length} ${color} pieces captured`}>
+      {pieces.map((piece, index) => (
+        <ChessPieceAsset
+          key={`${piece}-${index}`}
+          role={ROLE[piece]}
+          color={color}
+          size="sm"
+          className="captured-piece-asset"
+        />
+      ))}
     </span>
   );
 }
