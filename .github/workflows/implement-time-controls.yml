@@ -1,0 +1,42 @@
+name: Implement complete time controls
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/implement-time-controls.mjs'
+      - '.github/workflows/implement-time-controls.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Apply time-control migration
+        run: node scripts/implement-time-controls.mjs
+      - name: Verify app production build
+        run: npm run build
+      - name: Install server dependencies
+        working-directory: server
+        run: npm install --no-audit --no-fund
+      - name: Verify realtime server
+        working-directory: server
+        run: npm run check
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add shared/gameSession.ts src/LocalGame.tsx src/multiplayer/client.ts src/multiplayer/types.ts src/multiplayer/OnlineArena.tsx src/tournaments/model.ts src/tournaments/client.ts src/tournaments/TournamentHub.tsx server/src/tournaments.ts server/src/index.ts src/experience.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Implement complete authoritative time controls"
+          git push origin main
