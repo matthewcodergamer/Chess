@@ -6,7 +6,8 @@ import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRo
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
 import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngineRegistry';
-import { CoinGateChessRoom as ChessRoom } from './coinGateRoom';
+import { MoneyChessRoom as ChessRoom } from './moneyRoom';
+import { handleMoneyRoomRequest } from './moneyRoomApi';
 import { PaymentLedger } from './paymentLedger';
 import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
@@ -61,6 +62,9 @@ export default {
 
     const tournamentResponse = await handleTournamentRequest(request, env as unknown as TournamentEnv);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
+
+    const moneyRoomResponse = await handleMoneyRoomRequest(request, env);
+    if (moneyRoomResponse) return withCors(request, moneyRoomResponse, env);
 
     const spectatorRoomResponse = await handleSpectatorRoomRequest(request, env);
     if (spectatorRoomResponse) return withCors(request, spectatorRoomResponse, env);
