@@ -52,7 +52,7 @@ export type TournamentStanding = {
 };
 
 const STORE_KEY = 'tournament-view-games:v1';
-const TOURNAMENT_ID = /^knockout-\d+-\d+$/;
+const TOURNAMENT_ID = /^(?:knockout-\d+-\d+|event_[a-f0-9]{32})$/;
 const ROOM_CODE = /^[A-Z0-9]{6}$/;
 
 function json(data: unknown, status = 200): Response {
