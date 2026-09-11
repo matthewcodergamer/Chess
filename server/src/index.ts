@@ -7,10 +7,11 @@ import { chess960Fen, randomChess960Id } from './chess960';
 import { canColorMove, clockOwner, createGameSession, isTerminalGameState, reduceGameSession, type GameResultKind, type GameSessionModel, type GameSessionState } from '../../shared/gameSession';
 import { TOURNAMENT_TIME_TEMPLATES, isTournamentControlAllowed, normalizeTimeControl, type TimeControlRequest, type TournamentTimeTemplateId } from '../../shared/timeControl';
 import { adjudicateChess, appendPositionHistory, chessPositionKeyFromFen } from '../../shared/chess960Rules';
+import { recordAccountGame, resolveAccountSession, type AccountEnv } from './accounts';
 
 type Color = 'white' | 'black';
 type CoinFace = 'heads' | 'tails';
-type PlayerSeat = { name: string; token: string };
+type PlayerSeat = { name: string; token: string; accountId: string | null };
 type PaidBid = { cents: number; paidAt: number; sessionId: string };
 type PaidColorBid = { cents: number; desiredColor: Color; paidAt: number; sessionId: string; paymentIntentId: string; refundedAt: number | null };
 type CoinState = { claimedFace: CoinFace | null; claimedByToken: string | null; result: CoinFace | null; winnerToken: string | null; flippedAt: number | null; endsAt: number | null };
@@ -22,6 +23,7 @@ type RoomState = {
   code: string;
   session: GameSessionModel;
   lastMoveTiming: MoveTiming | null;
+  accountResultRecordedAt: number | null;
   positionHistory: string[];
   createdAt: number;
   lastActivityAt: number;
@@ -44,7 +46,7 @@ type ClientMessage =
   | { type: 'offer_draw' }
   | { type: 'accept_draw' }
   | { type: 'decline_draw' };
-type Env = {
+type Env = AccountEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   ALLOWED_ORIGINS?: string;
   STRIPE_SECRET_KEY?: string;
@@ -96,6 +98,9 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
   if (legacy.session) {
     const room = legacy as RoomState;
     if (!Array.isArray(room.positionHistory) || !room.positionHistory.length) room.positionHistory = historyForFen(room.session.fen);
+    if (room.players?.white) room.players.white.accountId = (room.players.white as PlayerSeat & { accountId?: string | null }).accountId ?? null;
+    if (room.players?.black) room.players.black.accountId = (room.players.black as PlayerSeat & { accountId?: string | null }).accountId ?? null;
+    if (typeof room.accountResultRecordedAt !== 'number') room.accountResultRecordedAt = null;
     return room;
   }
   if (!legacy.code || !legacy.players?.white) return null;
@@ -124,10 +129,13 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
   session.checkmate = Boolean(legacy.checkmate);
   session.clocks.startedAt = typeof legacy.turnStartedAt === 'number' ? legacy.turnStartedAt : null;
   return {
-    code: String(legacy.code), session, lastMoveTiming: legacy.lastMoveTiming ?? null,
+    code: String(legacy.code), session, lastMoveTiming: legacy.lastMoveTiming ?? null, accountResultRecordedAt: null,
     positionHistory: historyForFen(session.fen),
     createdAt: Number(legacy.createdAt ?? now), lastActivityAt: Number(legacy.lastActivityAt ?? now),
-    players: legacy.players, coin: legacy.coin ?? emptyCoin(), auction: legacy.auction ?? emptyAuction(), colorAuction: legacy.colorAuction ?? emptyColorAuction(),
+    players: {
+      white: { ...legacy.players.white, accountId: legacy.players.white.accountId ?? null },
+      black: legacy.players.black ? { ...legacy.players.black, accountId: legacy.players.black.accountId ?? null } : null,
+    }, coin: legacy.coin ?? emptyCoin(), auction: legacy.auction ?? emptyAuction(), colorAuction: legacy.colorAuction ?? emptyColorAuction(),
   };
 }
 function normalizeName(value: unknown): string {
@@ -232,10 +240,11 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/rooms') {
       const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-      const name = normalizeName(body.name);
+      const identity = await resolveAccountSession(request, env);
+      const name = identity?.displayName ?? normalizeName(body.name);
       for (let attempt = 0; attempt < 12; attempt += 1) {
         const code = roomCode(); const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
-        const internal = await stub.fetch(new Request('https://room.internal/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name, timeControl: body.timeControl, tournamentTemplateId: body.tournamentTemplateId }) }));
+        const internal = await stub.fetch(new Request('https://room.internal/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name, accountId: identity?.id ?? null, timeControl: body.timeControl, tournamentTemplateId: body.tournamentTemplateId }) }));
         if (internal.status === 409) continue;
         return cors(request, internal, env);
       }
@@ -247,7 +256,9 @@ export default {
     const stub = env.ROOMS.get(env.ROOMS.idFromName(route.code));
     if (route.action === 'join' && request.method === 'POST') {
       const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-      const internal = await stub.fetch(new Request('https://room.internal/join', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: normalizeName(body.name) }) }));
+      const identity = await resolveAccountSession(request, env);
+      const name = identity?.displayName ?? normalizeName(body.name);
+      const internal = await stub.fetch(new Request('https://room.internal/join', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, accountId: identity?.id ?? null }) }));
       return cors(request, internal, env);
     }
     if (route.action === 'ws' && request.method === 'GET') return stub.fetch(request);
@@ -275,7 +286,7 @@ export class ChessRoom extends DurableObject<Env> {
     const url = new URL(request.url);
     if (url.hostname === 'room.internal' && url.pathname === '/create' && request.method === 'POST') {
       if (this.room) return json({ error: 'Room already exists.' }, 409);
-      const body = await request.json() as { code?: string; name?: string; timeControl?: TimeControlRequest; tournamentTemplateId?: TournamentTimeTemplateId };
+      const body = await request.json() as { code?: string; name?: string; accountId?: string | null; timeControl?: TimeControlRequest; tournamentTemplateId?: TournamentTimeTemplateId };
       const code = String(body.code ?? '').toUpperCase();
       if (!/^[A-Z0-9]{6}$/.test(code)) return json({ error: 'Invalid room code.' }, 400);
       const now = Date.now(), token = seatToken(), positionId = randomChess960Id();
@@ -286,9 +297,10 @@ export class ChessRoom extends DurableObject<Env> {
         code,
         session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: chess960Fen(positionId), sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'DISCONNECTED', now }),
         lastMoveTiming: null,
+        accountResultRecordedAt: null,
         positionHistory: historyForFen(chess960Fen(positionId)),
         createdAt: now, lastActivityAt: now,
-        players: { white: { name: normalizeName(body.name), token }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
+        players: { white: { name: normalizeName(body.name), token, accountId: body.accountId ?? null }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
       };
       await this.persist();
       return json({ code, token, color: 'white' });
@@ -298,8 +310,8 @@ export class ChessRoom extends DurableObject<Env> {
       if (!this.room) return json({ error: 'That room does not exist.' }, 404);
       if (this.room.players.black) return json({ error: 'That room already has two players.' }, 409);
       if (isTerminalGameState(this.room.session.state)) return json({ error: 'That room has already ended.' }, 409);
-      const body = await request.json() as { name?: string }; const token = seatToken();
-      this.room.players.black = { name: normalizeName(body.name), token };
+      const body = await request.json() as { name?: string; accountId?: string | null }; const token = seatToken();
+      this.room.players.black = { name: normalizeName(body.name), token, accountId: body.accountId ?? null };
       this.prepareCoin(Date.now()); await this.persist(); await this.scheduleForState(); this.broadcast();
       return json({ code: this.room.code, token, color: 'black' });
     }
@@ -721,7 +733,33 @@ export class ChessRoom extends DurableObject<Env> {
     await this.persist(); await this.scheduleForState(); this.broadcast();
   }
 
-  private async persist(): Promise<void> { if (this.room) await this.ctx.storage.put('room', this.room); }
+  private async persist(): Promise<void> {
+    if (!this.room) return;
+    await this.ctx.storage.put('room', this.room);
+    if (!isTerminalGameState(this.room.session.state) || !this.room.session.result || this.room.accountResultRecordedAt) return;
+    const black = this.room.players.black;
+    if (!black) return;
+    try {
+      await recordAccountGame(this.env, {
+        id: `room:${this.room.code}:${this.room.createdAt}`,
+        roomCode: this.room.code,
+        playedAt: this.room.session.finalizedAt ?? this.room.session.updatedAt ?? Date.now(),
+        white: { accountId: this.room.players.white.accountId, name: this.room.players.white.name },
+        black: { accountId: black.accountId, name: black.name },
+        winner: this.room.session.winner,
+        result: this.room.session.result,
+        resultKind: this.room.session.resultKind,
+        positionId: this.room.session.positionId,
+        baseMs: this.room.session.clocks.baseMs,
+        incrementMs: this.room.session.clocks.incrementMs,
+        moveCount: this.room.session.moveNumber,
+      });
+      this.room.accountResultRecordedAt = Date.now();
+      await this.ctx.storage.put('room', this.room);
+    } catch {
+      // Account history is supplemental; never block the authoritative chess room from persisting.
+    }
+  }
   private async syncConnectionState(): Promise<void> {
     if (!this.room) return;
     const connected = this.connectedColors();

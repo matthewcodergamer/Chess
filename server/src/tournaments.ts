@@ -1,7 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { TIME_CONTROL_PRESETS, tournamentTimeTemplateFor, type TournamentTimeTemplateId } from '../../shared/timeControl';
+import { recordAccountTournament, resolveAccountSession, type AccountEnv } from './accounts';
 
-export type TournamentEnv = {
+export type TournamentEnv = AccountEnv & {
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   STRIPE_SECRET_KEY?: string;
   PAYMENTS_MODE?: string;
@@ -57,7 +58,7 @@ type Tournament = {
   currentPrizePoolCents: number;
   testOnly: boolean;
 };
-type Registration = { registrationId: string; sessionId: string; playerName: string; createdAt: number };
+type Registration = { registrationId: string; sessionId: string; playerName: string; accountId: string | null; createdAt: number; placement: number | null };
 type RegistryState = Record<string, Registration[]>;
 type RegistrySnapshot = Record<string, {
   registeredSeats: number;
@@ -358,6 +359,7 @@ async function registerTournament(request: Request, env: TournamentEnv): Promise
   if (mode === 'live') return json({ error: 'Live cash-prize tournament registration cannot use Stripe. Use test mode until an approved provider is integrated.' }, 403);
   const body = await request.json().catch(() => ({})) as { sessionId?: string; playerName?: string };
   const sessionId = String(body.sessionId ?? '').trim();
+  const identity = await resolveAccountSession(request, env);
   try {
     const checkout = await fetchStripeSession(sessionId, env);
     const eventId = checkout.metadata?.item_id ?? '';
@@ -368,8 +370,11 @@ async function registerTournament(request: Request, env: TournamentEnv): Promise
     const internal = await stub.fetch(new Request('https://tournament.internal/claim', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ eventId, sessionId, playerName: normalizePlayerName(body.playerName) }),
+      body: JSON.stringify({ eventId, sessionId, playerName: identity?.displayName ?? normalizePlayerName(body.playerName), accountId: identity?.id ?? null }),
     }));
+    if (internal.ok && identity) {
+      await recordAccountTournament(env, { accountId: identity.id, tournamentId: event.id, name: event.name, registeredAt: Date.now(), status: 'registered' });
+    }
     return new Response(internal.body, { status: internal.status, headers: internal.headers });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Could not register tournament entry.' }, 400);
@@ -438,7 +443,7 @@ export class TournamentRegistry extends DurableObject<TournamentEnv> {
     }
 
     if (request.method === 'POST' && url.pathname === '/claim') {
-      const body = await request.json().catch(() => ({})) as { eventId?: string; sessionId?: string; playerName?: string };
+      const body = await request.json().catch(() => ({})) as { eventId?: string; sessionId?: string; playerName?: string; accountId?: string | null };
       const event = TOURNAMENT_CATALOG.find(value => value.id === body.eventId && value.registrationOpen);
       const sessionId = String(body.sessionId ?? '').trim();
       if (!event || !sessionId) return json({ error: 'Invalid or closed tournament registration claim.' }, 400);
@@ -468,7 +473,9 @@ export class TournamentRegistry extends DurableObject<TournamentEnv> {
         registrationId: `reg_${crypto.randomUUID().replaceAll('-', '')}`,
         sessionId,
         playerName: normalizePlayerName(body.playerName),
+        accountId: body.accountId ?? null,
         createdAt: Date.now(),
+        placement: null,
       };
       entries.push(registration);
       this.registrations[event.id] = entries;
