@@ -29,11 +29,8 @@ export function loadProfile(): Profile | null {
     const username = typeof value.username === 'string' ? sanitizeUsername(value.username) : '';
     const avatar = typeof value.avatar === 'string' && value.avatar.trim() ? value.avatar.trim().slice(0, 3) : '';
     if (!username || !avatar) return null;
-    return {
-      username,
-      avatar,
-      createdAt: Number.isFinite(value.createdAt) ? Number(value.createdAt) : Date.now(),
-    };
+    const createdAt = typeof value.createdAt === 'number' && Number.isFinite(value.createdAt) ? value.createdAt : Date.now();
+    return { username, avatar, createdAt };
   } catch {
     return null;
   }
