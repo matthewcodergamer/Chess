@@ -17,6 +17,19 @@ export type AccountNotifications = {
 };
 
 export type AccountSettings = { language: string; timezone: string };
+export type Chess960RatingClass = 'rapid' | 'blitz' | 'bullet';
+export type Chess960RatingState = {
+  rating: number;
+  deviation: number;
+  volatility: number;
+  games: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  provisional: boolean;
+  lastRatedAt: number | null;
+};
+export type Chess960RatingBook = Record<Chess960RatingClass, Chess960RatingState>;
 
 export type AccountGame = {
   id: string;
@@ -29,8 +42,11 @@ export type AccountGame = {
   resultKind: string | null;
   outcome: 'win' | 'loss' | 'draw';
   rated: boolean;
+  ratingClass: Chess960RatingClass;
   ratingBefore: number;
   ratingAfter: number;
+  ratingDeviationBefore: number;
+  ratingDeviationAfter: number;
   chess960RatingBefore: number;
   chess960RatingAfter: number;
   positionId: number | null;
@@ -65,6 +81,8 @@ export type Account = {
   countryCode: string;
   avatar: string;
   avatarImage: string | null;
+  ratingModel: 'glicko2';
+  chess960Ratings: Chess960RatingBook;
   rating: number;
   chess960Rating: number;
   gamesPlayed: number;
