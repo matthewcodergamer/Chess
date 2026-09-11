@@ -260,6 +260,10 @@ export function connectRoom(
       if (stopped || currentGeneration !== generation || socket !== next) return;
       retryAttempt = 0;
       emitStatus('connected');
+      // Ask for one canonical snapshot immediately. The authoritative room also
+      // returns its pre-toss color gate here, so reconnects never guess whether
+      // the free toss has been unlocked.
+      try { next.send(JSON.stringify({ type: 'sync_request' })); } catch { /* close handler will recover */ }
     });
     next.addEventListener('message', event => {
       if (stopped || currentGeneration !== generation || socket !== next) return;
