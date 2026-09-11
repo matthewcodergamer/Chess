@@ -1,6 +1,7 @@
+import { basisPointsAmount } from '../../shared/money';
 import { PaymentLedger, type LedgerTransaction, type PaymentLedgerEnv, type WalletSnapshot } from './paymentLedger';
 import type { ComplianceProfile } from './paymentPolicy';
-import { decideRealMoneyAccess } from './paymentPolicy';
+import { decideRealMoneyAccess, feePolicyForPurpose, platformFeeCents } from './paymentPolicy';
 
 type HoldRecord = {
   id: string;
@@ -19,6 +20,7 @@ type SettlementResult = {
   potCents: number;
   feeCents: number;
   prizePoolCents: number;
+  feePolicyId: string;
   payouts: Array<{ accountId: string; shareBps: number; amountCents: number; place: number | null }>;
   settledAt: number;
 };
@@ -79,7 +81,7 @@ export class CompetitionPaymentLedger extends PaymentLedger {
     const contestId = clean(body.contestId, 180);
     const holdIds = Array.isArray(body.holdIds) ? body.holdIds.map(value => clean(value, 80)).filter(Boolean) : [];
     const payoutInput = Array.isArray(body.payouts) ? body.payouts : [];
-    const feeBps = Math.max(0, Math.min(5000, Math.floor(Number(body.platformFeeBps ?? 2000))));
+    const feePolicy = feePolicyForPurpose('tournament_prize');
     if (!contestId || holdIds.length < 2 || holdIds.length > MAX_REAL_MONEY_TOURNAMENT_ENTRANTS) {
       return json({ error: `Real-money tournament settlement currently supports 2–${MAX_REAL_MONEY_TOURNAMENT_ENTRANTS} funded entrants.` }, 400);
     }
@@ -112,11 +114,12 @@ export class CompetitionPaymentLedger extends PaymentLedger {
     }
 
     const potCents = holds.reduce((sum, hold) => sum + hold.amountCents, 0);
-    const feeCents = Math.floor(potCents * feeBps / 10_000);
+    if (!Number.isSafeInteger(potCents)) return json({ error: 'Tournament pot exceeds safe integer cents.' }, 409);
+    const feeCents = platformFeeCents(potCents, feePolicy);
     const prizePoolCents = potCents - feeCents;
     let allocated = 0;
     const payoutAmounts = payouts.map((payout, index) => {
-      const amountCents = index === payouts.length - 1 ? prizePoolCents - allocated : Math.floor(prizePoolCents * payout.shareBps / 10_000);
+      const amountCents = index === payouts.length - 1 ? prizePoolCents - allocated : basisPointsAmount(prizePoolCents, payout.shareBps);
       allocated += amountCents;
       return { ...payout, amountCents, place: payout.place ?? null };
     });
@@ -204,6 +207,7 @@ export class CompetitionPaymentLedger extends PaymentLedger {
             type: 'hold_captured', purpose: 'tournament_entry', amountCents: hold.amountCents,
             availableDeltaCents: 0, heldDeltaCents: -hold.amountCents,
             idempotencyKey: `tournament-capture:${contestId}:${hold.id}`, reference: contestId,
+            metadata: { holdId: hold.id },
           });
           current.status = 'captured'; current.closedAt = settledAt;
           txn.put(`hold:${hold.id}`, current);
@@ -212,19 +216,25 @@ export class CompetitionPaymentLedger extends PaymentLedger {
           type: 'platform_fee', purpose: 'tournament_prize', amountCents: feeCents,
           availableDeltaCents: feeCents, heldDeltaCents: 0,
           idempotencyKey: `tournament-fee:${contestId}`, reference: contestId,
+          metadata: { feePolicyId: feePolicy.id, platformFeeBps: String(feePolicy.platformFeeBps) },
         });
         for (const payout of payoutAmounts) await append(payout.accountId, {
           type: 'tournament_prize', purpose: 'tournament_prize', amountCents: payout.amountCents,
           availableDeltaCents: payout.amountCents, heldDeltaCents: 0,
           idempotencyKey: `tournament-prize:${contestId}:${payout.accountId}`,
           reference: contestId,
-          metadata: { place: String(payout.place ?? ''), shareBps: String(payout.shareBps) },
+          metadata: {
+            place: String(payout.place ?? ''),
+            shareBps: String(payout.shareBps),
+            feePolicyId: feePolicy.id,
+            platformFeeBps: String(feePolicy.platformFeeBps),
+          },
         });
 
         for (const [accountId, wallet] of walletCache) txn.put(`wallet:${accountId}`, wallet);
         for (const [accountId, index] of indexCache) txn.put(`tx-index:${accountId}`, index);
         txn.put('audit-index', [...stagedAudit.reverse(), ...audit].slice(0, MAX_AUDIT_INDEX));
-        const settlement: SettlementResult = { contestId, potCents, feeCents, prizePoolCents, payouts: payoutAmounts, settledAt };
+        const settlement: SettlementResult = { contestId, potCents, feeCents, prizePoolCents, feePolicyId: feePolicy.id, payouts: payoutAmounts, settledAt };
         txn.put(`tournament-settled:${contestId}`, settlement);
       });
     } catch (error) {
