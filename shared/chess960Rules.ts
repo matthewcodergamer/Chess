@@ -4,6 +4,8 @@ import type { Color } from 'chessops/types';
 import { makeSquare, squareFile, squareRank } from 'chessops/util';
 import type { Chess960FenStyle } from './chess960';
 
+export const MAX_POSITION_HISTORY = 512;
+
 export type ChessAdjudication = {
   kind: 'CHECKMATE' | 'DRAW';
   text: string;
@@ -14,7 +16,8 @@ export type ChessAdjudication = {
  * Canonical repetition identity: board, side to move, castling rights and
  * only a legally capturable en-passant square. chessops' toSetup() already
  * filters phantom en-passant squares, while makeFen(..., { epd: true })
- * omits move counters.
+ * omits move counters. This makes X-FEN and Shredder-FEN encodings of the
+ * same position converge to one repetition key.
  */
 export function chessPositionKey(position: Chess): string {
   return makeFen(position.toSetup(), { epd: true });
@@ -25,9 +28,9 @@ export function chessPositionKeyFromFen(fen: string): string {
 }
 
 export function appendPositionHistory(history: readonly string[], position: Chess): string[] {
-  // With the fifty-move rule, keeping 512 plies is comfortably beyond every
-  // reversible-move window while bounding persisted room state.
-  return [...history, chessPositionKey(position)].slice(-512);
+  // 512 plies comfortably exceeds the 75-move automatic-draw window while
+  // keeping persisted online-room state bounded.
+  return [...history, chessPositionKey(position)].slice(-MAX_POSITION_HISTORY);
 }
 
 export function repetitionCount(history: readonly string[], position: Chess): number {
@@ -38,9 +41,9 @@ export function repetitionCount(history: readonly string[], position: Chess): nu
 }
 
 /**
- * QQURZ auto-adjudicates claimable 3-fold/50-move draws, matching common
- * online-chess behavior. Fivefold repetition and 75 moves are also handled
- * as automatic draws. Checkmate takes precedence on the final move.
+ * QQURZ auto-adjudicates claimable 3-fold/50-move draws, matching its online
+ * game UX. Fivefold repetition and 75 moves are also handled as automatic
+ * draws. Checkmate takes precedence on the final move.
  */
 export function adjudicateChess(position: Chess, history: readonly string[]): ChessAdjudication | null {
   if (position.isCheckmate()) {
