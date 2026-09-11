@@ -6,6 +6,7 @@ type Props = {
   fen: string;
   orientation?: Orientation;
   compact?: boolean;
+  forColor?: Orientation;
 };
 
 type PieceKey = 'q' | 'r' | 'b' | 'n' | 'p';
@@ -57,7 +58,7 @@ function PieceRun({ pieces, color }: { pieces: PieceKey[]; color: Orientation })
   );
 }
 
-export default function CapturedPieces({ fen, orientation = 'white', compact = false }: Props) {
+export default function CapturedPieces({ fen, orientation = 'white', compact = false, forColor }: Props) {
   const whiteLost = captured(fen, 'white');
   const blackLost = captured(fen, 'black');
   const whiteScore = material(blackLost);
@@ -66,6 +67,14 @@ export default function CapturedPieces({ fen, orientation = 'white', compact = f
 
   const whiteTook = <div className="captured-player white-took"><PieceRun pieces={blackLost} color="black" />{difference > 0 && <b>+{difference}</b>}</div>;
   const blackTook = <div className="captured-player black-took"><PieceRun pieces={whiteLost} color="white" />{difference < 0 && <b>+{Math.abs(difference)}</b>}</div>;
+
+  if (forColor) {
+    return (
+      <div className={`captured-strip single ${compact ? 'compact' : ''}`} aria-label={`${forColor} captured pieces`}>
+        {forColor === 'white' ? whiteTook : blackTook}
+      </div>
+    );
+  }
 
   return (
     <div className={`captured-strip ${compact ? 'compact' : ''}`} aria-label="Captured pieces">
