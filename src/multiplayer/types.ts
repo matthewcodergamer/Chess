@@ -1,5 +1,7 @@
 import type { Color as GroundColor } from '@lichess-org/chessground/types';
+import type { GameSessionModel } from '../../shared/gameSession';
 
+/** @deprecated Transport compatibility only. React game screens use RoomSnapshot.session. */
 export type RoomStatus = 'waiting' | 'coin' | 'strategy' | 'playing' | 'ended';
 export type SeatColor = GroundColor;
 export type CoinFace = 'heads' | 'tails';
@@ -8,6 +10,12 @@ export type RoomPlayer = { name: string; connected: boolean };
 
 export type RoomSnapshot = {
   code: string;
+  /** Canonical match state. New servers always provide this. */
+  session?: GameSessionModel;
+
+  // Legacy wire aliases are retained while old room Durable Objects drain.
+  // They are normalized in multiplayer/session.ts and must not be interpreted
+  // directly by React match components.
   status: RoomStatus;
   positionId: number;
   fen: string;
