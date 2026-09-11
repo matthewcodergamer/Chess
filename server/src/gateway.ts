@@ -5,15 +5,21 @@ import { handleTournamentRequest, type TournamentEnv } from './tournaments';
 import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRoom';
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
-import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngineRegistry';
-import { CoinGateChessRoom as ChessRoom } from './coinGateRoom';
+import { MoneyTournamentRegistry as TournamentRegistry } from './moneyTournamentRegistry';
+import { MoneyChessRoom as ChessRoom } from './moneyRoom';
+import { handleMoneyRoomRequest } from './moneyRoomApi';
+import { CompetitionPaymentLedger as PaymentLedger } from './competitionPaymentLedger';
+import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
+import { handlePaymentComplianceWebhook } from './paymentCompliance';
 
-export { AccountRegistry, ChessRoom, Matchmaker, TournamentRegistry };
+export { AccountRegistry, ChessRoom, Matchmaker, PaymentLedger, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & {
+type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
+  PAYMENTS: DurableObjectNamespace<PaymentLedger>;
   ALLOWED_ORIGINS?: string;
+  PAYMENTS_COMPLIANCE_WEBHOOK_SECRET?: string;
 };
 
 type BaseHandlerEnv = Parameters<typeof baseHandler.fetch>[1];
@@ -27,7 +33,7 @@ function withCors(request: Request, response: Response, env: Env): Response {
     headers.set('vary', 'Origin');
   }
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
-  headers.set('access-control-allow-headers', 'content-type,authorization');
+  headers.set('access-control-allow-headers', 'content-type,authorization,idempotency-key');
   headers.set('access-control-max-age', '86400');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
@@ -35,6 +41,12 @@ function withCors(request: Request, response: Response, env: Env): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
+
+    const complianceResponse = await handlePaymentComplianceWebhook(request, env);
+    if (complianceResponse) return withCors(request, complianceResponse, env);
+
+    const paymentResponse = await handlePaymentRequest(request, env);
+    if (paymentResponse) return withCors(request, paymentResponse, env);
 
     const accountResponse = await handleAccountRequest(request, env);
     if (accountResponse) return withCors(request, accountResponse, env);
@@ -50,6 +62,9 @@ export default {
 
     const tournamentResponse = await handleTournamentRequest(request, env as unknown as TournamentEnv);
     if (tournamentResponse) return withCors(request, tournamentResponse, env);
+
+    const moneyRoomResponse = await handleMoneyRoomRequest(request, env);
+    if (moneyRoomResponse) return withCors(request, moneyRoomResponse, env);
 
     const spectatorRoomResponse = await handleSpectatorRoomRequest(request, env);
     if (spectatorRoomResponse) return withCors(request, spectatorRoomResponse, env);
