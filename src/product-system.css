@@ -69,7 +69,7 @@
 .qqurz-product-system .matchmaking-find,
 .qqurz-product-system .qqurz-live-strip>button{
   border:1px solid color-mix(in srgb,var(--q-accent) 76%,#000)!important;
-  background:linear-gradient(to bottom,color-mix(in srgb,var(--q-accent) 112%,#fff),var(--q-accent))!important;
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--q-accent) 88%,white 12%),var(--q-accent))!important;
   color:#16200f!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 3px 0 rgba(51,82,31,.55),0 7px 16px rgba(0,0,0,.16)!important;
 }
