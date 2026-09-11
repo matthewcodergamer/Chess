@@ -1,4 +1,5 @@
 /* First-run setup: one decision per screen, mobile-first, using the shared product tokens. */
+.board-mount cg-board{background-color:var(--q-board-dark)!important;background-image:conic-gradient(from 90deg,var(--q-board-dark) 0 25%,var(--q-board-light) 0 50%,var(--q-board-dark) 0 75%,var(--q-board-light) 0)!important;background-size:25% 25%!important}
 .qqurz-onboarding{min-height:100dvh;display:grid;place-items:center;padding:var(--q-space-24);background:radial-gradient(circle at top,color-mix(in srgb,var(--q-action) 10%,transparent),transparent 32%),var(--q-bg);color:var(--q-text)}
 .onboarding-shell{width:min(100%,760px);display:grid;gap:var(--q-space-16);padding:var(--q-space-24);border:1px solid var(--q-line);border-radius:var(--q-radius-xl);background:var(--q-surface);box-shadow:var(--q-elevation-3)}
 .onboarding-header{display:flex;align-items:center;justify-content:space-between;gap:var(--q-space-16)}
