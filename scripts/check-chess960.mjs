@@ -104,7 +104,6 @@ try {
     const rookFile = Number(rookRaw);
     for (const color of ['white', 'black']) {
       const rank = color === 'white' ? 1 : 8;
-      const otherRank = color === 'white' ? 8 : 1;
       const ownKing = color === 'white' ? 'K' : 'k';
       const ownRook = color === 'white' ? 'R' : 'r';
       const otherKing = color === 'white' ? 'k' : 'K';
@@ -129,8 +128,12 @@ try {
 
       const kingTo = `${side === 'h' ? 'g' : 'c'}${rank}`;
       const rookTo = `${side === 'h' ? 'f' : 'd'}${rank}`;
-      assert.deepEqual(pieceAt(pos, kingTo), { role: 'king', color }, `${color} ${source}: king final square`);
-      assert.deepEqual(pieceAt(pos, rookTo), { role: 'rook', color }, `${color} ${source}: rook final square`);
+      const castledKing = pieceAt(pos, kingTo);
+      const castledRook = pieceAt(pos, rookTo);
+      assert.equal(castledKing?.role, 'king', `${color} ${source}: king role on final square`);
+      assert.equal(castledKing?.color, color, `${color} ${source}: king color on final square`);
+      assert.equal(castledRook?.role, 'rook', `${color} ${source}: rook role on final square`);
+      assert.equal(castledRook?.color, color, `${color} ${source}: rook color on final square`);
       exhaustiveCastleChecks += 1;
     }
   }
