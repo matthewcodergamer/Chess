@@ -378,6 +378,29 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     presence.lastSeen = now;
   }
 
+  private async tryMatch(ticket: TicketRecord, now: number): Promise<void> {
+    if (ticket.status !== 'waiting') return;
+    const opponent = this.pickOpponent(ticket, now);
+    if (!opponent) return;
+    const seats = await this.allocateRoom(opponent, ticket);
+    const latency = estimatedLatencyMs(opponent.region, ticket.region);
+    opponent.status = 'matched';
+    opponent.seat = seats.first;
+    opponent.opponent = ticket.name;
+    opponent.opponentRating = ticket.rating;
+    opponent.estimatedLatencyMs = latency;
+    opponent.matchedAt = now;
+    ticket.status = 'matched';
+    ticket.seat = seats.second;
+    ticket.opponent = opponent.name;
+    ticket.opponentRating = opponent.rating;
+    ticket.estimatedLatencyMs = latency;
+    ticket.matchedAt = now;
+    this.markInGame(opponent, seats.first.code, now);
+    this.markInGame(ticket, seats.second.code, now);
+    this.state.queue = this.state.queue.filter(item => item !== opponent.id && item !== ticket.id);
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const now = Date.now();
@@ -445,35 +468,14 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
       };
       this.state.tickets[id] = newcomer;
 
-      const opponent = this.pickOpponent(newcomer, now);
-      if (!opponent) {
-        this.state.queue.push(id);
-        await this.persist();
-        return json(this.ticketPayload(newcomer, now));
-      }
-
+      this.state.queue.push(id);
       try {
-        const seats = await this.allocateRoom(opponent, newcomer);
-        const latency = estimatedLatencyMs(opponent.region, newcomer.region);
-        opponent.status = 'matched';
-        opponent.seat = seats.first;
-        opponent.opponent = newcomer.name;
-        opponent.opponentRating = newcomer.rating;
-        opponent.estimatedLatencyMs = latency;
-        opponent.matchedAt = now;
-        newcomer.status = 'matched';
-        newcomer.seat = seats.second;
-        newcomer.opponent = opponent.name;
-        newcomer.opponentRating = opponent.rating;
-        newcomer.estimatedLatencyMs = latency;
-        newcomer.matchedAt = now;
-        this.markInGame(opponent, seats.first.code, now);
-        this.markInGame(newcomer, seats.second.code, now);
-        this.state.queue = this.state.queue.filter(item => item !== opponent.id && item !== id);
+        await this.tryMatch(newcomer, now);
         await this.persist();
         return json(this.ticketPayload(newcomer, now));
       } catch (error) {
         delete this.state.tickets[id];
+        this.state.queue = this.state.queue.filter(item => item !== id);
         await this.persist();
         return json({ error: error instanceof Error ? error.message : 'Matchmaking failed.' }, 503);
       }
@@ -483,6 +485,10 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
       const id = String(url.searchParams.get('ticket') ?? '');
       const ticket = this.state.tickets[id];
       if (!ticket) return json({ error: 'That matchmaking ticket expired.' }, 404);
+      if (ticket.status === 'waiting') {
+        try { await this.tryMatch(ticket, now); }
+        catch { /* Keep the ticket queued; the next status poll can retry room allocation. */ }
+      }
       await this.persist();
       return json(this.ticketPayload(ticket, now));
     }
