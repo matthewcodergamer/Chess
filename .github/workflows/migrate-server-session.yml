@@ -1,0 +1,42 @@
+name: Migrate realtime to authoritative session
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/migrate-server-session.mjs'
+      - '.github/workflows/migrate-server-session.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install server dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: server
+      - name: Apply realtime session migration
+        run: node scripts/migrate-server-session.mjs
+      - name: Typecheck realtime server
+        run: npm run check
+        working-directory: server
+      - name: Verify frontend production build
+        run: npm run build
+      - name: Commit migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server/src/index.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Use authoritative GameSession in realtime rooms"
+          git push origin main
