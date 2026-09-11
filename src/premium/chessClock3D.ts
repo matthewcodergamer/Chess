@@ -17,13 +17,15 @@ const CLOCK_W = 3.96;
 const CLOCK_D = CLOCK_W * (CLOCK_MM.depth / CLOCK_MM.width);
 const FRONT_Z = CLOCK_D * 0.5;
 const ROCKER_BASE_X = -0.075;
+const ROCKER_TILT = 0.115;
+const ROCKER_PRESS = 0.175;
 
 function fmt(value: number) {
   const seconds = Math.max(0, Math.ceil(value));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function rounded(width: number, height: number, depth: number, radius: number, material: THREE.Material, segments = 4) {
+function rounded(width: number, height: number, depth: number, radius: number, material: THREE.Material, segments = 3) {
   return new THREE.Mesh(new RoundedBoxGeometry(width, height, depth, segments, radius), material);
 }
 
@@ -31,7 +33,9 @@ function createRocker(material: THREE.Material) {
   const width = 3.34;
   const height = 0.22;
   const depth = 2.28;
-  const geometry = new RoundedBoxGeometry(width, height, depth, 5, 0.16);
+  // Three bevel segments retain the physical rounded silhouette while avoiding
+  // unnecessary underside tessellation on iPhone-class GPUs.
+  const geometry = new RoundedBoxGeometry(width, height, depth, 3, 0.16);
   const positions = geometry.attributes.position;
   const halfWidth = width * 0.5;
   const halfDepth = depth * 0.5;
@@ -50,11 +54,11 @@ function createRocker(material: THREE.Material) {
 }
 
 function fitTime(ctx: CanvasRenderingContext2D, value: string, centerX: number, baselineY: number, maxWidth: number) {
-  let size = 170;
+  let size = 210;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.font = `900 ${size}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
-  while (ctx.measureText(value).width > maxWidth && size > 118) {
+  while (ctx.measureText(value).width > maxWidth && size > 146) {
     size -= 4;
     ctx.font = `900 ${size}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
   }
@@ -65,10 +69,12 @@ export function createChessClock3D(): ChessClock3DModel {
   const group = new THREE.Group();
   group.name = 'qqurzOptimizedTournamentClock3D';
   group.userData.dimensionsMm = { ...CLOCK_MM };
+  group.userData.optimizedForMobile = true;
 
-  // The clock is viewed from the front/top in QQURZ, so rear/bottom accessories,
-  // feet, battery doors and speaker perforations are intentionally omitted.
-  // This keeps the silhouette physical while cutting a large number of meshes.
+  // The product camera sees the front, top and side depth. Rear/bottom feet,
+  // battery doors, screws, speaker holes and underside faces are intentionally
+  // not modeled as separate detail meshes. The body and rocker keep true 3D
+  // depth while invisible geometry stays out of the render budget.
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x141516, roughness: 0.72, metalness: 0.02 });
   const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x1c1d1f, roughness: 0.76, metalness: 0.01 });
   const bezelMat = new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.72, metalness: 0.02 });
@@ -79,16 +85,16 @@ export function createChessClock3D(): ChessClock3DModel {
   const leftLedMat = new THREE.MeshBasicMaterial({ color: ledOff });
   const rightLedMat = new THREE.MeshBasicMaterial({ color: ledOff });
 
-  const body = rounded(CLOCK_W, 0.72, CLOCK_D - 0.18, 0.24, bodyMat, 4);
+  const body = rounded(CLOCK_W, 0.72, CLOCK_D - 0.18, 0.24, bodyMat);
   body.position.set(0, 0.40, 0.06);
   group.add(body);
 
-  const shoulder = rounded(CLOCK_W - 0.32, 0.34, CLOCK_D - 0.58, 0.20, shoulderMat, 4);
+  const shoulder = rounded(CLOCK_W - 0.32, 0.34, CLOCK_D - 0.58, 0.20, shoulderMat);
   shoulder.position.set(0, 0.79, -0.22);
   shoulder.rotation.x = -0.07;
   group.add(shoulder);
 
-  const rockerWell = rounded(3.52, 0.12, 2.48, 0.18, bezelMat, 4);
+  const rockerWell = rounded(3.52, 0.12, 2.48, 0.18, bezelMat);
   rockerWell.position.set(0, 0.93, -0.24);
   rockerWell.rotation.x = ROCKER_BASE_X;
   group.add(rockerWell);
@@ -99,15 +105,16 @@ export function createChessClock3D(): ChessClock3DModel {
   rocker.userData.clockRocker = true;
   group.add(rocker);
 
-  const bezel = rounded(3.54, 0.78, 0.12, 0.075, bezelMat, 4);
+  const bezel = rounded(3.58, 0.84, 0.12, 0.075, bezelMat);
   bezel.position.set(0, 0.48, FRONT_Z - 0.09);
   bezel.rotation.x = -0.025;
   group.add(bezel);
 
-  // Bigger LCD: the numbers now use almost the entire display height.
+  // The LCD is intentionally texture-based: one plane replaces many digit
+  // meshes. Larger glyphs improve legibility without increasing scene geometry.
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
-  canvas.height = 300;
+  canvas.height = 320;
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('Canvas 2D is required for the chess clock LCD.');
   const texture = new THREE.CanvasTexture(canvas);
@@ -116,20 +123,20 @@ export function createChessClock3D(): ChessClock3DModel {
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
   const lcdMat = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
-  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(3.30, 0.66), lcdMat);
+  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(3.34, 0.72), lcdMat);
   lcd.position.set(0, 0.505, FRONT_Z + 0.005);
   lcd.rotation.x = -0.025;
   group.add(lcd);
 
-  // Keep the recognizable four front controls, but use simple geometry.
-  const keyGeometry = new RoundedBoxGeometry(0.45, 0.14, 0.12, 3, 0.045);
+  // Four recognizable front controls share one low-cost geometry.
+  const keyGeometry = new RoundedBoxGeometry(0.45, 0.14, 0.12, 2, 0.045);
   for (const x of [-0.98, -0.33, 0.33, 0.98]) {
     const key = new THREE.Mesh(keyGeometry, keyMat);
     key.position.set(x, 0.13, FRONT_Z - 0.01);
     group.add(key);
   }
 
-  const ledGeometry = new THREE.CircleGeometry(0.075, 12);
+  const ledGeometry = new THREE.CircleGeometry(0.078, 8);
   const leftLed = new THREE.Mesh(ledGeometry, leftLedMat);
   leftLed.position.set(-1.58, 0.17, FRONT_Z + 0.04);
   group.add(leftLed);
@@ -145,10 +152,9 @@ export function createChessClock3D(): ChessClock3DModel {
   let slapStarted = 0;
 
   const targetForActive = (activeColor?: Color | null) => {
-    // If White's clock is running, Black has just pressed the right-hand side,
-    // and vice versa. This makes the physical seesaw visibly change direction.
-    if (activeColor === 'white') return -0.095;
-    if (activeColor === 'black') return 0.095;
+    // When White runs, Black has pressed the opposite end of the seesaw.
+    if (activeColor === 'white') return -ROCKER_TILT;
+    if (activeColor === 'black') return ROCKER_TILT;
     return 0;
   };
 
@@ -162,21 +168,23 @@ export function createChessClock3D(): ChessClock3DModel {
     ctx.fillStyle = '#cbd5aa';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#adb98d';
-    ctx.fillRect(510, 20, 4, 260);
+    ctx.fillRect(510, 18, 4, 284);
 
-    ctx.font = '800 30px system-ui, sans-serif';
+    ctx.font = '800 28px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = activeColor === 'white' ? '#172019' : '#53604d';
-    ctx.fillText(pendingSlap === 'white' ? 'WHITE · PRESS' : 'WHITE', 256, 36);
+    ctx.fillText(pendingSlap === 'white' ? 'WHITE · PRESS' : 'WHITE', 256, 33);
     ctx.fillStyle = activeColor === 'black' ? '#172019' : '#53604d';
-    ctx.fillText(pendingSlap === 'black' ? 'BLACK · PRESS' : 'BLACK', 768, 36);
+    ctx.fillText(pendingSlap === 'black' ? 'BLACK · PRESS' : 'BLACK', 768, 33);
 
     ctx.fillStyle = '#101713';
-    fitTime(ctx, white, 256, 235, 455);
-    fitTime(ctx, black, 768, 235, 455);
+    fitTime(ctx, white, 256, 264, 466);
+    fitTime(ctx, black, 768, 264, 466);
     texture.needsUpdate = true;
 
+    // LEDs follow the same authoritative state as the timers. A side waiting to
+    // be pressed remains lit until the transfer is acknowledged.
     leftLedMat.color.set(activeColor === 'white' || pendingSlap === 'white' ? ledOn : ledOff);
     rightLedMat.color.set(activeColor === 'black' || pendingSlap === 'black' ? ledOn : ledOff);
   };
@@ -191,21 +199,21 @@ export function createChessClock3D(): ChessClock3DModel {
       rockerTransitionStarted = now;
     }
 
-    if (slapColor && now - slapStarted < 190) {
+    if (slapColor && now - slapStarted < 205) {
       const elapsed = now - slapStarted;
-      const pressed = slapColor === 'white' ? 0.145 : -0.145;
-      if (elapsed < 70) {
-        const t = elapsed / 70;
+      const pressed = slapColor === 'white' ? ROCKER_PRESS : -ROCKER_PRESS;
+      if (elapsed < 72) {
+        const t = elapsed / 72;
         rocker.rotation.z = THREE.MathUtils.lerp(rockerFrom, pressed, 1 - Math.pow(1 - t, 3));
       } else {
-        const t = Math.min(1, (elapsed - 70) / 120);
+        const t = Math.min(1, (elapsed - 72) / 133);
         rocker.rotation.z = THREE.MathUtils.lerp(pressed, rockerTarget, 1 - Math.pow(1 - t, 3));
       }
-      if (elapsed >= 188) slapColor = null;
+      if (elapsed >= 202) slapColor = null;
       return;
     }
 
-    const transition = Math.min(1, (now - rockerTransitionStarted) / 170);
+    const transition = Math.min(1, (now - rockerTransitionStarted) / 165);
     rocker.rotation.z = THREE.MathUtils.lerp(rockerFrom, rockerTarget, 1 - Math.pow(1 - transition, 3));
   };
 
