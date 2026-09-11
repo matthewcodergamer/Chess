@@ -9,6 +9,8 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@echecs/round-robin": "4.1.0",
+    "@echecs/swiss": "5.0.0",
     "chessops": "0.15.1"
   },
   "devDependencies": {
