@@ -41,7 +41,7 @@ export class MoneyChessRoom extends CoinGateChessRoom {
     return this as unknown as { room: InternalRoom | null; ctx: DurableObjectState; env: PaymentsEnv };
   }
 
-  private async control(): Promise<MoneyMatchControl | null> {
+  private async moneyControl(): Promise<MoneyMatchControl | null> {
     return (await this.moneyInternals().ctx.storage.get<MoneyMatchControl>(MONEY_CONTROL_KEY)) ?? null;
   }
 
@@ -133,7 +133,7 @@ export class MoneyChessRoom extends CoinGateChessRoom {
   private async settleMoneyResult(): Promise<void> {
     const internal = this.moneyInternals();
     const room = internal.room;
-    const control = await this.control();
+    const control = await this.moneyControl();
     if (!room?.session.result || !control || control.status !== 'funded' || !room.players.black) return;
     const holdIds = Object.values(control.holdByAccount);
     if (holdIds.length !== 2) return;
@@ -181,7 +181,7 @@ export class MoneyChessRoom extends CoinGateChessRoom {
     }
     if (internalJoin) {
       const body = await request.clone().json().catch(() => ({})) as Record<string, unknown>;
-      const control = await this.control();
+      const control = await this.moneyControl();
       if (control?.stakeCents) return this.joinMoneyRoom(request, body, control);
     }
     return super.fetch(request);
@@ -193,7 +193,7 @@ export class MoneyChessRoom extends CoinGateChessRoom {
   }
 
   override async alarm(): Promise<void> {
-    const control = await this.control();
+    const control = await this.moneyControl();
     if (control?.status === 'awaiting_opponent' && control.expiresAt <= Date.now()) {
       await this.expireUnjoined(control);
       return;
