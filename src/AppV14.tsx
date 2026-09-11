@@ -25,8 +25,14 @@ type LocalMode = 'human' | 'ai';
 type Theme = 'light' | 'dark';
 type FontScale = 'default' | 'large' | 'extra';
 
+function hasAccountAction(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return Boolean(params.get('verify') || params.get('reset'));
+}
+
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
+  if (params.get('verify') || params.get('reset')) return 'account';
   if (params.get('room')) return 'online';
   const checkoutKind = params.get('kind');
   const checkoutState = params.get('checkout');
@@ -74,6 +80,7 @@ function LoadingView() {
 
 export default function AppV14() {
   const [screen, setScreen] = useState<Screen>(initialScreen);
+  const [accountAction] = useState(hasAccountAction);
   const [localMode, setLocalMode] = useState<LocalMode>('human');
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [fontScale, setFontScale] = useState<FontScale>(initialFontScale);
@@ -149,7 +156,7 @@ export default function AppV14() {
   const closeMenus = () => { setDisplayOpen(false); setMenuOpen(false); };
   const goHome = () => {
     const url = new URL(window.location.href);
-    ['room', 'checkout', 'kind', 'item', 'session_id', 'color'].forEach(key => url.searchParams.delete(key));
+    ['room', 'checkout', 'kind', 'item', 'session_id', 'color', 'verify', 'reset'].forEach(key => url.searchParams.delete(key));
     window.history.replaceState({}, '', url);
     closeMenus();
     setScreen('home');
@@ -203,7 +210,7 @@ export default function AppV14() {
 
   const toggleSound = () => applySound(!soundOn);
 
-  if (!onboardingComplete) {
+  if (!onboardingComplete && !accountAction) {
     return (
       <FirstRunOnboarding
         initialBoardAppearance={boardAppearance}
@@ -236,13 +243,13 @@ export default function AppV14() {
 
         <div className="qqurz-nav-end chess-nav-actions">
           <button className="live-presence-pill" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /><span className="live-presence-copy">{onlineLabel}</span></button>
-          <button className="nav-account-button" onClick={() => openScreen('account')} aria-label="Open player profile"><span aria-hidden="true">♙</span><span className="nav-control-label">Profile</span></button>
+          <button className="nav-account-button" onClick={() => openScreen('account')} aria-label="Open player account"><span aria-hidden="true">♙</span><span className="nav-control-label">Account</span></button>
           <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu"><span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span></button>
         </div>
 
         <div className="mobile-nav-actions" aria-label="Quick actions">
           <IconButton className="mobile-presence-button" size="sm" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /></IconButton>
-          <IconButton className="mobile-account-button" size="sm" onClick={() => openScreen('account')} aria-label="Open player profile">♙</IconButton>
+          <IconButton className="mobile-account-button" size="sm" onClick={() => openScreen('account')} aria-label="Open player account">♙</IconButton>
         </div>
       </header>
 
@@ -275,7 +282,7 @@ export default function AppV14() {
               <button onClick={openFriends}><span>♘</span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
               <button onClick={() => openLocal('human')}><span>♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
               <button onClick={() => openScreen('3d')}><span>♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
-              <button onClick={() => openScreen('account')}><span>♙</span><div><b>Profile</b><small>Your player identity</small></div></button>
+              <button onClick={() => openScreen('account')}><span>♙</span><div><b>Account</b><small>Identity, ratings and settings</small></div></button>
               <button className="drawer-ai-choice" onClick={() => openLocal('ai')}><span>♞</span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
             </nav>
             <div className="drawer-live-match">
