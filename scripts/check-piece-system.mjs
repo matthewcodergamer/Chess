@@ -54,7 +54,7 @@ assert(blackRook.includes('V9h4') && blackRook.includes('stroke-linecap'), 'rook
 const whiteKing = svgFor('king', 'white');
 assert(whiteKing.includes('M22.5 11.63V6') && whiteKing.includes('M20 8h5'), 'king cross detail is missing');
 const whitePawn = svgFor('pawn', 'white');
-assert(whitePawn.includes('c-2.25 0-4 1.79') && whitePawn.includes('stroke-linecap="round"'), 'pawn curve geometry is missing');
+assert(whitePawn.includes('M22.5 9c-2.21 0-4 1.79-4 4') && whitePawn.includes('stroke-linecap="round"'), 'pawn curve geometry is missing');
 
 // These board widths cover compact phones through large phones. SVG geometry stays
 // vector-based while each piece remains exactly one eighth of the board width.
