@@ -12,6 +12,8 @@ type Props = {
   onSlap?: () => void;
   compact?: boolean;
   className?: string;
+  slapColor?: Color | null;
+  slapNonce?: number;
 };
 
 type ClockState = {
@@ -24,9 +26,11 @@ type ClockState = {
 };
 
 /**
- * Lightweight 3D clock renderer. Unlike the board scene, the clock does not need
- * a permanent animation loop: it redraws when the time/state changes and only
- * animates for a short window when the rocker changes direction.
+ * Lightweight renderer for the shared QQURZ physical clock model.
+ *
+ * The view does not infer game events. The parent clock component supplies an
+ * explicit slap event only after authoritative game state transfers the clock.
+ * That prevents a visual press from getting ahead of realtime/server state.
  */
 export default function ChessClock3DView({
   whiteSeconds,
@@ -37,10 +41,13 @@ export default function ChessClock3DView({
   onSlap,
   compact = false,
   className = '',
+  slapColor = null,
+  slapNonce = 0,
 }: Props) {
   const mount = useRef<HTMLDivElement | null>(null);
   const state = useRef<ClockState>({ whiteSeconds, blackSeconds, activeColor, pendingSlap, disabled, onSlap });
   const invalidate = useRef<((animateMs?: number) => void) | null>(null);
+  const slap = useRef<((color: Color) => void) | null>(null);
 
   state.current = { whiteSeconds, blackSeconds, activeColor, pendingSlap, disabled, onSlap };
 
@@ -59,7 +66,7 @@ export default function ChessClock3DView({
       powerPreference: 'high-performance',
       precision: 'mediump',
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.15 : 1.35));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.1 : 1.25));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.14;
@@ -89,7 +96,6 @@ export default function ChessClock3DView({
     let lastFrame = 0;
     let inViewport = true;
     let destroyed = false;
-    let lastActiveColor = state.current.activeColor;
 
     const renderOnce = (now = performance.now()) => {
       if (destroyed || !inViewport || document.hidden) return;
@@ -102,28 +108,21 @@ export default function ChessClock3DView({
     const animate = (now: number) => {
       frame = 0;
       if (destroyed || !inViewport || document.hidden) return;
-      if (now - lastFrame >= 33) renderOnce(now);
+      if (now - lastFrame >= 30) renderOnce(now);
       if (now < animateUntil) frame = requestAnimationFrame(animate);
     };
 
     const requestRender = (animateMs = 0) => {
       if (destroyed) return;
-      const value = state.current;
-
-      // A clock transfer is a physical press, not just an LED change. The side
-      // whose clock was running is the side that just slapped its rocker. This
-      // also makes Stockfish visibly press the clock when its move is finished.
-      if (value.activeColor !== lastActiveColor) {
-        if (lastActiveColor && value.activeColor) clock.slap(lastActiveColor);
-        lastActiveColor = value.activeColor;
-        animateMs = Math.max(animateMs, 250);
-      }
-
       animateUntil = Math.max(animateUntil, performance.now() + animateMs);
       renderOnce();
       if (animateMs > 0 && !frame) frame = requestAnimationFrame(animate);
     };
     invalidate.current = requestRender;
+    slap.current = color => {
+      clock.slap(color);
+      requestRender(240);
+    };
 
     const aim = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -150,10 +149,7 @@ export default function ChessClock3DView({
     const pointerUp = (event: PointerEvent) => {
       const value = state.current;
       const canSlap = Boolean(value.pendingSlap && value.onSlap && !value.disabled);
-      if (!moved && pressed && canSlap && hitsRocker(event)) {
-        value.onSlap?.();
-        requestRender(250);
-      }
+      if (!moved && pressed && canSlap && hitsRocker(event)) value.onSlap?.();
       pressed = false;
     };
 
@@ -177,19 +173,20 @@ export default function ChessClock3DView({
     const intersectionObserver = typeof IntersectionObserver === 'function'
       ? new IntersectionObserver(entries => {
           inViewport = Boolean(entries[0]?.isIntersecting);
-          if (inViewport) requestRender(180);
+          if (inViewport) requestRender(160);
         }, { rootMargin: '80px' })
       : null;
     intersectionObserver?.observe(element);
 
-    const visibilityChange = () => { if (!document.hidden) requestRender(180); };
+    const visibilityChange = () => { if (!document.hidden) requestRender(160); };
     document.addEventListener('visibilitychange', visibilityChange);
     resize();
-    requestRender(180);
+    requestRender(160);
 
     return () => {
       destroyed = true;
       invalidate.current = null;
+      slap.current = null;
       if (frame) cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersectionObserver?.disconnect();
@@ -206,8 +203,12 @@ export default function ChessClock3DView({
   }, [compact]);
 
   useEffect(() => {
-    invalidate.current?.(260);
+    invalidate.current?.(120);
   }, [activeColor, pendingSlap]);
+
+  useEffect(() => {
+    if (slapColor && slapNonce > 0) slap.current?.(slapColor);
+  }, [slapColor, slapNonce]);
 
   useEffect(() => {
     invalidate.current?.();
