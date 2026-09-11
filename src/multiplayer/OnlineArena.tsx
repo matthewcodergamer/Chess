@@ -7,7 +7,7 @@ import { parseSquare } from 'chessops/util';
 import { celebratePurchase } from '../ui/purchaseCelebration';
 import Quarter3D from '../ui/Quarter3D';
 import ChessClock3DView from '../ui/ChessClock3DView';
-import CapturedPieces from '../ui/CapturedPieces';
+import MatchPlayerBar from '../ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from '../ui/ChessBoardSurface';
 import ChessPieceAsset from '../ui/ChessPieceAsset';
 import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';
@@ -94,6 +94,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [livePositionBidsEnabled, setLivePositionBidsEnabled] = useState(false);
   const [liveColorBidsEnabled, setLiveColorBidsEnabled] = useState(false);
   const [showClock, setShowClock] = useState(clockVisible);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const reducedMotion = useReducedMotion();
   const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
 
@@ -297,6 +298,9 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const colorBidAllowed = Boolean(snapshot && snapshot.status === 'coin' && !snapshot.coin.result);
   const bidPaymentsAvailable = paymentConfigured && (paymentMode === 'test' || livePositionBidsEnabled);
   const colorBidPaymentsAvailable = paymentConfigured && (paymentMode === 'test' || liveColorBidsEnabled);
+  const opponentColor: 'white' | 'black' = seat?.color === 'white' ? 'black' : 'white';
+  const playerFor = (color: 'white' | 'black') => snapshot?.players[color] ?? null;
+  const clockFor = (color: 'white' | 'black') => formatClockMs(color === 'white' ? whiteMs : blackMs);
 
   if (!seat) return (
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
@@ -309,10 +313,26 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
 
   return (
     <section className="online-room-shell">
-      <header className="online-room-header"><div><span className="eyebrow">{variant === 'tournament' ? 'QQURZ TOURNAMENT ROOM' : 'LIVE ROOM'}</span><strong>{seat.code}</strong><small>{connection === 'connected' ? '● Connected' : `● ${connection}`}</small></div><div className="online-header-actions"><button className="invite-link-button" onClick={copyInvite}>{copied ? 'Copied ✓' : 'Copy invite link'}</button>{canLeave ? <button onClick={onClose}>Leave room</button> : <span className="game-locked-pill">Game locked in progress</span>}</div></header>
-      {snapshot ? <div className="online-game-grid">
-        <div className="online-board-column">
-          <div className={`board-frame online-board-frame ${variant === 'tournament' ? 'tournament-green-board' : ''}`}>
+      <header className="online-room-header match-room-header">
+        <div><strong>{variant === 'tournament' ? 'Tournament' : 'Live room'} · {seat.code}</strong> <small>{connection === 'connected' ? '● Connected' : `● ${connection}`}</small></div>
+        <div className="online-header-actions">{canLeave ? <button onClick={onClose}>Leave</button> : <span className="game-locked-pill">Game in progress</span>}</div>
+      </header>
+      {snapshot ? <div className="online-game-grid match-game-grid">
+        <div className="online-board-column match-board-column">
+          <div className="match-game-meta"><b>Chess960 · #{snapshot.positionId}</b><span>{variant === 'tournament' ? 'Tournament game' : 'Live game'}</span></div>
+
+          <MatchPlayerBar
+            color={opponentColor}
+            name={playerFor(opponentColor)?.name ?? 'Waiting for opponent'}
+            rating="Unrated"
+            connection={playerFor(opponentColor)?.connected ? 'Connected' : 'Reconnecting'}
+            connected={Boolean(playerFor(opponentColor)?.connected)}
+            time={clockFor(opponentColor)}
+            fen={snapshot.fen}
+            active={snapshot.activeClock === opponentColor && snapshot.status === 'playing'}
+          />
+
+          <div className={`board-frame online-board-frame match-board-frame ${variant === 'tournament' ? 'tournament-green-board' : ''}`}>
             <ChessBoardSurface
               apiRef={ground}
               instanceKey={snapshot.code}
@@ -326,28 +346,49 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             {snapshot.status === 'ended' && snapshot.result && <div className="board-overlay ended online-ended-overlay"><div><span>GAME OVER</span><strong className="end-title">{snapshot.result}</strong></div></div>}
           </div>
 
-          <CapturedPieces fen={snapshot.fen} orientation={seat.color} />
+          <MatchPlayerBar
+            color={seat.color}
+            name={playerFor(seat.color)?.name ?? name}
+            rating="Unrated"
+            connection={connection === 'connected' ? 'Connected' : connection}
+            connected={connection === 'connected'}
+            time={clockFor(seat.color)}
+            fen={snapshot.fen}
+            active={snapshot.activeClock === seat.color && snapshot.status === 'playing'}
+            self
+          />
 
-          <div className="online-clock-row"><div className={snapshot.activeClock === 'white' && snapshot.status === 'playing' ? 'active' : ''}><span>White · {snapshot.players.white?.name ?? 'Waiting'}</span><strong>{formatClockMs(whiteMs)}</strong></div><div className={snapshot.activeClock === 'black' && snapshot.status === 'playing' ? 'active' : ''}><span>Black · {snapshot.players.black?.name ?? 'Waiting'}</span><strong>{formatClockMs(blackMs)}</strong></div></div>
-
-          <section className={`qqurz-physical-clock-panel online-physical-clock ${showClock ? '' : 'clock-hidden'}`} aria-label="Online 3D tournament clock">
+          <section className={`qqurz-physical-clock-panel online-physical-clock match-clock-panel ${showClock ? '' : 'clock-hidden'}`} aria-label="Online 3D tournament clock">
             <div className="qqurz-clock-panel-head">
-              <div><b>3D TOURNAMENT CLOCK</b><span>{snapshot.awaitingClockPress ? `${snapshot.awaitingClockPress.toUpperCase()} · press the rocker` : snapshot.status === 'playing' && snapshot.activeClock ? `${snapshot.activeClock.toUpperCase()} clock running` : 'Same physical model · all modes'}</span></div>
+              <div><b>TOURNAMENT CLOCK</b><span>{snapshot.awaitingClockPress ? `${snapshot.awaitingClockPress.toUpperCase()} · press the rocker` : snapshot.status === 'playing' && snapshot.activeClock ? `${snapshot.activeClock.toUpperCase()} clock running` : 'Ready'}</span></div>
               <button type="button" className="clock-visibility-toggle" onClick={() => setClockVisible(!showClock)}>{showClock ? 'Hide clock' : 'Show clock'}</button>
             </div>
-            {showClock ? <ChessClock3DView whiteSeconds={whiteMs / 1000} blackSeconds={blackMs / 1000} activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null} pendingSlap={snapshot.awaitingClockPress} disabled={snapshot.awaitingClockPress !== seat.color} onSlap={() => send({ type: 'clock_slap' })} compact /> : <div className="qqurz-clock-hidden-note">Clock hidden. The server timer keeps running normally.</div>}
+            {showClock ? <ChessClock3DView whiteSeconds={whiteMs / 1000} blackSeconds={blackMs / 1000} activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null} pendingSlap={snapshot.awaitingClockPress} disabled={snapshot.awaitingClockPress !== seat.color} onSlap={() => send({ type: 'clock_slap' })} compact /> : null}
           </section>
-
 
           {colorBidAllowed && <section className="position-auction-card color-auction-card"><div><span className="eyebrow">BID FOR YOUR COLOR</span><h3>Choose White or Black. Highest verified bid gets that side.</h3><p>If another player outbids your active bid, QQURZ submits a Stripe refund to the original payment method automatically. If nobody bids, use the quarter toss above.</p></div><div className="color-choice-pills" role="radiogroup" aria-label="Desired chess color"><button className={desiredColor === 'white' ? 'selected' : ''} onClick={() => setDesiredColor('white')}>White</button><button className={desiredColor === 'black' ? 'selected' : ''} onClick={() => setDesiredColor('black')}>Black</button></div><div className="auction-status"><span>Leader</span><b>{snapshot.colorAuction.leaderName ?? 'No bid yet'}</b><span>Winning side</span><b>{snapshot.colorAuction.desiredColor ? snapshot.colorAuction.desiredColor[0].toUpperCase() + snapshot.colorAuction.desiredColor.slice(1) : '—'}</b><span>Top bid</span><b>{snapshot.colorAuction.leadingBidCents ? money(snapshot.colorAuction.leadingBidCents) : '—'}</b><span>Your last bid</span><b>{snapshot.colorAuction.yourBidCents ? `${money(snapshot.colorAuction.yourBidCents)}${snapshot.colorAuction.yourBidRefunded ? ' · refunded' : ''}` : '—'}</b></div><div className="auction-actions"><button onClick={() => buyColorBid(200)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 200 ? 'Opening…' : `Bid $2 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button><button onClick={() => buyColorBid(500)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 500 ? 'Opening…' : `Bid $5 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button>{youLeadColorBid && <button className="settle-color-auction" onClick={() => send({ type: 'settle_color_bid' })}>Lock winning color</button>}</div><small>{paymentMode === 'test' ? 'Stripe test mode: refund flow is exercised without real money.' : liveColorBidsEnabled ? 'Live color bidding and automatic outbid refunds are enabled.' : 'Live color bidding is disabled by server policy.'}</small></section>}
 
           {bidAllowed && <section className="position-auction-card"><div><span className="eyebrow">POSITION REROLL BID</span><h3>Highest verified bid controls the next shared shuffle.</h3><p>QQURZ uses all 960 legal Chess960 starts. A new highest verified bid rerolls the same board for both players.</p></div><div className="auction-status"><span>Leader</span><b>{snapshot.auction.leaderName ?? 'No bid yet'}</b><span>Top bid</span><b>{snapshot.auction.leadingBidCents ? money(snapshot.auction.leadingBidCents) : '—'}</b><span>Your bid</span><b>{snapshot.auction.yourBidCents ? money(snapshot.auction.yourBidCents) : '—'}</b></div><div className="auction-actions"><button onClick={() => buyBid(200)} disabled={!bidPaymentsAvailable || Boolean(bidBusy)}>{bidBusy === 200 ? 'Opening…' : 'Bid $2 & reroll'}</button><button onClick={() => buyBid(500)} disabled={!bidPaymentsAvailable || Boolean(bidBusy)}>{bidBusy === 500 ? 'Opening…' : 'Bid $5 & reroll'}</button></div><small>{paymentMode === 'test' ? 'Stripe test mode: no real money moves.' : livePositionBidsEnabled ? 'Live position bidding enabled by server policy.' : 'Live position bidding is disabled.'}</small></section>}
 
-          {snapshot.status === 'playing' && <div className="online-in-game-actions"><div className="online-turn-note">{snapshot.awaitingClockPress === seat.color ? 'Move made — slap your 3D clock' : snapshot.awaitingClockPress ? 'Opponent is finishing their move on the clock' : yourTurn ? 'Your move' : 'Opponent’s move'}</div>{snapshot.awaitingClockPress === seat.color && !showClock && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })}>SLAP CLOCK</button>}<button className="resign-button" onClick={() => send({ type: 'resign' })}>Resign</button></div>}
+          <div className="match-controls" aria-label="Game controls">
+            <div className={`match-turn-note ${yourTurn ? 'active' : ''}`}>{snapshot.status === 'ended' ? snapshot.result : snapshot.awaitingClockPress === seat.color ? 'Move made — press your clock' : snapshot.awaitingClockPress ? 'Opponent is pressing their clock' : snapshot.status === 'playing' ? yourTurn ? 'Your move' : 'Opponent move' : snapshot.status === 'strategy' ? 'Strategy phase' : snapshot.status === 'coin' ? 'Color selection' : 'Waiting for opponent'}</div>
+            {snapshot.awaitingClockPress === seat.color && !showClock && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })}>Slap clock</button>}
+            <button onClick={() => setMessage('Draw offers are not available in live rooms yet.')} disabled={snapshot.status !== 'playing'}>Draw</button>
+            <button className="match-resign resign-button" onClick={() => send({ type: 'resign' })} disabled={snapshot.status !== 'playing'}>Resign</button>
+            <button aria-expanded={optionsOpen} onClick={() => setOptionsOpen(value => !value)}>Options</button>
+          </div>
+
+          {optionsOpen && <section className="match-options-panel" aria-label="Room options">
+            <div><span>Room</span><b>{snapshot.code}</b></div>
+            <div><span>Position</span><b>Chess960 #{snapshot.positionId}</b></div>
+            <div><span>Moves</span><b>{snapshot.moves.length}</b></div>
+            <div><span>Connection</span><b>{connection}</b></div>
+            <div className="match-options-actions"><button onClick={copyInvite}>{copied ? 'Invite copied ✓' : 'Copy invite link'}</button>{canLeave && <button onClick={onClose}>Leave room</button>}</div>
+            <div className="match-move-list"><span className="qqurz-kicker">MOVES</span>{snapshot.moves.length ? <ol>{snapshot.moves.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div>
+          </section>}
+
           {message && <p className="online-error">{message}</p>}
         </div>
-
-        <aside className="online-room-side"><span className="eyebrow">ROOM DETAILS</span><h3>Position #{snapshot.positionId}</h3><div className="seat-list"><div><span className="seat-dot white"/>White <b>{snapshot.players.white?.name ?? 'Open seat'}{snapshot.players.white?.connected ? ' · online' : ''}</b></div><div><span className="seat-dot black"/>Black <b>{snapshot.players.black?.name ?? 'Open seat'}{snapshot.players.black?.connected ? ' · online' : ''}</b></div></div><div className="move-count-card"><span>Moves</span><strong>{snapshot.moves.length}</strong></div><p className="server-authority-note">Moves, clocks, coin outcome and paid color assignment stay server-validated. Green dots only show legal destinations; QQURZ does not warn you that a legal move is strategically bad.</p></aside>
       </div> : <div className="online-connecting-state">Connecting to room {seat.code}…</div>}
 
       {promotion && <div className="online-promotion" role="dialog" aria-label="Choose online promotion piece"><div><b>Promote pawn</b><button onClick={() => choosePromotion('q')}><ChessPieceAsset role="queen" color={snapshot?.turn ?? seat.color} size="lg" /><span>Queen</span></button><button onClick={() => choosePromotion('r')}><ChessPieceAsset role="rook" color={snapshot?.turn ?? seat.color} size="lg" /><span>Rook</span></button><button onClick={() => choosePromotion('b')}><ChessPieceAsset role="bishop" color={snapshot?.turn ?? seat.color} size="lg" /><span>Bishop</span></button><button onClick={() => choosePromotion('n')}><ChessPieceAsset role="knight" color={snapshot?.turn ?? seat.color} size="lg" /><span>Knight</span></button></div></div>}

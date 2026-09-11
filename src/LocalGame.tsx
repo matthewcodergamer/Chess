@@ -10,7 +10,7 @@ import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960
 import { playChessSound } from './ui/sound';
 import { motionTokenMs, useReducedMotion } from './ui/motion';
 import ChessClock2D from './ui/ChessClock2D';
-import CapturedPieces from './ui/CapturedPieces';
+import MatchPlayerBar from './ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from './ui/ChessBoardSurface';
 import ChessPieceAsset from './ui/ChessPieceAsset';
 
@@ -82,6 +82,7 @@ export default function LocalGame({ initialMode }: Props) {
   const [result, setResult] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
   const [pendingSlap, setPendingSlap] = useState<Color | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const aiColor = mode === 'ai' && humanColor ? opposite(humanColor) : null;
   const backRank = useMemo(() => positionId === null ? '' : chess960BackRank(positionId), [positionId]);
@@ -316,6 +317,22 @@ export default function LocalGame({ initialMode }: Props) {
   const bottomColor = orientation;
   const clockFor = (color: Color) => formatClock(color === 'white' ? whiteClock : blackClock);
   const activeColor = phase === 'playing' ? (pendingSlap ?? turn) : null;
+  const connectionFor = (color: Color) => {
+    if (mode !== 'ai' || aiColor !== color) return 'Local';
+    if (engineStatus === 'thinking') return 'Thinking';
+    if (engineStatus === 'loading') return 'Loading';
+    if (engineStatus === 'error') return 'Engine error';
+    return 'Ready';
+  };
+  const ratingFor = (color: Color) => mode === 'ai' && aiColor === color ? DIFFICULTIES[difficulty].label : 'Unrated';
+  const finishLocalGame = (text: string) => {
+    if (phase !== 'playing') return;
+    setResult(text);
+    setPhase('ended');
+    setPendingSlap(null);
+    engine.current?.cancelSearch();
+    playChessSound('win');
+  };
   const boardConfig = useMemo<QQurzChessgroundConfig>(() => ({
     fen,
     orientation,
@@ -371,39 +388,26 @@ export default function LocalGame({ initialMode }: Props) {
 
   return (
     <section className="local-fast-shell local-chess-layout">
-      <aside className="local-fast-side">
-        <div>
-          <span className="qqurz-kicker">CHESS960 · #{positionId}</span>
-          <h2>{backRank}</h2>
-          <p>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Human vs Human'}</p>
+      <div className="match-board-stack">
+        <div className="match-game-meta">
+          <b>Chess960 · #{positionId}</b>
+          <span>{mode === 'ai' ? `You vs ${DIFFICULTIES[difficulty].label} Stockfish` : 'Same-device game'}</span>
         </div>
-        <ChessClock2D
-          whiteSeconds={whiteClock}
-          blackSeconds={blackClock}
-          activeColor={activeColor}
-          pendingSlap={pendingSlap}
-          disabled={!pendingSlap || pendingSlap === aiColor}
-          onSlap={slapClock}
+
+        {mode === 'ai' && <div className={`local-engine-state match-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
+
+        <MatchPlayerBar
+          color={topColor}
+          name={playerName(topColor)}
+          rating={ratingFor(topColor)}
+          connection={connectionFor(topColor)}
+          connected={mode !== 'ai' || aiColor !== topColor || engineStatus !== 'error'}
+          time={clockFor(topColor)}
+          fen={fen}
+          active={activeColor === topColor}
         />
-        {mode === 'ai' && <div className={`local-engine-state ${engineStatus}`}>{engineStatus === 'loading' ? 'Loading Stockfish…' : engineStatus === 'thinking' ? 'Stockfish thinking…' : engineStatus === 'ready' ? 'Stockfish ready' : engineError || 'AI preparing'}</div>}
-        <div className="local-side-actions">
-          <button onClick={() => setOrientation(value => opposite(value))}>↻ Flip board</button>
-          <button onClick={createPosition} disabled={phase === 'playing'}>{phase === 'playing' ? 'Position locked' : '♜ New position'}</button>
-        </div>
-        <div className="local-moves">
-          <span>Moves</span>
-          {moves.length ? <ol>{moves.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}
-        </div>
-      </aside>
 
-      <div className="local-board-area chess-game-stage">
-        <div className={`board-player-bar board-player-top ${activeColor === topColor ? 'active' : ''}`}>
-          <span className={`player-status-dot ${topColor}`} />
-          <span className="board-player-copy"><b>{playerName(topColor)}</b><small>{topColor === 'white' ? 'White' : 'Black'}</small></span>
-          <strong>{clockFor(topColor)}</strong>
-        </div>
-
-        <div className="local-board-frame">
+        <div className="local-board-frame match-board-frame">
           <ChessBoardSurface
             apiRef={ground}
             instanceKey={positionId ?? 'local'}
@@ -427,18 +431,51 @@ export default function LocalGame({ initialMode }: Props) {
           )}
         </div>
 
-        <CapturedPieces fen={fen} orientation={orientation} />
+        <MatchPlayerBar
+          color={bottomColor}
+          name={playerName(bottomColor)}
+          rating={ratingFor(bottomColor)}
+          connection={connectionFor(bottomColor)}
+          connected={mode !== 'ai' || aiColor !== bottomColor || engineStatus !== 'error'}
+          time={clockFor(bottomColor)}
+          fen={fen}
+          active={activeColor === bottomColor}
+          self
+        />
 
-        <div className={`board-player-bar board-player-bottom ${activeColor === bottomColor ? 'active' : ''}`}>
-          <span className={`player-status-dot ${bottomColor}`} />
-          <span className="board-player-copy"><b>{playerName(bottomColor)}</b><small>{bottomColor === 'white' ? 'White' : 'Black'}{activeColor === bottomColor ? ' · Your turn' : ''}</small></span>
-          <strong>{clockFor(bottomColor)}</strong>
+        <ChessClock2D
+          whiteSeconds={whiteClock}
+          blackSeconds={blackClock}
+          activeColor={activeColor}
+          pendingSlap={pendingSlap}
+          disabled={!pendingSlap || pendingSlap === aiColor}
+          onSlap={slapClock}
+        />
+
+        <div className="match-controls" aria-label="Game controls">
+          <div className={`match-turn-note ${activeColor === bottomColor ? 'active' : ''}`}>
+            {phase === 'strategy' ? 'Strategy phase' : phase === 'ended' ? result : pendingSlap === bottomColor ? 'Move made — press your clock' : activeColor === bottomColor ? 'Your move' : 'Opponent move'}
+          </div>
+          <button onClick={() => finishLocalGame('Draw by agreement')} disabled={phase !== 'playing'}>Draw</button>
+          <button className="match-resign" onClick={() => finishLocalGame(`${opposite(bottomColor) === 'white' ? 'White' : 'Black'} wins by resignation`)} disabled={phase !== 'playing'}>Resign</button>
+          <button aria-expanded={optionsOpen} onClick={() => setOptionsOpen(value => !value)}>Options</button>
         </div>
 
-        <div className="local-mobile-clocks" aria-hidden="true">
-          <div><span>{playerName('white')}</span><strong>{formatClock(whiteClock)}</strong></div>
-          <div><span>{playerName('black')}</span><strong>{formatClock(blackClock)}</strong></div>
-        </div>
+        {optionsOpen && (
+          <section className="match-options-panel" aria-label="Match options">
+            <div><span>Position</span><b>Chess960 #{positionId}</b></div>
+            <div><span>Back rank</span><b>{backRank}</b></div>
+            <div><span>Moves</span><b>{moves.length}</b></div>
+            <div className="match-options-actions">
+              <button onClick={() => setOrientation(value => opposite(value))}>Flip board</button>
+              <button onClick={createPosition} disabled={phase === 'playing'}>{phase === 'playing' ? 'Position locked' : 'New position'}</button>
+            </div>
+            <div className="match-move-list">
+              <span className="qqurz-kicker">MOVES</span>
+              {moves.length ? <ol>{moves.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}
+            </div>
+          </section>
+        )}
       </div>
 
       {promotion && (
