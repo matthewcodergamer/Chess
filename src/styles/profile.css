@@ -66,3 +66,17 @@
 .account-block-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--q-space-8)}
 .session-dot{width:var(--q-space-12);height:var(--q-space-12);border-radius:50%;background:var(--q-subtle);box-shadow:0 0 0 var(--q-space-4) var(--q-line)}.session-dot.current{background:var(--q-success);box-shadow:0 0 0 var(--q-space-4) var(--q-success-soft)}
 .account-danger-zone{border-color:var(--q-danger)}.account-danger-zone .qqurz-kicker{color:var(--q-danger-strong)}
+
+/* Competitive identity: ratings read like a chess score sheet, not finance cards. */
+.player-rating-sheet{grid-column:1/-1;display:grid;gap:var(--q-space-16);padding:var(--q-space-24);border:1px solid var(--q-line);border-radius:var(--q-radius-lg);background:var(--q-surface);box-shadow:var(--q-elevation-1)}
+.player-rating-heading{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--q-space-16);padding-bottom:var(--q-space-16);border-bottom:1px solid var(--q-line)}
+.player-rating-heading h2{margin:var(--q-space-4) 0 0;color:var(--q-text);font-size:var(--q-type-title)}
+.player-rating-heading p{max-width:680px;margin:var(--q-space-8) 0 0;color:var(--q-muted);font-size:var(--q-type-body);line-height:var(--q-leading-body)}
+.player-rating-model{min-height:var(--q-control-sm);display:inline-flex;align-items:center;padding:0 var(--q-space-12);border:1px solid var(--q-line-strong);border-radius:var(--q-radius-sm);background:var(--q-surface-2);color:var(--q-text);font-size:var(--q-type-label);font-weight:900}
+.player-rating-list{display:grid;gap:var(--q-space-8)}
+.player-rating-row{display:grid;grid-template-columns:var(--q-control-md) minmax(0,1fr) auto;align-items:center;gap:var(--q-space-12);padding:var(--q-space-12);border:1px solid var(--q-line);border-radius:var(--q-radius-md);background:var(--q-surface-2)}
+.player-rating-piece{width:var(--q-control-md);height:var(--q-control-md);display:grid;place-items:center;border-radius:var(--q-radius-sm);background:var(--q-action-soft);color:var(--q-action-strong);font-family:Georgia,"Times New Roman",serif;font-size:var(--q-type-title);font-weight:900}
+.player-rating-name{display:grid;gap:var(--q-space-4);min-width:0}.player-rating-name b{font-size:var(--q-type-body-lg)}.player-rating-name small{color:var(--q-muted);font-size:var(--q-type-label)}
+.player-rating-score{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:var(--q-space-8);font-variant-numeric:tabular-nums}.player-rating-score strong{font-size:var(--q-type-title-lg);line-height:var(--q-leading-tight)}.player-rating-score span{padding:var(--q-space-4) var(--q-space-8);border-radius:var(--q-radius-sm);font-size:var(--q-type-label);font-weight:900}.player-rating-score .provisional{background:var(--q-warning-soft);color:var(--q-warning-strong)}.player-rating-score .established{background:var(--q-success-soft);color:var(--q-success-strong)}
+.player-rating-detail{grid-column:2/-1;display:flex;align-items:center;flex-wrap:wrap;gap:var(--q-space-8) var(--q-space-16);padding-top:var(--q-space-4);border-top:1px solid var(--q-line);color:var(--q-muted);font-size:var(--q-type-label);font-variant-numeric:tabular-nums}
+.player-rating-footer{display:flex;align-items:center;flex-wrap:wrap;gap:var(--q-space-8) var(--q-space-16);padding-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-label)}.player-rating-footer b{color:var(--q-text);font-variant-numeric:tabular-nums}
