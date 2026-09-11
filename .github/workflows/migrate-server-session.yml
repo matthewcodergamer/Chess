@@ -6,6 +6,7 @@ on:
     paths:
       - 'scripts/migrate-server-session.mjs'
       - 'scripts/fix-generated-server-session.mjs'
+      - 'scripts/patch-authoritative-server-v2.mjs'
       - '.github/workflows/migrate-server-session.yml'
 
 permissions:
@@ -26,10 +27,15 @@ jobs:
       - name: Install server dependencies
         run: npm install --no-audit --no-fund
         working-directory: server
-      - name: Apply realtime session migration
+      - name: Apply authoritative realtime session changes
         run: |
-          node scripts/migrate-server-session.mjs
-          node scripts/fix-generated-server-session.mjs
+          if grep -q "session: GameSessionModel;" server/src/index.ts; then
+            node scripts/patch-authoritative-server-v2.mjs
+          else
+            node scripts/migrate-server-session.mjs
+            node scripts/fix-generated-server-session.mjs
+            node scripts/patch-authoritative-server-v2.mjs
+          fi
       - name: Typecheck realtime server
         run: npm run check
         working-directory: server
@@ -41,5 +47,5 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add server/src/index.ts
           git diff --cached --quiet && exit 0
-          git commit -m "Use authoritative GameSession in realtime rooms"
+          git commit -m "Route realtime outcomes through GameSession"
           git push origin main
