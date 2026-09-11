@@ -78,4 +78,5 @@ export type ServerEvent =
   | { type: 'snapshot'; room: RoomSnapshot }
   | { type: 'move_ack'; timing: MoveTiming }
   | { type: 'time_sync'; nonce: string; serverSentAt: number }
+  | { type: 'color_gate'; enabled: boolean; open: boolean; yourOptOut: boolean; optedOut: number; required: number }
   | { type: 'error'; message: string };
