@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { IconButton, PrimaryButton, SecondaryButton } from '../ui/controls';
 import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, multiplayerConfigured, type MatchmakingSnapshot } from './client';
 import type { RoomSeat } from './types';
 
@@ -108,7 +109,7 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
   return (
     <section className="qqurz-matchmaking-page" aria-label="Find a random Chess960 opponent">
       <div className="matchmaking-card">
-        <button className="matchmaking-back" onClick={onBack}>← Back</button>
+        <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
         <div className="matchmaking-presence"><span className="presence-dot" /> <b>{onlinePlayers ?? '—'}</b> players online</div>
         <span className="matchmaking-eyebrow">LIVE CHESS960</span>
         <h1>Play anyone.</h1>
@@ -120,15 +121,14 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         </label>
 
         {!ticket ? (
-          <button className="matchmaking-find" onClick={start} disabled={!multiplayerConfigured || busy}>
-            <span>♞</span>
-            <b>{busy ? 'Joining queue…' : 'Find an opponent'}</b>
-          </button>
+          <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured} loading={busy} loadingLabel="Joining queue">
+            Find an opponent
+          </PrimaryButton>
         ) : (
           <div className="matchmaking-searching" role="status" aria-live="polite">
             <span className="matchmaking-spinner" aria-hidden="true" />
             <div><b>Looking for a player…</b><small>Keep this page open. The match starts automatically.</small></div>
-            <button onClick={cancel}>Cancel</button>
+            <SecondaryButton size="sm" onClick={cancel}>Cancel</SecondaryButton>
           </div>
         )}
 
