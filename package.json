@@ -9,10 +9,11 @@
     "check:pieces": "node scripts/check-piece-system.mjs",
     "check:clock": "node scripts/check-clock-system.mjs",
     "check:chess960": "node scripts/check-chess960.mjs",
+    "check:account": "node scripts/check-account-system.mjs",
     "prepare:engine": "node scripts/copy-stockfish.mjs",
     "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
-    "dev": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run prepare:engine && npm run prepare:quarter && vite",
-    "build": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build",
+    "dev": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run check:account && npm run prepare:engine && npm run prepare:quarter && vite",
+    "build": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run check:account && npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
