@@ -1,10 +1,11 @@
 import baseHandler, { ChessRoom } from './index';
+import { AccountRegistry, handleAccountRequest, type AccountEnv } from './accounts';
 import { handleMatchmakerRequest, Matchmaker, type MatchmakerEnv } from './matchmaker';
 import { handleTournamentRequest, TournamentRegistry, type TournamentEnv } from './tournaments';
 
-export { ChessRoom, Matchmaker, TournamentRegistry };
+export { AccountRegistry, ChessRoom, Matchmaker, TournamentRegistry };
 
-type Env = TournamentEnv & MatchmakerEnv & {
+type Env = TournamentEnv & MatchmakerEnv & AccountEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   ALLOWED_ORIGINS?: string;
 };
@@ -18,14 +19,19 @@ function withCors(request: Request, response: Response, env: Env): Response {
     headers.set('vary', 'Origin');
   }
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
-  headers.set('access-control-allow-headers', 'content-type');
+  headers.set('access-control-allow-headers', 'content-type,authorization');
   headers.set('access-control-max-age', '86400');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') return baseHandler.fetch(request, env);
+    if (request.method === 'OPTIONS') {
+      return withCors(request, new Response(null, { status: 204 }), env);
+    }
+
+    const accountResponse = await handleAccountRequest(request, env);
+    if (accountResponse) return withCors(request, accountResponse, env);
 
     const matchmakerResponse = await handleMatchmakerRequest(request, env);
     if (matchmakerResponse) return withCors(request, matchmakerResponse, env);
