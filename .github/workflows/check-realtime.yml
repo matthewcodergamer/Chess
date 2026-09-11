@@ -5,16 +5,22 @@ on:
     branches: [main, qqurz-realtime-server]
     paths:
       - 'server/**'
+      - 'shared/**'
       - 'src/multiplayer/**'
-      - 'src/AppV12.tsx'
-      - 'src/v1.3.css'
+      - 'src/account/**'
+      - 'src/profile/**'
+      - 'src/AppV14.tsx'
+      - 'scripts/check-account-system.mjs'
       - '.github/workflows/check-realtime.yml'
   pull_request:
     paths:
       - 'server/**'
+      - 'shared/**'
       - 'src/multiplayer/**'
-      - 'src/AppV12.tsx'
-      - 'src/v1.3.css'
+      - 'src/account/**'
+      - 'src/profile/**'
+      - 'src/AppV14.tsx'
+      - 'scripts/check-account-system.mjs'
       - '.github/workflows/check-realtime.yml'
   workflow_dispatch:
 
@@ -25,12 +31,16 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build frontend
+        run: npm run build
 
   realtime-server:
     runs-on: ubuntu-latest
@@ -38,10 +48,18 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
-      - run: npm run check
-      - run: npx wrangler deploy --dry-run --outdir .wrangler-dry
+      - name: Install shared app dependencies
+        working-directory: .
+        run: npm install --no-audit --no-fund
+      - name: Install server dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck server
+        run: npm run check
+      - name: Dry-run Worker bundle
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry
