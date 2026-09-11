@@ -7,9 +7,22 @@ const configuredBase = (import.meta.env.VITE_MULTIPLAYER_API as string | undefin
 export const MULTIPLAYER_API = configuredBase ?? '';
 export const multiplayerConfigured = Boolean(MULTIPLAYER_API);
 
+export type PresenceState = 'online' | 'away' | 'game' | 'offline';
+export type PresenceCounts = { online: number; away: number; game: number };
+export type RegionPreference = 'nearest' | 'regional' | 'global';
+export type MatchmakingCriteria = {
+  variant: 'chess960';
+  ratingRange: number;
+  timeControl: TimeControl;
+  regionPreference: RegionPreference;
+  maxLatencyMs: number;
+};
+
 export type PresenceSnapshot = {
   presenceId?: string;
+  state?: PresenceState;
   onlinePlayers: number;
+  presence?: PresenceCounts;
 };
 
 export type MatchmakingSnapshot = {
@@ -17,7 +30,18 @@ export type MatchmakingSnapshot = {
   status: 'waiting' | 'matched';
   seat: RoomSeat | null;
   opponent: string | null;
+  opponentRating: number | null;
+  rating: number;
+  ratingDeviation: number;
+  provisional: boolean;
+  criteria: MatchmakingCriteria;
+  search: {
+    waitedMs: number;
+    ratingRange: number;
+    estimatedLatencyMs: number | null;
+  };
   onlinePlayers: number;
+  presence?: PresenceCounts;
 };
 
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -55,10 +79,11 @@ export function getPresenceId(): string {
   }
 }
 
-export async function pingPresence(name: string, presenceId: string): Promise<PresenceSnapshot> {
+export async function pingPresence(name: string, presenceId: string, state: PresenceState = 'online', keepalive = false): Promise<PresenceSnapshot> {
   return requestJson<PresenceSnapshot>('/presence/ping', {
     method: 'POST',
-    body: JSON.stringify({ name, presenceId }),
+    keepalive,
+    body: JSON.stringify({ name, presenceId, state }),
   });
 }
 
@@ -66,10 +91,10 @@ export async function loadPresence(): Promise<PresenceSnapshot> {
   return requestJson<PresenceSnapshot>('/presence');
 }
 
-export async function enqueueMatch(name: string, presenceId: string): Promise<MatchmakingSnapshot> {
+export async function enqueueMatch(name: string, presenceId: string, criteria: MatchmakingCriteria): Promise<MatchmakingSnapshot> {
   return requestJson<MatchmakingSnapshot>('/matchmaking/enqueue', {
     method: 'POST',
-    body: JSON.stringify({ name, presenceId }),
+    body: JSON.stringify({ name, presenceId, ...criteria }),
   });
 }
 
@@ -77,8 +102,8 @@ export async function loadMatch(ticket: string): Promise<MatchmakingSnapshot> {
   return requestJson<MatchmakingSnapshot>(`/matchmaking/status?ticket=${encodeURIComponent(ticket)}`);
 }
 
-export async function cancelMatch(ticket: string): Promise<{ cancelled: boolean; onlinePlayers: number }> {
-  return requestJson<{ cancelled: boolean; onlinePlayers: number }>('/matchmaking/cancel', {
+export async function cancelMatch(ticket: string): Promise<{ cancelled: boolean; onlinePlayers: number; presence?: PresenceCounts }> {
+  return requestJson<{ cancelled: boolean; onlinePlayers: number; presence?: PresenceCounts }>('/matchmaking/cancel', {
     method: 'POST',
     body: JSON.stringify({ ticket }),
   });
