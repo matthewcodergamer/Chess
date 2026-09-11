@@ -136,3 +136,4 @@ source = source.replace('<li>The same reusable physical clock component is used 
 
 fs.writeFileSync(path, source);
 console.log('Premium 3D moved to shared GameSession state machine.');
+// rerun after the clock invariant learned the canonical session field names
