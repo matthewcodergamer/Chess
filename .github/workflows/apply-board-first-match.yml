@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'scripts/apply-board-first-match.mjs'
+      - 'scripts/apply-board-first-match.py'
       - '.github/workflows/apply-board-first-match.yml'
 
 permissions:
@@ -17,18 +17,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Normalize migration template literals
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('scripts/apply-board-first-match.mjs')
-          source = path.read_text()
-          source = source.replace("finishLocalGame(\\`${opposite(bottomColor) === 'white' ? 'White' : 'Black'} wins by resignation\\`)", "finishLocalGame(\\`\\${opposite(bottomColor) === 'white' ? 'White' : 'Black'} wins by resignation\\`)")
-          source = source.replace("key={\\`${move}-${index}\\`}", "key={move + '-' + index}")
-          path.write_text(source)
-          PY
       - name: Apply board-first match migration
-        run: node scripts/apply-board-first-match.mjs
+        run: python scripts/apply-board-first-match.py
       - name: Commit match layout
         run: |
           git config user.name github-actions[bot]
