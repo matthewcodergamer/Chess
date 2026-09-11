@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/implement-time-controls.mjs'
-      - 'scripts/implement-time-controls-v5.mjs'
+      - 'scripts/implement-time-controls-v6.mjs'
       - '.github/workflows/implement-time-controls.yml'
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
       - name: Install app dependencies
         run: npm install --no-audit --no-fund
       - name: Apply time-control migration
-        run: node scripts/implement-time-controls-v5.mjs
+        run: node scripts/implement-time-controls-v6.mjs
       - name: Verify app production build
         run: npm run build
       - name: Install server dependencies
