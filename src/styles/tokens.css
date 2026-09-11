@@ -29,9 +29,12 @@
   --q-type-title-lg:2.75rem;
   --q-type-display-page:clamp(3rem,7vw,5.2rem);
   --q-type-display-hero:clamp(4rem,8vw,7.2rem);
+  --q-type-display-match:clamp(2.6rem,9vw,4.6rem);
   --q-type-display-page-mobile:clamp(2.75rem,12vw,3.75rem);
   --q-type-display-hero-mobile:clamp(2.85rem,14vw,4.6rem);
   --q-type-section-mobile:clamp(2rem,10vw,3.25rem);
+  --q-type-display-ornament:clamp(16rem,32vw,27rem);
+  --q-type-display-ornament-mobile:clamp(13rem,55vw,22rem);
   --q-leading-tight:1;
   --q-leading-body:1.55;
   --q-leading-copy:1.65;

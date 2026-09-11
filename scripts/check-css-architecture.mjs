@@ -19,6 +19,7 @@ const requiredTokens = [
   '--q-control-sm:48px', '--q-control-md:56px', '--q-control-lg:64px',
   '--q-type-caption:.875rem', '--q-type-label-sm:.9375rem', '--q-type-label:1rem',
   '--q-type-body:1.0625rem', '--q-type-body-lg:1.125rem', '--q-type-action:1.25rem', '--q-type-action-lg:1.5rem',
+  '--q-type-display-match:', '--q-type-display-page-mobile:', '--q-type-display-hero-mobile:', '--q-type-display-ornament:',
   '--q-radius-xs:8px', '--q-radius-sm:12px', '--q-radius-md:16px', '--q-radius-lg:24px', '--q-radius-xl:32px',
   '--q-action:', '--q-action-hover:', '--q-action-active:', '--q-action-soft:',
   '--q-success:', '--q-success-soft:', '--q-danger:', '--q-danger-soft:', '--q-warning:',
@@ -71,7 +72,7 @@ for (const file of styleFiles) {
 
   for (const match of css.matchAll(/font-size\s*:\s*([^;}]+)/g)) {
     const value = match[1].trim();
-    if (/^0(?:\s*!important)?$/.test(value) || value.startsWith('var(') || value.startsWith('clamp(')) continue;
+    if (/^0(?:\s*!important)?$/.test(value) || value.startsWith('var(') || (value.startsWith('clamp(') && value.includes('var(--q-type'))) continue;
     errors.push(`${file} contains a non-token typography size: ${match[0].trim()}`);
     break;
   }
