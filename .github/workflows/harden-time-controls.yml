@@ -1,0 +1,42 @@
+name: Harden complete time controls
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/harden-time-controls.mjs'
+      - '.github/workflows/harden-time-controls.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Apply anti-abuse hardening
+        run: node scripts/harden-time-controls.mjs
+      - name: Verify app production build
+        run: npm run build
+      - name: Install server dependencies
+        working-directory: server
+        run: npm install --no-audit --no-fund
+      - name: Verify realtime server
+        working-directory: server
+        run: npm run check
+      - name: Commit hardening
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add shared/gameSession.ts src/multiplayer/OnlineArena.tsx server/src/index.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Harden authoritative time control anti-abuse"
+          git push origin main
