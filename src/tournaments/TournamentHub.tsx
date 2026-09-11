@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import TournamentEnginePanel from './TournamentEnginePanel';
+import TournamentMasterGrid from './TournamentMasterGrid';
 import LegacyTournamentHub from './LegacyTournamentHub';
 
 type Props = {
@@ -30,14 +31,20 @@ export default function TournamentHub(props: Props) {
       <section className="tournament-engine-title">
         <button className="text-back" onClick={props.onBack}>← Home</button>
         <span className="qqurz-kicker">TOURNAMENTS</span>
-        <h1>Run the event, not just the bracket.</h1>
-        <p>QQURZ now owns registration, check-in, seeding, pairings, game launch, verified results, standings and completion as one server-authoritative tournament lifecycle.</p>
+        <h1>Find a tournament and get in.</h1>
+        <p>The availability grid is built from real server tournament records. Capacity filters help you browse; registration, check-in, pairings, results and player status stay server-authoritative.</p>
       </section>
       <div className="tournament-center-switch" role="tablist" aria-label="Tournament mode">
-        <button role="tab" aria-selected className="active" onClick={() => setSurface('engine')}>Tournament engine</button>
+        <button role="tab" aria-selected className="active" onClick={() => setSurface('engine')}>Live tournaments</button>
         <button role="tab" aria-selected={false} onClick={() => setSurface('catalog')}>Preset / test catalog</button>
       </div>
-      <TournamentEnginePanel onOpenGame={props.onPlayOnline} />
+
+      <TournamentMasterGrid onOpenGame={props.onPlayOnline} />
+
+      <details className="tournament-engine-advanced">
+        <summary>Event details, standings & organizer tools</summary>
+        <TournamentEnginePanel onOpenGame={props.onPlayOnline} />
+      </details>
     </div>
   );
 }
