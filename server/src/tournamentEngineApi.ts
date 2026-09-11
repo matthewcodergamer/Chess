@@ -40,9 +40,15 @@ async function accountProfile(request: Request, env: AccountEnv): Promise<Accoun
 
 export async function handleTournamentEngineRequest(request: Request, env: TournamentEngineEnv): Promise<Response | null> {
   const url = new URL(request.url);
-  if (!url.pathname.startsWith('/tournament-engine')) return null;
+  const liveMatch = /^\/tournaments\/(event_[a-f0-9]{32})\/live$/.exec(url.pathname);
+  const enginePath = url.pathname.startsWith('/tournament-engine');
+  if (!enginePath && !liveMatch) return null;
   const stub = registryStub(env);
   if (!stub) return json({ error: 'Tournament engine storage is not configured.' }, 503);
+
+  if (request.method === 'GET' && liveMatch) {
+    return forward(await stub.fetch(new Request(`https://tournament.internal/view?tournamentId=${encodeURIComponent(liveMatch[1])}`)));
+  }
 
   if (request.method === 'GET' && url.pathname === '/tournament-engine/tournaments') {
     return forward(await stub.fetch(new Request('https://tournament.internal/engine/list')));
