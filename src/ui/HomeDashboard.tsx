@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PrimaryButton, SecondaryButton, SegmentedControl } from './controls';
 import HomeBoardPreview from './HomeBoardPreview';
 
+// The home route is intentionally a play-first chess dashboard, not a marketing hero.
 type QuickTime = '3+2' | '5+0' | '10+0';
 
 type Props = {
