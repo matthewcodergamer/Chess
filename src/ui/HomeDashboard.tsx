@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PrimaryButton, SecondaryButton, SegmentedControl } from './controls';
 import HomeBoardPreview from './HomeBoardPreview';
+import { loadOnboardingRecord } from '../onboarding/preferences';
 
 // The home route is intentionally a play-first chess dashboard, not a marketing hero.
 type QuickTime = '3+2' | '5+0' | '10+0';
@@ -41,9 +42,16 @@ function loadProfile(): Required<HomeProfile> {
   }
 }
 
+function experienceDefaultQuickTime(): QuickTime {
+  const experience = loadOnboardingRecord()?.experience;
+  if (experience === 'tournament') return '3+2';
+  if (experience === 'experienced') return '5+0';
+  return '10+0';
+}
+
 function loadQuickTime(): QuickTime {
   const saved = window.localStorage.getItem(QUICK_TIME_KEY);
-  return saved === '3+2' || saved === '5+0' || saved === '10+0' ? saved : '10+0';
+  return saved === '3+2' || saved === '5+0' || saved === '10+0' ? saved : experienceDefaultQuickTime();
 }
 
 export default function HomeDashboard({
