@@ -5,10 +5,10 @@ import { handleTournamentRequest, type TournamentEnv } from './tournaments';
 import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRoom';
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
-import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngineRegistry';
+import { MoneyTournamentRegistry as TournamentRegistry } from './moneyTournamentRegistry';
 import { MoneyChessRoom as ChessRoom } from './moneyRoom';
 import { handleMoneyRoomRequest } from './moneyRoomApi';
-import { PaymentLedger } from './paymentLedger';
+import { CompetitionPaymentLedger as PaymentLedger } from './competitionPaymentLedger';
 import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
 
