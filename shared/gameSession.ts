@@ -62,6 +62,7 @@ export type CreateGameSessionOptions = {
   whiteClockMs?: number;
   blackClockMs?: number;
   incrementMs?: number;
+  clockStartedAt?: number | null;
   countdownMs?: number;
   countdownEndsAt?: number | null;
   connectionStatus?: GameConnectionStatus;
@@ -87,6 +88,9 @@ export type GameSessionEvent =
   | { type: 'FINALIZE'; at?: number };
 
 const TERMINAL = new Set<GameSessionState>(['CHECKMATE', 'DRAW', 'RESIGN', 'TIMEOUT', 'FINAL']);
+const RESULT_STATES = new Set<GameSessionState>(['CHECKMATE', 'DRAW', 'RESIGN', 'TIMEOUT']);
+const PLAY_STATES = new Set<GameSessionState>(['ACTIVE', 'PAUSED', 'RECONNECTING']);
+const PRE_GAME_STATES = new Set<GameSessionState>(['LOBBY', 'READY', 'COLOR_SELECTION', 'COIN_TOSS', 'COUNTDOWN']);
 
 const TRANSITIONS: Record<GameSessionState, ReadonlySet<GameSessionState>> = {
   LOBBY: new Set(['READY', 'COLOR_SELECTION', 'COIN_TOSS', 'COUNTDOWN', 'FINAL']),
@@ -115,6 +119,8 @@ function opposite(color: GameColor): GameColor {
 export function createGameSession(options: CreateGameSessionOptions = {}): GameSessionModel {
   const now = nowOr(options.now);
   const clockMs = Math.max(0, options.clockMs ?? 10 * 60 * 1000);
+  const connectionStatus = options.connectionStatus ?? 'LOCAL';
+  const connectedByDefault = connectionStatus === 'LOCAL' || connectionStatus === 'CONNECTED';
   return {
     id: options.id ?? `session-${now}-${Math.random().toString(36).slice(2, 10)}`,
     state: options.state ?? 'LOBBY',
@@ -125,7 +131,7 @@ export function createGameSession(options: CreateGameSessionOptions = {}): GameS
       whiteMs: Math.max(0, options.whiteClockMs ?? clockMs),
       blackMs: Math.max(0, options.blackClockMs ?? clockMs),
       incrementMs: Math.max(0, options.incrementMs ?? 0),
-      startedAt: null,
+      startedAt: options.clockStartedAt ?? null,
     },
     pendingClockPress: null,
     countdownMs: Math.max(0, options.countdownMs ?? 0),
@@ -135,9 +141,9 @@ export function createGameSession(options: CreateGameSessionOptions = {}): GameS
     drawOffers: { white: false, black: false },
     resignedBy: null,
     connection: {
-      status: options.connectionStatus ?? 'LOCAL',
-      white: options.connectionStatus === 'LOCAL',
-      black: options.connectionStatus === 'LOCAL',
+      status: connectionStatus,
+      white: connectedByDefault,
+      black: connectedByDefault,
     },
     result: null,
     resultKind: null,
@@ -158,6 +164,18 @@ export function isTerminalGameState(state: GameSessionState): boolean {
   return TERMINAL.has(state);
 }
 
+export function isResultGameState(state: GameSessionState): boolean {
+  return RESULT_STATES.has(state);
+}
+
+export function isPlayGameState(state: GameSessionState): boolean {
+  return PLAY_STATES.has(state);
+}
+
+export function isPreGameState(state: GameSessionState): boolean {
+  return PRE_GAME_STATES.has(state);
+}
+
 export function clockOwner(session: GameSessionModel): GameColor | null {
   if (session.state !== 'ACTIVE') return null;
   return session.pendingClockPress ?? session.sideToMove;
@@ -167,9 +185,21 @@ export function canColorMove(session: GameSessionModel, color: GameColor): boole
   return session.state === 'ACTIVE' && !session.pendingClockPress && !session.result && session.sideToMove === color;
 }
 
+export function canOfferDraw(session: GameSessionModel): boolean {
+  return session.state === 'ACTIVE' && !session.result;
+}
+
+export function canResignGameSession(session: GameSessionModel): boolean {
+  return (session.state === 'ACTIVE' || session.state === 'PAUSED' || session.state === 'RECONNECTING') && !session.result;
+}
+
+export function canLeaveGameSession(session: GameSessionModel): boolean {
+  return !isPlayGameState(session.state);
+}
+
 export function sessionUiPhase(session: GameSessionModel): 'setup' | 'strategy' | 'playing' | 'ended' {
   if (session.state === 'COUNTDOWN') return 'strategy';
-  if (session.state === 'ACTIVE' || session.state === 'PAUSED' || session.state === 'RECONNECTING') return 'playing';
+  if (isPlayGameState(session.state)) return 'playing';
   if (isTerminalGameState(session.state)) return 'ended';
   return 'setup';
 }
@@ -232,14 +262,17 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
       if (!owner || event.elapsedMs <= 0) return session;
       const key = owner === 'white' ? 'whiteMs' : 'blackMs';
       const remaining = Math.max(0, session.clocks[key] - event.elapsedMs);
-      const next = { ...session, clocks: { ...session.clocks, [key]: remaining }, updatedAt: at };
+      const next: GameSessionModel = {
+        ...session,
+        clocks: { ...session.clocks, [key]: remaining, startedAt: remaining > 0 ? at : null },
+        updatedAt: at,
+      };
       if (remaining > 0) return next;
       const winner = opposite(owner);
       return {
         ...next,
         state: 'TIMEOUT',
         pendingClockPress: null,
-        clocks: { ...next.clocks, startedAt: null },
         result: `${winner === 'white' ? 'White' : 'Black'} wins on time`,
         resultKind: 'TIMEOUT',
         winner,
@@ -282,7 +315,7 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
       return transition({ ...session, countdownMs: 0, countdownEndsAt: null }, 'ACTIVE', at);
     }
     case 'SET_CONNECTION': {
-      const next = {
+      const next: GameSessionModel = {
         ...session,
         connection: {
           status: event.status,
@@ -291,12 +324,16 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
         },
         updatedAt: at,
       };
-      if (session.state === 'ACTIVE' && event.status === 'RECONNECTING') return { ...next, state: 'RECONNECTING', clocks: { ...next.clocks, startedAt: null } };
-      if (session.state === 'RECONNECTING' && (event.status === 'CONNECTED' || event.status === 'LOCAL')) return { ...next, state: 'ACTIVE', clocks: { ...next.clocks, startedAt: at } };
+      if (session.state === 'ACTIVE' && (event.status === 'RECONNECTING' || event.status === 'DISCONNECTED')) {
+        return { ...next, state: 'RECONNECTING', clocks: { ...next.clocks, startedAt: null } };
+      }
+      if (session.state === 'RECONNECTING' && (event.status === 'CONNECTED' || event.status === 'LOCAL')) {
+        return { ...next, state: 'ACTIVE', clocks: { ...next.clocks, startedAt: at } };
+      }
       return next;
     }
     case 'OFFER_DRAW':
-      if (session.state !== 'ACTIVE') return session;
+      if (!canOfferDraw(session)) return session;
       return { ...session, drawOffers: { ...session.drawOffers, [event.by]: true }, updatedAt: at };
     case 'CLEAR_DRAW_OFFER':
       return {
@@ -305,7 +342,7 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
         updatedAt: at,
       };
     case 'RESIGN': {
-      if (session.state !== 'ACTIVE' && session.state !== 'PAUSED' && session.state !== 'RECONNECTING') return session;
+      if (!canResignGameSession(session)) return session;
       const winner = opposite(event.by);
       return {
         ...session,
