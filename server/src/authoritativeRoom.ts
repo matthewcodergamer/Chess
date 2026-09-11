@@ -40,8 +40,8 @@ async function replayStorageKey(token: string): Promise<string> {
 export class AuthoritativeChessRoom extends BaseChessRoom {
   private canonicalSnapshot(ws: WebSocket, token: string): void {
     // sendSnapshot is intentionally private in the base room. This wrapper is
-    // kept at the transport boundary and invokes it only to reconcile a client
-    // after a rejected optimistic command; it never mutates canonical state.
+    // kept at the transport boundary and invokes it only for reconciliation or
+    // an explicit reconnect resync; it never mutates canonical state.
     const room = this as unknown as { sendSnapshot: (socket: WebSocket, seatToken: string) => void };
     try { room.sendSnapshot(ws, token); } catch { /* socket closing */ }
   }
@@ -71,14 +71,27 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
     }
 
     const payload = parsed as Record<string, unknown>;
+    const attachment = ws.deserializeAttachment() as SeatAttachment | null;
+    const token = typeof attachment?.token === 'string' ? attachment.token : null;
+
+    if (payload.type === 'sync_request') {
+      if (!token) {
+        protocolError(ws, 'Your room seat is no longer valid.');
+        return;
+      }
+      // One atomic room snapshot is enough to recover an iOS/backgrounded
+      // client: session carries FEN, clocks, SAN history, draw offers,
+      // connection state, terminal result and winner information.
+      this.canonicalSnapshot(ws, token);
+      return;
+    }
+
     if (payload.type !== 'move') {
       await super.webSocketMessage(ws, text);
       return;
     }
 
     const move = payload as MoveEnvelope;
-    const attachment = ws.deserializeAttachment() as SeatAttachment | null;
-    const token = typeof attachment?.token === 'string' ? attachment.token : null;
     const uci = typeof move.uci === 'string' ? move.uci.trim().toLowerCase() : '';
     const sequence = move.clientSequence;
     const sentAt = move.clientSentAt;
