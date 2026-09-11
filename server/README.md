@@ -1,6 +1,6 @@
 # QQURZ Chess realtime + payments server
 
-Authoritative Chess960 room server for players on different networks. It runs on Cloudflare Workers + Durable Objects and also owns the QQURZ tournament catalog and Stripe Checkout creation/verification.
+Authoritative Chess960 room server for players on different networks. It runs on Cloudflare Workers + Durable Objects and also owns QQURZ player accounts, competitive ratings, the tournament catalog, and Stripe Checkout creation/verification.
 
 ## What the server owns
 
@@ -9,14 +9,31 @@ Authoritative Chess960 room server for players on different networks. It runs on
 - Chess960 pattern generation
 - server-side legal move validation with `chessops`
 - shared two-minute strategy phase
-- authoritative 10-minute clocks and time forfeits
+- authoritative clocks and time forfeits
 - check/checkmate/draw results
 - synchronized WebSocket snapshots
+- durable QQURZ player accounts, sessions, privacy settings and game history
+- separate Chess960 Rapid, Blitz and Bullet Glicko-2 ratings
+- Glicko-2 rating deviation, volatility and provisional state
 - official QQURZ tournament catalog with configurable seat counts
 - Stripe Checkout Sessions for tournament entries and the $4.99 Premium 3D pass
 - server-side Checkout Session verification
 
-The browser is never trusted to decide whether a chess move is legal or whether a Stripe Checkout Session is paid.
+The browser is never trusted to decide whether a chess move is legal, change a competitive rating, write an official game result, or decide whether a Stripe Checkout Session is paid.
+
+## Competitive player ratings
+
+New player rating pools start at 1500 with rating deviation 350 and volatility 0.06. QQURZ treats one completed rated game as a Glicko-2 rating period and expands deviation after elapsed inactive 24-hour periods before the next rated game. A pool remains provisional while it has fewer than 10 rated games or its RD is above 110.
+
+Time class is decided by the authoritative game control, using base time plus forty increments as the estimated game duration:
+
+- under 3 minutes: Chess960 Bullet
+- 3 minutes to under 8 minutes: Chess960 Blitz
+- 8 minutes or more: Chess960 Rapid
+
+That means the current 3+2 and 5+0 presets are Blitz and 10+5 is Rapid. Very fast custom controls can produce Bullet ratings. Existing pre-Glicko accounts are migrated automatically: their previous Chess960 number is retained only as a high-deviation provisional seed, then future rated results use Glicko-2.
+
+Only games where both seats resolve to different authenticated QQURZ accounts are rated. Both players are updated from the same pre-game rating snapshot. Guest games can still appear in account history but do not change a rating pool.
 
 ## Deploy multiplayer
 
