@@ -1,5 +1,6 @@
 import type { RoomSeat, ServerEvent } from './types';
 import type { TimeControl, TournamentTimeTemplateId } from '../../shared/timeControl';
+import { accountToken } from '../account/client';
 
 const configuredBase = (import.meta.env.VITE_MULTIPLAYER_API as string | undefined)?.trim().replace(/\/$/, '');
 
@@ -24,12 +25,14 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
     throw new Error('The live multiplayer server has not been connected yet.');
   }
 
+  const headers = new Headers(init.headers);
+  headers.set('content-type', 'application/json');
+  const token = accountToken();
+  if (token) headers.set('authorization', `Bearer ${token}`);
+
   const response = await fetch(`${MULTIPLAYER_API}${path}`, {
     ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   const payload = await response.json().catch(() => ({})) as { error?: string } & T;
