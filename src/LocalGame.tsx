@@ -17,6 +17,7 @@ import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfi
 import ChessPieceAsset from './ui/ChessPieceAsset';
 import TimeControlPicker from './ui/TimeControlPicker';
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../shared/timeControl';
+import { adjudicateChess, appendPositionHistory, chessPositionKey } from '../shared/chess960Rules';
 
 type GameMode = 'human' | 'ai';
 type Difficulty = 'easy' | 'hard' | 'crazy';
@@ -50,21 +51,15 @@ function formatClockMs(value: number): string {
 function opposite(color: Color): Color { return color === 'white' ? 'black' : 'white'; }
 function chooseColor(choice: SideChoice): Color { return choice === 'random' ? (Math.random() < .5 ? 'white' : 'black') : choice; }
 
-function gameResult(pos: Chess): { kind: GameResultKind; text: string; winner: Color | null } | null {
-  if (pos.isCheckmate()) {
-    const winner = pos.turn === 'white' ? 'black' : 'white';
-    return { kind: 'CHECKMATE', text: `${winner === 'white' ? 'White' : 'Black'} wins by checkmate`, winner };
-  }
-  if (pos.isStalemate()) return { kind: 'DRAW', text: 'Draw by stalemate', winner: null };
-  if (pos.isInsufficientMaterial()) return { kind: 'DRAW', text: 'Draw by insufficient material', winner: null };
-  if (pos.isEnd()) return { kind: 'DRAW', text: 'Game over', winner: null };
-  return null;
+function gameResult(pos: Chess, history: readonly string[]): { kind: GameResultKind; text: string; winner: Color | null } | null {
+  return adjudicateChess(pos, history);
 }
 
 export default function LocalGame({ initialMode }: Props) {
   const ground = useRef<QQurzChessgroundApi | null>(null);
   // chessops is the rules/execution cache; GameSessionModel is the authoritative app state.
   const position = useRef<Chess | null>(null);
+  const positionHistory = useRef<string[]>([]);
   const moveHandler = useRef<(orig: Key, dest: Key) => void>(() => {});
   const engine = useRef<Engine | null>(null);
   const enginePromise = useRef<Promise<Engine> | null>(null);
@@ -153,6 +148,7 @@ export default function LocalGame({ initialMode }: Props) {
     const pos = Chess.fromSetup(parseFen(chess960Fen(id)).unwrap()).unwrap();
     const chosen = mode === 'ai' ? chooseColor(sideChoice) : null;
     position.current = pos;
+    positionHistory.current = [chessPositionKey(pos)];
     terminalSoundPlayed.current = false;
     dispatchSession({
       type: 'RESET',
@@ -189,6 +185,7 @@ export default function LocalGame({ initialMode }: Props) {
     const isCapture = Boolean(capturedPiece) || Boolean(movingPiece?.role === 'pawn' && orig[0] !== dest[0]);
     const san = makeSan(pos, move);
     pos.play(move);
+    positionHistory.current = appendPositionHistory(positionHistory.current, pos);
     playChessSound(isCapture ? 'capture' : 'move');
     const nextFen = makeFen(pos.toSetup());
     dispatchSession({
@@ -201,7 +198,7 @@ export default function LocalGame({ initialMode }: Props) {
       checkmate: pos.isCheckmate(),
     });
     setLastMove([orig, dest]);
-    const ending = gameResult(pos);
+    const ending = gameResult(pos, positionHistory.current);
     if (ending) {
       dispatchSession({ type: 'FINISH', ...ending });
       engine.current?.cancelSearch();

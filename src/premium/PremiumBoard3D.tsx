@@ -11,6 +11,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { chess960BackRank, chess960Fen, randomChess960Id } from '../game/chess960';
 import { useGameSession } from '../game/useGameSession';
 import { canColorMove, clockOwner, sessionUiPhase, type GameResultKind } from '../../shared/gameSession';
+import { adjudicateChess, appendPositionHistory, chessPositionKey } from '../../shared/chess960Rules';
 import { playChessSound } from '../ui/sound';
 import PhysicalChessClock from '../ui/PhysicalChessClock';
 import { clockVisible as getClockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';
@@ -49,14 +50,8 @@ const fmt = (value: number) => {
 const opposite = (color: Color): Color => color === 'white' ? 'black' : 'white';
 const chooseColor = (choice: SideChoice): Color => choice === 'random' ? (Math.random() < .5 ? 'white' : 'black') : choice;
 
-function resultOf(pos: Chess): { kind: GameResultKind; text: string; winner: Color | null } | null {
-  if (pos.isCheckmate()) {
-    const winner = pos.turn === 'white' ? 'black' : 'white';
-    return { kind: 'CHECKMATE', text: `${winner === 'white' ? 'White' : 'Black'} wins by checkmate`, winner };
-  }
-  if (pos.isStalemate()) return { kind: 'DRAW', text: 'Draw by stalemate', winner: null };
-  if (pos.isInsufficientMaterial()) return { kind: 'DRAW', text: 'Draw by insufficient material', winner: null };
-  return pos.isEnd() ? { kind: 'DRAW', text: 'Game over', winner: null } : null;
+function resultOf(pos: Chess, history: readonly string[]): { kind: GameResultKind; text: string; winner: Color | null } | null {
+  return adjudicateChess(pos, history);
 }
 
 function squarePos(square: Key) {
@@ -137,6 +132,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
   const mount = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<SceneHandle | null>(null);
   const position = useRef<Chess | null>(null);
+  const positionHistory = useRef<string[]>([]);
   const engine = useRef<Engine | null>(null);
   const enginePromise = useRef<Promise<Engine> | null>(null);
   const selectRef = useRef<(square: Key) => void>(() => {});
@@ -201,7 +197,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
     const id = randomChess960Id();
     const pos = Chess.fromSetup(parseFen(chess960Fen(id)).unwrap()).unwrap();
     const chosen = mode === 'ai' ? chooseColor(sideChoice) : null;
-    position.current = pos; setViewColor(chosen ?? 'white'); setHumanColor(chosen);
+    position.current = pos; positionHistory.current = [chessPositionKey(pos)]; setViewColor(chosen ?? 'white'); setHumanColor(chosen);
     dispatchSession({ type: 'RESET', options: { state: 'COUNTDOWN', positionId: id, fen: makeFen(pos.toSetup()), sideToMove: 'white', clockMs: GAME_MS, incrementMs: 0, countdownMs: STRATEGY_MS, connectionStatus: 'LOCAL' } });
     setFastForward(false); setSelected(null); setPromotion(null); setEngineError('');
   }, [dispatchSession, mode, sideChoice]);
@@ -210,10 +206,11 @@ export default function PremiumBoard3D({ onBack }: Props) {
     const pos = position.current;
     if (!pos || !canColorMove(session, pos.turn) || !pos.isLegal(move)) return false;
     const movingColor = pos.turn; const san = makeSan(pos, move); const capture = san.includes('x'); pos.play(move);
+    positionHistory.current = appendPositionHistory(positionHistory.current, pos);
     playChessSound(capture ? 'capture' : 'move');
     dispatchSession({ type: 'MOVE_COMMITTED', fen: makeFen(pos.toSetup()), sideToMove: pos.turn, mover: movingColor, san, check: pos.isCheck(), checkmate: pos.isCheckmate() });
     setSelected(null);
-    const end = resultOf(pos);
+    const end = resultOf(pos, positionHistory.current);
     if (end) { dispatchSession({ type: 'FINISH', ...end }); playChessSound('win'); engine.current?.cancelSearch(); }
     return true;
   }, [dispatchSession, session]);

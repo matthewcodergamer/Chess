@@ -6,6 +6,7 @@ import { parseUci } from 'chessops/util';
 import { chess960Fen, randomChess960Id } from './chess960';
 import { canColorMove, clockOwner, createGameSession, isTerminalGameState, reduceGameSession, type GameResultKind, type GameSessionModel, type GameSessionState } from '../../shared/gameSession';
 import { TOURNAMENT_TIME_TEMPLATES, isTournamentControlAllowed, normalizeTimeControl, type TimeControlRequest, type TournamentTimeTemplateId } from '../../shared/timeControl';
+import { adjudicateChess, appendPositionHistory, chessPositionKeyFromFen } from '../../shared/chess960Rules';
 
 type Color = 'white' | 'black';
 type CoinFace = 'heads' | 'tails';
@@ -21,6 +22,7 @@ type RoomState = {
   code: string;
   session: GameSessionModel;
   lastMoveTiming: MoveTiming | null;
+  positionHistory: string[];
   createdAt: number;
   lastActivityAt: number;
   players: { white: PlayerSeat; black: PlayerSeat | null };
@@ -91,7 +93,11 @@ function inferResultKind(result: string | null, checkmate: boolean): GameSession
 function migrateStoredRoom(raw: unknown): RoomState | null {
   if (!raw || typeof raw !== 'object') return null;
   const legacy = raw as Record<string, any>;
-  if (legacy.session) return legacy as RoomState;
+  if (legacy.session) {
+    const room = legacy as RoomState;
+    if (!Array.isArray(room.positionHistory) || !room.positionHistory.length) room.positionHistory = historyForFen(room.session.fen);
+    return room;
+  }
   if (!legacy.code || !legacy.players?.white) return null;
   const now = Date.now();
   const session = createGameSession({
@@ -119,6 +125,7 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
   session.clocks.startedAt = typeof legacy.turnStartedAt === 'number' ? legacy.turnStartedAt : null;
   return {
     code: String(legacy.code), session, lastMoveTiming: legacy.lastMoveTiming ?? null,
+    positionHistory: historyForFen(session.fen),
     createdAt: Number(legacy.createdAt ?? now), lastActivityAt: Number(legacy.lastActivityAt ?? now),
     players: legacy.players, coin: legacy.coin ?? emptyCoin(), auction: legacy.auction ?? emptyAuction(), colorAuction: legacy.colorAuction ?? emptyColorAuction(),
   };
@@ -143,14 +150,11 @@ function cors(request: Request, response: Response, env: Env): Response {
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS'); headers.set('access-control-allow-headers', 'content-type'); headers.set('access-control-max-age', '86400');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
-function resultInfo(position: Chess): { kind: GameResultKind; text: string; winner: Color | null } | null {
-  if (position.isCheckmate()) {
-    const winner: Color = position.turn === 'white' ? 'black' : 'white';
-    return { kind: 'CHECKMATE', text: `${winner === 'white' ? 'White' : 'Black'} wins by checkmate`, winner };
-  }
-  if (position.isStalemate()) return { kind: 'DRAW', text: 'Draw by stalemate', winner: null };
-  if (position.isInsufficientMaterial()) return { kind: 'DRAW', text: 'Draw by insufficient material', winner: null };
-  return position.isEnd() ? { kind: 'DRAW', text: 'Game over', winner: null } : null;
+function historyForFen(fen: string): string[] {
+  try { return [chessPositionKeyFromFen(fen)]; } catch { return []; }
+}
+function resultInfo(position: Chess, history: readonly string[]): { kind: GameResultKind; text: string; winner: Color | null } | null {
+  return adjudicateChess(position, history);
 }
 function activeClockColor(room: RoomState): Color | null { return clockOwner(room.session); }
 function remainingFor(room: RoomState, color: Color, at = Date.now()): number {
@@ -282,6 +286,7 @@ export class ChessRoom extends DurableObject<Env> {
         code,
         session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: chess960Fen(positionId), sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'DISCONNECTED', now }),
         lastMoveTiming: null,
+        positionHistory: historyForFen(chess960Fen(positionId)),
         createdAt: now, lastActivityAt: now,
         players: { white: { name: normalizeName(body.name), token }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
       };
@@ -604,6 +609,7 @@ export class ChessRoom extends DurableObject<Env> {
       drawOffers: { white: false, black: false }, resignedBy: null, check: false, checkmate: false,
     };
     this.room.lastMoveTiming = null;
+    this.room.positionHistory = historyForFen(this.room.session.fen);
   }
   private startPlaying(now: number): void {
     if (!this.room || this.room.session.state !== 'COUNTDOWN') return;
@@ -687,6 +693,7 @@ export class ChessRoom extends DurableObject<Env> {
     const move = parseUci(uci);
     if (!move || !position.isLegal(move)) { this.room.session.clocks.startedAt = serverReceivedAt; await this.persist(); await this.scheduleForState(); return this.sendError(ws, 'That move is not legal.'); }
     const san = makeSan(position, move); position.play(move);
+    this.room.positionHistory = appendPositionHistory(this.room.positionHistory, position);
     this.room.session = reduceGameSession(this.room.session, {
       type: 'MOVE_COMMITTED', fen: makeFen(position.toSetup()), sideToMove: position.turn, mover: color, san,
       check: position.isCheck(), checkmate: position.isCheckmate(), at: serverReceivedAt,
@@ -706,7 +713,7 @@ export class ChessRoom extends DurableObject<Env> {
     this.room.lastMoveTiming = timing;
     try { ws.send(JSON.stringify({ type: 'move_ack', timing })); } catch { /* socket closing */ }
     this.room.lastActivityAt = serverCommittedAt;
-    const ending = resultInfo(position);
+    const ending = resultInfo(position, this.room.positionHistory);
     if (ending) {
       this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', ...ending, at: serverCommittedAt });
       await this.ctx.storage.deleteAlarm();
