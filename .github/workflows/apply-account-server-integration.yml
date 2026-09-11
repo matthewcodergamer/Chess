@@ -20,10 +20,10 @@ jobs:
       - name: Apply account integration
         run: node scripts/apply-account-server-integration.mjs
       - name: Install shared dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Install realtime dependencies
         working-directory: server
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Typecheck realtime server
         working-directory: server
         run: npm run check
