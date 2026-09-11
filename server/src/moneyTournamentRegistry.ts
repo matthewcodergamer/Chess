@@ -64,19 +64,9 @@ export class MoneyTournamentRegistry extends EngineTournamentRegistry {
     return (await this.moneyInternals().ctx.storage.get<EngineTournament>(`${TOURNAMENT_KEY}${id}`)) ?? null;
   }
 
-  private async createMoneyControl(request: Request, response: Response, body: { definition?: Record<string, unknown> }): Promise<Response> {
-    const fee = entryFeeCents(body.definition);
-    if (!fee) return response;
-    if (this.moneyInternals().env.REAL_MONEY_ENABLED !== 'enabled') return json({ error: 'Real-money tournaments are disabled by operator policy.' }, 403);
-    const capacity = Math.floor(Number(body.definition?.capacity));
-    if (!Number.isFinite(capacity) || capacity < 2 || capacity > MAX_REAL_MONEY_ENTRANTS) return json({ error: `Real-money tournaments currently support 2–${MAX_REAL_MONEY_ENTRANTS} entrants.` }, 400);
-    const shares = payoutShares(body.definition);
-    if (!shares.length || shares.reduce((sum, row) => sum + row.shareBps, 0) !== 10_000 || new Set(shares.map(row => row.place)).size !== shares.length) {
-      return json({ error: 'Real-money tournament payouts must use unique percentage places totaling exactly 100% of the post-fee prize pool.' }, 400);
-    }
-    const maxPlace = Math.max(...shares.map(row => row.place));
-    if (maxPlace > capacity) return json({ error: 'A prize place cannot exceed tournament capacity.' }, 400);
-    if (!response.ok) return response;
+  private async createMoneyControl(response: Response, definition: Record<string, unknown> | undefined): Promise<Response> {
+    const fee = entryFeeCents(definition);
+    if (!fee || !response.ok) return response;
     const payload = await response.clone().json().catch(() => ({})) as { tournament?: { id?: string } };
     const tournamentId = String(payload.tournament?.id ?? '');
     if (!tournamentId) return response;
@@ -222,11 +212,14 @@ export class MoneyTournamentRegistry extends EngineTournamentRegistry {
         if (this.moneyInternals().env.REAL_MONEY_ENABLED !== 'enabled') return json({ error: 'Real-money tournaments are disabled by operator policy.' }, 403);
         const capacity = Math.floor(Number(definition?.capacity));
         const shares = payoutShares(definition);
+        const uniquePlaces = new Set(shares.map(row => row.place));
+        const maxPlace = shares.length ? Math.max(...shares.map(row => row.place)) : 0;
         if (!Number.isFinite(capacity) || capacity < 2 || capacity > MAX_REAL_MONEY_ENTRANTS) return json({ error: `Real-money tournaments currently support 2–${MAX_REAL_MONEY_ENTRANTS} entrants.` }, 400);
-        if (!shares.length || shares.reduce((sum, row) => sum + row.shareBps, 0) !== 10_000) return json({ error: 'Real-money percentage payouts must total exactly 100%.' }, 400);
+        if (!shares.length || shares.reduce((sum, row) => sum + row.shareBps, 0) !== 10_000 || uniquePlaces.size !== shares.length) return json({ error: 'Real-money percentage payouts must use unique places and total exactly 100%.' }, 400);
+        if (maxPlace > capacity) return json({ error: 'A prize place cannot exceed tournament capacity.' }, 400);
       }
       const response = await super.fetch(request);
-      return this.createMoneyControl(request, response, { definition });
+      return this.createMoneyControl(response, definition);
     }
 
     const id = String(body.id ?? url.searchParams.get('id') ?? '');
