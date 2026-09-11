@@ -1,0 +1,5 @@
+.room-connection-state{margin-left:var(--q-space-4);color:var(--q-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.room-connection-state.connected{color:var(--q-success-strong)}
+.room-connection-state.connecting,.room-connection-state.reconnecting{color:var(--q-warning)}
+.room-connection-state.error{color:var(--q-danger-strong)}
+.room-connection-state.closed{color:var(--q-muted)}

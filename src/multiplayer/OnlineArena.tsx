@@ -15,7 +15,7 @@ import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/cloc
 import { playChessSound } from '../ui/sound';
 import { motionTokenMs, useReducedMotion } from '../ui/motion';
 import { createCheckout, loadTournamentCatalog, type PaymentMode } from '../tournaments/client';
-import { connectRoom, createRoom, joinRoom, multiplayerConfigured } from './client';
+import { connectRoom, createRoom, joinRoom, multiplayerConfigured, type RoomConnection, type RoomConnectionStatus } from './client';
 import type { CoinFace, RoomSeat, RoomSnapshot, ServerEvent } from './types';
 import { authoritativeRoomSession } from './session';
 import { canColorMove, canLeaveGameSession, canOfferDraw, canResignGameSession, clockOwner, isTerminalGameState } from '../../shared/gameSession';
@@ -78,7 +78,7 @@ function inviteUrl(code: string): string {
 
 export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const ground = useRef<QQurzChessgroundApi | null>(null);
-  const socket = useRef<WebSocket | null>(null);
+  const socket = useRef<RoomConnection | null>(null);
   const moveHandler = useRef<(orig: Key, dest: Key) => void>(() => {});
   const bidClaimSent = useRef('');
   const colorBidClaimSent = useRef('');
@@ -100,7 +100,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [seat, setSeat] = useState<RoomSeat | null>(() => loadSeat(queryRoom));
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [snapshotAt, setSnapshotAt] = useState(Date.now());
-  const [connection, setConnection] = useState<'idle' | 'connecting' | 'connected' | 'closed' | 'error'>('idle');
+  const [connection, setConnection] = useState<RoomConnectionStatus | 'idle'>('idle');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [bidBusy, setBidBusy] = useState(0);
@@ -122,7 +122,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
 
   const gameSession = useMemo(() => snapshot ? authoritativeRoomSession(snapshot) : null, [snapshot]);
   const pos = useMemo(() => roomPosition(gameSession?.fen), [gameSession?.fen]);
-  const yourTurn = Boolean(seat && gameSession && canColorMove(gameSession, seat.color));
+  const connectedToRoom = connection === 'connected';
+  const yourTurn = Boolean(connectedToRoom && seat && gameSession && canColorMove(gameSession, seat.color));
   const elapsed = snapshot ? Math.max(0, now - snapshotAt) : 0;
   const activeColor = gameSession ? clockOwner(gameSession) : null;
   const strategySeconds = gameSession?.state === 'COUNTDOWN'
@@ -200,10 +201,14 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
         rememberSeat(updated);
         return updated;
       });
-    }, status => setConnection(status === 'closed' ? 'closed' : status));
+    }, setConnection);
     socket.current = ws;
     return () => { ws.close(); if (socket.current === ws) socket.current = null; };
   }, [seat?.code, seat?.token]);
+
+  useEffect(() => {
+    if (connection !== 'connected') setPromotion(null);
+  }, [connection]);
 
   useEffect(() => {
     if (connection !== 'connected' || !returnedBidSession || bidClaimSent.current === returnedBidSession) return;
@@ -258,7 +263,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   }, [gameSession, snapshot]);
 
   useEffect(() => {
-    if (!gameSession || !['COIN_TOSS', 'COLOR_SELECTION', 'COUNTDOWN', 'ACTIVE'].includes(gameSession.state)) return;
+    if (!gameSession || !['COIN_TOSS', 'COLOR_SELECTION', 'COUNTDOWN', 'ACTIVE', 'RECONNECTING'].includes(gameSession.state)) return;
     const timer = window.setInterval(() => setNow(Date.now()), 200);
     return () => window.clearInterval(timer);
   }, [gameSession?.state]);
@@ -302,7 +307,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     catch { setMessage(`Invite link: ${value}`); }
   };
   const choosePromotion = (piece: PromotionLetter) => {
-    if (!promotion) return;
+    if (!promotion || !connectedToRoom) return;
     moveSequence.current += 1;
     send({ type: 'move', uci: `${promotion.orig}${promotion.dest}${piece}`, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
     setPromotion(null);
@@ -321,8 +326,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   };
 
   const canLeave = !gameSession || canLeaveGameSession(gameSession);
-  const canDraw = Boolean(gameSession && canOfferDraw(gameSession));
-  const canResign = Boolean(gameSession && canResignGameSession(gameSession));
+  const canDraw = Boolean(connectedToRoom && gameSession && canOfferDraw(gameSession));
+  const canResign = Boolean(connectedToRoom && gameSession && canResignGameSession(gameSession));
   const bidAllowed = Boolean(snapshot && gameSession && ['COLOR_SELECTION', 'COIN_TOSS', 'COUNTDOWN'].includes(gameSession.state));
   const colorBidAllowed = Boolean(snapshot && gameSession && ['COLOR_SELECTION', 'COIN_TOSS'].includes(gameSession.state) && !snapshot.coin.result);
   const bidPaymentsAvailable = paymentConfigured && (paymentMode === 'test' || livePositionBidsEnabled);
@@ -332,6 +337,11 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const clockFor = (color: 'white' | 'black') => formatClockMs(color === 'white' ? whiteMs : blackMs);
   const opponentOfferedDraw = Boolean(gameSession?.drawOffers[opponentColor]);
   const youOfferedDraw = Boolean(seat && gameSession?.drawOffers[seat.color]);
+  const connectionLabel = connection === 'connected' ? 'Connected'
+    : connection === 'reconnecting' ? 'Reconnecting…'
+      : connection === 'connecting' ? 'Connecting…'
+        : connection === 'error' ? 'Connection problem'
+          : connection === 'closed' ? 'Offline' : 'Starting…';
 
   if (!seat) return (
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
@@ -346,7 +356,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   return (
     <section className="online-room-shell" data-game-state={gameSession?.state ?? 'LOBBY'}>
       <header className="online-room-header match-room-header">
-        <div><strong>{variant === 'tournament' ? 'Tournament' : 'Live room'} · {seat.code}</strong> <small>{connection === 'connected' ? '● Connected' : `● ${connection}`}</small></div>
+        <div><strong>{variant === 'tournament' ? 'Tournament' : 'Live room'} · {seat.code}</strong> <small className={`room-connection-state ${connection}`} role="status" aria-live="polite">● {connectionLabel}</small></div>
         <div className="online-header-actions">{canLeave ? <button onClick={onClose}>Leave</button> : <span className="game-locked-pill">Game in progress</span>}</div>
       </header>
       {snapshot ? <div className="online-game-grid match-game-grid">
@@ -373,8 +383,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
               onReady={() => syncBoard()}
             />
             {gameSession?.state === 'LOBBY' && <div className="board-overlay online-waiting-overlay"><div><span>WAITING FOR OPPONENT</span><strong className="room-code-display">{snapshot.code}</strong><small>Share this code or invite link with player two.</small></div></div>}
-            {(gameSession?.state === 'COLOR_SELECTION' || gameSession?.state === 'COIN_TOSS') && <div className="board-overlay coin-overlay"><div className="coin-stage real-quarter-stage"><span>COLOR TOSS · REAL U.S. QUARTER</span><Quarter3D result={snapshot.coin.result} flippedAt={snapshot.coin.flippedAt}/>{snapshot.colorAuction.leaderName ? <><strong>Paid color auction is active.</strong><p><b>{snapshot.colorAuction.leaderName}</b> leads at {money(snapshot.colorAuction.leadingBidCents)} for {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'}. The losing paid bid is refunded automatically when it is outbid.</p>{youLeadColorBid ? <button className="lock-color-bid" onClick={() => send({ type: 'settle_color_bid' })}>Lock {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'} and continue</button> : <small>Outbid the leader below, or wait for them to lock the side.</small>}</> : !snapshot.coin.result ? <><strong>Call the quarter.</strong><p>The other player automatically gets the opposite face. The toss winner receives White.</p><div className="coin-call-actions"><button onClick={() => send({ type: 'call_coin', face: 'heads' })}>Heads</button><button onClick={() => send({ type: 'call_coin', face: 'tails' })}>Tails</button></div></> : <><strong>{snapshot.coin.result.toUpperCase()} · {snapshot.coin.winner} gets White</strong><p>You called {snapshot.coin.yourFace ?? '—'} · your assigned color is {snapshot.yourColor ?? seat.color}.</p></>}</div></div>}
-            {gameSession?.state === 'COUNTDOWN' && <div className="board-overlay strategy-overlay online-strategy-overlay"><div><span>STRATEGY PHASE</span><strong>{formatClockMs(strategySeconds * 1000)}</strong><small>Green dots show legal destinations. Tactical danger warnings stay off, so players can still blunder.</small><button className="overlay-start-button" onClick={() => { playChessSound('start'); send({ type: 'start_now' }); }}>Start Now</button></div></div>}
+            {(gameSession?.state === 'COLOR_SELECTION' || gameSession?.state === 'COIN_TOSS') && <div className="board-overlay coin-overlay"><div className="coin-stage real-quarter-stage"><span>COLOR TOSS · REAL U.S. QUARTER</span><Quarter3D result={snapshot.coin.result} flippedAt={snapshot.coin.flippedAt}/>{snapshot.colorAuction.leaderName ? <><strong>Paid color auction is active.</strong><p><b>{snapshot.colorAuction.leaderName}</b> leads at {money(snapshot.colorAuction.leadingBidCents)} for {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'}. The losing paid bid is refunded automatically when it is outbid.</p>{youLeadColorBid ? <button className="lock-color-bid" onClick={() => send({ type: 'settle_color_bid' })}>Lock {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'} and continue</button> : <small>Outbid the leader below, or wait for them to lock the side.</small>}</> : !snapshot.coin.result ? <><strong>Call the quarter.</strong><p>The other player automatically gets the opposite face. The toss winner receives White.</p><div className="coin-call-actions"><button onClick={() => send({ type: 'call_coin', face: 'heads' })} disabled={!connectedToRoom}>Heads</button><button onClick={() => send({ type: 'call_coin', face: 'tails' })} disabled={!connectedToRoom}>Tails</button></div></> : <><strong>{snapshot.coin.result.toUpperCase()} · {snapshot.coin.winner} gets White</strong><p>You called {snapshot.coin.yourFace ?? '—'} · your assigned color is {snapshot.yourColor ?? seat.color}.</p></>}</div></div>}
+            {gameSession?.state === 'COUNTDOWN' && <div className="board-overlay strategy-overlay online-strategy-overlay"><div><span>STRATEGY PHASE</span><strong>{formatClockMs(strategySeconds * 1000)}</strong><small>Green dots show legal destinations. Tactical danger warnings stay off, so players can still blunder.</small><button className="overlay-start-button" onClick={() => { playChessSound('start'); send({ type: 'start_now' }); }} disabled={!connectedToRoom}>Start Now</button></div></div>}
             {gameSession && isTerminalGameState(gameSession.state) && gameSession.result && <div className="board-overlay ended online-ended-overlay"><div><span>GAME OVER</span><strong className="end-title">{gameSession.result}</strong></div></div>}
           </div>
 
@@ -382,8 +392,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             color={seat.color}
             name={playerFor(seat.color)?.name ?? name}
             rating="Unrated"
-            connection={connection === 'connected' ? 'Connected' : connection}
-            connected={connection === 'connected'}
+            connection={connectionLabel}
+            connected={connectedToRoom}
             time={clockFor(seat.color)}
             fen={gameSession?.fen ?? snapshot.fen}
             active={activeColor === seat.color}
@@ -395,7 +405,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             blackSeconds={blackMs / 1000}
             activeColor={activeColor}
             pendingSlap={gameSession?.pendingClockPress ?? null}
-            disabled={gameSession?.pendingClockPress !== seat.color}
+            disabled={!connectedToRoom || gameSession?.pendingClockPress !== seat.color}
             onSlap={() => send({ type: 'clock_slap' })}
             compact
             visible={showClock}
@@ -403,13 +413,13 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             className="online-physical-clock match-clock-panel"
           />
 
-          {colorBidAllowed && <section className="position-auction-card color-auction-card"><div><span className="eyebrow">BID FOR YOUR COLOR</span><h3>Choose White or Black. Highest verified bid gets that side.</h3><p>If another player outbids your active bid, QQURZ submits a Stripe refund to the original payment method automatically. If nobody bids, use the quarter toss above.</p></div><div className="color-choice-pills" role="radiogroup" aria-label="Desired chess color"><button className={desiredColor === 'white' ? 'selected' : ''} onClick={() => setDesiredColor('white')}>White</button><button className={desiredColor === 'black' ? 'selected' : ''} onClick={() => setDesiredColor('black')}>Black</button></div><div className="auction-status"><span>Leader</span><b>{snapshot.colorAuction.leaderName ?? 'No bid yet'}</b><span>Winning side</span><b>{snapshot.colorAuction.desiredColor ? snapshot.colorAuction.desiredColor[0].toUpperCase() + snapshot.colorAuction.desiredColor.slice(1) : '—'}</b><span>Top bid</span><b>{snapshot.colorAuction.leadingBidCents ? money(snapshot.colorAuction.leadingBidCents) : '—'}</b><span>Your last bid</span><b>{snapshot.colorAuction.yourBidCents ? `${money(snapshot.colorAuction.yourBidCents)}${snapshot.colorAuction.yourBidRefunded ? ' · refunded' : ''}` : '—'}</b></div><div className="auction-actions"><button onClick={() => buyColorBid(200)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 200 ? 'Opening…' : `Bid $2 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button><button onClick={() => buyColorBid(500)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 500 ? 'Opening…' : `Bid $5 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button>{youLeadColorBid && <button className="settle-color-auction" onClick={() => send({ type: 'settle_color_bid' })}>Lock winning color</button>}</div><small>{paymentMode === 'test' ? 'Stripe test mode: refund flow is exercised without real money.' : liveColorBidsEnabled ? 'Live color bidding and automatic outbid refunds are enabled.' : 'Live color bidding is disabled by server policy.'}</small></section>}
+          {colorBidAllowed && <section className="position-auction-card color-auction-card"><div><span className="eyebrow">BID FOR YOUR COLOR</span><h3>Choose White or Black. Highest verified bid gets that side.</h3><p>If another player outbids your active bid, QQURZ submits a Stripe refund to the original payment method automatically. If nobody bids, use the quarter toss above.</p></div><div className="color-choice-pills" role="radiogroup" aria-label="Desired chess color"><button className={desiredColor === 'white' ? 'selected' : ''} onClick={() => setDesiredColor('white')}>White</button><button className={desiredColor === 'black' ? 'selected' : ''} onClick={() => setDesiredColor('black')}>Black</button></div><div className="auction-status"><span>Leader</span><b>{snapshot.colorAuction.leaderName ?? 'No bid yet'}</b><span>Winning side</span><b>{snapshot.colorAuction.desiredColor ? snapshot.colorAuction.desiredColor[0].toUpperCase() + snapshot.colorAuction.desiredColor.slice(1) : '—'}</b><span>Top bid</span><b>{snapshot.colorAuction.leadingBidCents ? money(snapshot.colorAuction.leadingBidCents) : '—'}</b><span>Your last bid</span><b>{snapshot.colorAuction.yourBidCents ? `${money(snapshot.colorAuction.yourBidCents)}${snapshot.colorAuction.yourBidRefunded ? ' · refunded' : ''}` : '—'}</b></div><div className="auction-actions"><button onClick={() => buyColorBid(200)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 200 ? 'Opening…' : `Bid $2 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button><button onClick={() => buyColorBid(500)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 500 ? 'Opening…' : `Bid $5 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button>{youLeadColorBid && <button className="settle-color-auction" onClick={() => send({ type: 'settle_color_bid' })} disabled={!connectedToRoom}>Lock winning color</button>}</div><small>{paymentMode === 'test' ? 'Stripe test mode: refund flow is exercised without real money.' : liveColorBidsEnabled ? 'Live color bidding and automatic outbid refunds are enabled.' : 'Live color bidding is disabled by server policy.'}</small></section>}
 
           {bidAllowed && <section className="position-auction-card"><div><span className="eyebrow">POSITION REROLL BID</span><h3>Highest verified bid controls the next shared shuffle.</h3><p>QQURZ uses all 960 legal Chess960 starts. A new highest verified bid rerolls the same board for both players.</p></div><div className="auction-status"><span>Leader</span><b>{snapshot.auction.leaderName ?? 'No bid yet'}</b><span>Top bid</span><b>{snapshot.auction.leadingBidCents ? money(snapshot.auction.leadingBidCents) : '—'}</b><span>Your bid</span><b>{snapshot.auction.yourBidCents ? money(snapshot.auction.yourBidCents) : '—'}</b></div><div className="auction-actions"><button onClick={() => buyBid(200)} disabled={!bidPaymentsAvailable || Boolean(bidBusy)}>{bidBusy === 200 ? 'Opening…' : 'Bid $2 & reroll'}</button><button onClick={() => buyBid(500)} disabled={!bidPaymentsAvailable || Boolean(bidBusy)}>{bidBusy === 500 ? 'Opening…' : 'Bid $5 & reroll'}</button></div><small>{paymentMode === 'test' ? 'Stripe test mode: no real money moves.' : livePositionBidsEnabled ? 'Live position bidding enabled by server policy.' : 'Live position bidding is disabled.'}</small></section>}
 
           <div className="match-controls" aria-label="Game controls">
-            <div className={`match-turn-note ${yourTurn ? 'active' : ''}`}>{gameSession && isTerminalGameState(gameSession.state) ? gameSession.result : gameSession?.pendingClockPress === seat.color ? 'Move made — press your clock' : gameSession?.pendingClockPress ? 'Opponent is pressing their clock' : gameSession?.state === 'ACTIVE' ? yourTurn ? 'Your move' : 'Opponent move' : gameSession?.state === 'RECONNECTING' ? 'Reconnecting — clocks paused' : gameSession?.state === 'PAUSED' ? 'Game paused' : gameSession?.state === 'COUNTDOWN' ? 'Strategy phase' : gameSession?.state === 'COLOR_SELECTION' || gameSession?.state === 'COIN_TOSS' ? 'Color selection' : gameSession?.state === 'READY' ? 'Players ready' : 'Waiting for opponent'}</div>
-            {gameSession?.pendingClockPress === seat.color && !showClock && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })}>Slap clock</button>}
+            <div className={`match-turn-note ${yourTurn ? 'active' : ''}`}>{gameSession && isTerminalGameState(gameSession.state) ? gameSession.result : !connectedToRoom ? 'Reconnecting — the server will restore the latest game state' : gameSession?.pendingClockPress === seat.color ? 'Move made — press your clock' : gameSession?.pendingClockPress ? 'Opponent is pressing their clock' : gameSession?.state === 'ACTIVE' ? yourTurn ? 'Your move' : 'Opponent move' : gameSession?.state === 'RECONNECTING' ? 'Opponent reconnecting — server clock continues' : gameSession?.state === 'PAUSED' ? 'Game paused' : gameSession?.state === 'COUNTDOWN' ? 'Strategy phase' : gameSession?.state === 'COLOR_SELECTION' || gameSession?.state === 'COIN_TOSS' ? 'Color selection' : gameSession?.state === 'READY' ? 'Players ready' : 'Waiting for opponent'}</div>
+            {gameSession?.pendingClockPress === seat.color && !showClock && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })} disabled={!connectedToRoom}>Slap clock</button>}
             <button onClick={() => send({ type: opponentOfferedDraw ? 'accept_draw' : 'offer_draw' })} disabled={!canDraw || youOfferedDraw}>{opponentOfferedDraw ? 'Accept draw' : youOfferedDraw ? 'Draw offered' : 'Draw'}</button>
             {opponentOfferedDraw && canDraw && <button onClick={() => send({ type: 'decline_draw' })}>Decline</button>}
             <button className="match-resign resign-button" onClick={() => send({ type: 'resign' })} disabled={!canResign}>Resign</button>
@@ -421,7 +431,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             <div><span>Position</span><b>Chess960 #{gameSession?.positionId ?? snapshot.positionId}</b></div>
             <div><span>Moves</span><b>{gameSession?.moveNumber ?? 0}</b></div>
             <div><span>State</span><b>{gameSession?.state ?? 'LOBBY'}</b></div>
-            <div><span>Connection</span><b>{gameSession?.connection.status ?? 'DISCONNECTED'}</b></div>
+            <div><span>Connection</span><b>{connectionLabel} · {gameSession?.connection.status ?? 'DISCONNECTED'}</b></div>
             <div><span>Time control</span><b>{gameSession ? timeControlLabel(gameSession.clocks.baseMs, gameSession.clocks.incrementMs) : roomTimeControl.label}</b></div>
             <div><span>Increment</span><b>{(gameSession?.clocks.incrementMs ?? 0) / 1000}s</b></div>
             <div className="match-options-actions"><button onClick={copyInvite}>{copied ? 'Invite copied ✓' : 'Copy invite link'}</button>{canLeave && <button onClick={onClose}>Leave room</button>}</div>

@@ -10,6 +10,7 @@ export const multiplayerConfigured = Boolean(MULTIPLAYER_API);
 export type PresenceState = 'online' | 'away' | 'game' | 'offline';
 export type PresenceCounts = { online: number; away: number; game: number };
 export type RegionPreference = 'nearest' | 'regional' | 'global';
+export type RoomConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'error';
 export type MatchmakingCriteria = {
   variant: 'chess960';
   ratingRange: number;
@@ -42,6 +43,13 @@ export type MatchmakingSnapshot = {
   };
   onlinePlayers: number;
   presence?: PresenceCounts;
+};
+
+export type RoomConnection = {
+  readonly readyState: number;
+  send(data: string): void;
+  requestSync(): void;
+  close(): void;
 };
 
 type PresenceIdentity = { name: string; presenceId: string };
@@ -155,33 +163,180 @@ export async function joinRoom(code: string, name: string): Promise<RoomSeat> {
   });
 }
 
+const RECONNECT_DELAYS_MS = [300, 650, 1200, 2200, 3500, 5000, 7000, 9000] as const;
+const FOREGROUND_SYNC_TIMEOUT_MS = 1600;
+
 export function connectRoom(
   seat: RoomSeat,
   onEvent: (event: ServerEvent) => void,
-  onStatus: (status: 'connecting' | 'connected' | 'closed' | 'error') => void,
-): WebSocket {
+  onStatus: (status: RoomConnectionStatus) => void,
+): RoomConnection {
   if (!MULTIPLAYER_API) throw new Error('The live multiplayer server has not been connected yet.');
 
   const wsBase = MULTIPLAYER_API.replace(/^http/i, 'ws');
-  const socket = new WebSocket(`${wsBase}/rooms/${encodeURIComponent(seat.code)}/ws?token=${encodeURIComponent(seat.token)}`);
-  onStatus('connecting');
+  const url = `${wsBase}/rooms/${encodeURIComponent(seat.code)}/ws?token=${encodeURIComponent(seat.token)}`;
+  let socket: WebSocket | null = null;
+  let stopped = false;
+  let retryTimer: number | null = null;
+  let syncTimer: number | null = null;
+  let retryAttempt = 0;
+  let generation = 0;
+  let status: RoomConnectionStatus = 'connecting';
 
-  socket.addEventListener('open', () => onStatus('connected'));
-  socket.addEventListener('close', () => onStatus('closed'));
-  socket.addEventListener('error', () => onStatus('error'));
-  socket.addEventListener('message', event => {
+  const emitStatus = (next: RoomConnectionStatus) => {
+    if (status === next) return;
+    status = next;
+    onStatus(next);
+  };
+
+  const clearRetry = () => {
+    if (retryTimer !== null) window.clearTimeout(retryTimer);
+    retryTimer = null;
+  };
+
+  const clearSyncTimeout = () => {
+    if (syncTimer !== null) window.clearTimeout(syncTimer);
+    syncTimer = null;
+  };
+
+  const scheduleReconnect = (immediate = false) => {
+    if (stopped) return;
+    clearRetry();
+    clearSyncTimeout();
+    emitStatus('reconnecting');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    const delay = immediate ? 0 : RECONNECT_DELAYS_MS[Math.min(retryAttempt, RECONNECT_DELAYS_MS.length - 1)];
+    if (!immediate) retryAttempt += 1;
+    retryTimer = window.setTimeout(() => {
+      retryTimer = null;
+      openSocket(true);
+    }, delay);
+  };
+
+  const handlePayload = (raw: unknown, current: WebSocket) => {
     try {
-      const payload = JSON.parse(String(event.data)) as ServerEvent;
+      const payload = JSON.parse(String(raw)) as ServerEvent;
       if (payload.type === 'time_sync') {
-        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'time_sync_ack', nonce: payload.nonce }));
+        if (current.readyState === WebSocket.OPEN) current.send(JSON.stringify({ type: 'time_sync_ack', nonce: payload.nonce }));
         return;
       }
       if (payload.type === 'move_ack') return;
+      if (payload.type === 'snapshot') clearSyncTimeout();
       onEvent(payload);
     } catch {
       onEvent({ type: 'error', message: 'The multiplayer server sent an unreadable update.' });
     }
-  });
+  };
 
-  return socket;
+  const openSocket = (isReconnect: boolean) => {
+    if (stopped) return;
+    clearRetry();
+    clearSyncTimeout();
+    const currentGeneration = ++generation;
+    if (isReconnect) emitStatus('reconnecting');
+    else emitStatus('connecting');
+
+    let next: WebSocket;
+    try { next = new WebSocket(url); }
+    catch {
+      emitStatus('error');
+      scheduleReconnect();
+      return;
+    }
+    socket = next;
+
+    next.addEventListener('open', () => {
+      if (stopped || currentGeneration !== generation || socket !== next) return;
+      retryAttempt = 0;
+      emitStatus('connected');
+    });
+    next.addEventListener('message', event => {
+      if (stopped || currentGeneration !== generation || socket !== next) return;
+      handlePayload(event.data, next);
+    });
+    next.addEventListener('close', () => {
+      if (currentGeneration !== generation || socket !== next) return;
+      socket = null;
+      if (stopped) {
+        emitStatus('closed');
+        return;
+      }
+      scheduleReconnect();
+    });
+    next.addEventListener('error', () => {
+      if (stopped || currentGeneration !== generation || socket !== next) return;
+      emitStatus('reconnecting');
+      // WebSocket error events contain no useful recovery details. Closing the
+      // failed transport gives every browser, including iOS Safari, one path
+      // into the same bounded reconnect loop.
+      try { next.close(); } catch { scheduleReconnect(); }
+    });
+  };
+
+  const requestSync = () => {
+    if (stopped) return;
+    const current = socket;
+    if (!current || current.readyState !== WebSocket.OPEN) {
+      scheduleReconnect(true);
+      return;
+    }
+    clearSyncTimeout();
+    try { current.send(JSON.stringify({ type: 'sync_request' })); }
+    catch {
+      try { current.close(); } catch { scheduleReconnect(true); }
+      return;
+    }
+    syncTimer = window.setTimeout(() => {
+      syncTimer = null;
+      if (stopped || socket !== current) return;
+      // iOS can leave an apparently OPEN WebSocket behind after app suspension.
+      // If the server does not answer the foreground resync, replace that stale
+      // transport and reconnect with the same seat token.
+      emitStatus('reconnecting');
+      try { current.close(); } catch { scheduleReconnect(true); }
+    }, FOREGROUND_SYNC_TIMEOUT_MS);
+  };
+
+  const onOnline = () => scheduleReconnect(true);
+  const onVisibility = () => {
+    if (document.visibilityState === 'visible') requestSync();
+  };
+  const onPageShow = () => requestSync();
+  const onOffline = () => {
+    clearRetry();
+    clearSyncTimeout();
+    if (!stopped) emitStatus('reconnecting');
+  };
+
+  window.addEventListener('online', onOnline);
+  window.addEventListener('offline', onOffline);
+  window.addEventListener('pageshow', onPageShow);
+  document.addEventListener('visibilitychange', onVisibility);
+
+  onStatus('connecting');
+  openSocket(false);
+
+  return {
+    get readyState() { return socket?.readyState ?? WebSocket.CLOSED; },
+    send(data: string) {
+      if (socket?.readyState !== WebSocket.OPEN) return;
+      try { socket.send(data); } catch { scheduleReconnect(true); }
+    },
+    requestSync,
+    close() {
+      if (stopped) return;
+      stopped = true;
+      generation += 1;
+      clearRetry();
+      clearSyncTimeout();
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibility);
+      const current = socket;
+      socket = null;
+      try { current?.close(1000, 'room view closed'); } catch { /* already gone */ }
+      emitStatus('closed');
+    },
+  };
 }
