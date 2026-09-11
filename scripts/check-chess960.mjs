@@ -37,6 +37,7 @@ try {
   const { parseSquare, parseUci } = await import('chessops/util');
   const { chessgroundDests } = await import('chessops/compat');
 
+  const files = 'abcdefgh';
   const parse = fen => Chess.fromSetup(parseFen(fen).unwrap()).unwrap();
   const boardFen = pos => rules.serializeChess960Fen(pos, 'xfen').split(' ')[0];
   const play = (pos, uci) => {
@@ -46,8 +47,27 @@ try {
     pos.play(move);
     return move;
   };
+  const rankFen = entries => {
+    const pieces = new Map(entries);
+    let out = '';
+    let empty = 0;
+    for (let file = 0; file < 8; file += 1) {
+      const piece = pieces.get(file);
+      if (!piece) { empty += 1; continue; }
+      if (empty) { out += String(empty); empty = 0; }
+      out += piece;
+    }
+    if (empty) out += String(empty);
+    return out;
+  };
+  const pieceAt = (pos, square) => {
+    const parsed = parseSquare(square);
+    assert.notEqual(parsed, undefined, `Bad square ${square}`);
+    return pos.board.get(parsed);
+  };
 
   const seen = new Set();
+  const castlingSources = new Set();
   for (let id = 0; id < 960; id += 1) {
     const rank = mapping.chess960BackRank(id);
     assert.equal(rank.length, 8);
@@ -61,6 +81,8 @@ try {
     const king = rank.indexOf('K');
     const rooks = [...rank].map((piece, file) => piece === 'R' ? file : -1).filter(file => file >= 0);
     assert.ok(rooks[0] < king && king < rooks[1], `king is not between rooks in #${id}`);
+    castlingSources.add(`a:${king}:${rooks[0]}`);
+    castlingSources.add(`h:${king}:${rooks[1]}`);
 
     const shredder = rules.parseChess960Fen(mapping.chess960Fen(id, 'shredder'));
     const xfen = rules.parseChess960Fen(mapping.chess960Fen(id, 'xfen'));
@@ -71,6 +93,48 @@ try {
   assert.equal(mapping.chess960BackRank(518), 'RNBQKBNR');
   assert.equal(mapping.chess960Fen(518, 'shredder').split(' ')[2], 'HAha');
   assert.equal(mapping.chess960Fen(518, 'xfen').split(' ')[2], 'KQkq');
+
+  // Exhaust every distinct king/rook source geometry that can occur in any of
+  // the 960 starts. Test each side for both White and Black with all unrelated
+  // pieces cleared, including swaps, stationary king/rook cases and crossings.
+  let exhaustiveCastleChecks = 0;
+  for (const source of castlingSources) {
+    const [side, kingRaw, rookRaw] = source.split(':');
+    const kingFile = Number(kingRaw);
+    const rookFile = Number(rookRaw);
+    for (const color of ['white', 'black']) {
+      const rank = color === 'white' ? 1 : 8;
+      const otherRank = color === 'white' ? 8 : 1;
+      const ownKing = color === 'white' ? 'K' : 'k';
+      const ownRook = color === 'white' ? 'R' : 'r';
+      const otherKing = color === 'white' ? 'k' : 'K';
+      const safeOtherKingFile = [...Array(8).keys()].find(file => file !== rookFile);
+      assert.notEqual(safeOtherKingFile, undefined);
+
+      const ownRankFen = rankFen([[kingFile, ownKing], [rookFile, ownRook]]);
+      const otherRankFen = rankFen([[safeOtherKingFile, otherKing]]);
+      const fen = color === 'white'
+        ? `${otherRankFen}/8/8/8/8/8/8/${ownRankFen} w ${files[rookFile].toUpperCase()} - 0 1`
+        : `${ownRankFen}/8/8/8/8/8/8/${otherRankFen} b ${files[rookFile]} - 0 1`;
+      const pos = parse(fen);
+      const kingFrom = `${files[kingFile]}${rank}`;
+      const rookFrom = `${files[rookFile]}${rank}`;
+      const uci = `${kingFrom}${rookFrom}`;
+      const move = parseUci(uci);
+      assert.ok(move, `${color} ${source}: UCI parse`);
+      assert.ok(pos.isLegal(move), `${color} ${source}: castling must be legal in ${fen}`);
+      assert.equal(makeSan(pos, move), side === 'h' ? 'O-O' : 'O-O-O', `${color} ${source}: SAN`);
+      assert.ok(chessgroundDests(pos, { chess960: true }).get(kingFrom)?.includes(rookFrom), `${color} ${source}: Chessground destination`);
+      pos.play(move);
+
+      const kingTo = `${side === 'h' ? 'g' : 'c'}${rank}`;
+      const rookTo = `${side === 'h' ? 'f' : 'd'}${rank}`;
+      assert.deepEqual(pieceAt(pos, kingTo), { role: 'king', color }, `${color} ${source}: king final square`);
+      assert.deepEqual(pieceAt(pos, rookTo), { role: 'rook', color }, `${color} ${source}: rook final square`);
+      exhaustiveCastleChecks += 1;
+    }
+  }
+  assert.ok(exhaustiveCastleChecks > 0, 'No Chess960 castling geometries were exercised.');
 
   const castleCases = [
     { name: 'king already on g1', fen: '4k3/8/8/8/8/8/8/6KR w H - 0 1', uci: 'g1h1', san: 'O-O', board: '4k3/8/8/8/8/8/8/5RK1' },
@@ -94,11 +158,28 @@ try {
     assert.equal(boardFen(pos), test.board, `${test.name}: final king/rook squares`);
   }
 
-  // A king may not castle out of, through, or into check.
-  const attackedPath = parse('2r4k/8/8/8/8/8/8/1K2R3 w E - 0 1');
-  const attackedMove = parseUci('b1e1');
-  assert.ok(attackedMove);
-  assert.equal(attackedPath.isLegal(attackedMove), false, 'castling through attacked c1 must be illegal');
+  // Castling is illegal while in check, through check, or into check.
+  for (const [name, fen, uci] of [
+    ['out of check', 'k3r3/8/8/8/8/8/8/4K2R w H - 0 1', 'e1h1'],
+    ['through check', '2r4k/8/8/8/8/8/8/1K2R3 w E - 0 1', 'b1e1'],
+    ['into check', 'k5r1/8/8/8/8/8/8/4K2R w H - 0 1', 'e1h1'],
+  ]) {
+    const pos = parse(fen);
+    const move = parseUci(uci);
+    assert.ok(move);
+    assert.equal(pos.isLegal(move), false, `castling ${name} must be illegal`);
+  }
+
+  // The non-castling rook can itself block a Chess960 destination square.
+  for (const [name, fen, uci] of [
+    ['other rook occupies f1', '4k3/8/8/8/8/8/8/5RKR w HF - 0 1', 'g1h1'],
+    ['other rook occupies c1', '4k3/8/8/8/8/8/8/RKR5 w CA - 0 1', 'b1a1'],
+  ]) {
+    const pos = parse(fen);
+    const move = parseUci(uci);
+    assert.ok(move);
+    assert.equal(pos.isLegal(move), false, `${name} must block castling`);
+  }
 
   // Castling rights are part of repetition identity.
   const withRights = parse('4k3/8/8/8/8/8/8/R3K2R w HA - 0 1');
@@ -123,14 +204,29 @@ try {
   assert.equal(rules.repetitionCount(history, repetition), 3);
   assert.equal(rules.adjudicateChess(repetition, history)?.text, 'Draw by threefold repetition');
 
-  // Fifty-move counter is preserved by chessops and adjudicated at 100 halfmoves.
+  // Fifty-move and seventy-five-move thresholds use the FEN halfmove clock.
   const fifty = parse('7k/8/8/8/8/8/4K3/R7 w - - 99 1');
   play(fifty, 'a1a2');
   assert.equal(fifty.halfmoves, 100);
   assert.equal(rules.adjudicateChess(fifty, [rules.chessPositionKey(fifty)])?.text, 'Draw by fifty-move rule');
+  const seventyFive = parse('7k/8/8/8/8/8/4K3/R7 w - - 149 1');
+  play(seventyFive, 'a1a2');
+  assert.equal(seventyFive.halfmoves, 150);
+  assert.equal(rules.adjudicateChess(seventyFive, [rules.chessPositionKey(seventyFive)])?.text, 'Draw by seventy-five-move rule');
 
-  const insufficient = parse('7k/8/8/8/8/8/8/K7 w - - 0 1');
-  assert.equal(rules.adjudicateChess(insufficient, [rules.chessPositionKey(insufficient)])?.text, 'Draw by insufficient material');
+  const pawnReset = parse('7k/8/8/8/8/8/P3K3/8 w - - 99 1');
+  play(pawnReset, 'a2a3');
+  assert.equal(pawnReset.halfmoves, 0, 'pawn move must reset halfmove clock');
+
+  for (const [name, fen] of [
+    ['king versus king', '7k/8/8/8/8/8/8/K7 w - - 0 1'],
+    ['king and bishop versus king', '7k/8/8/8/8/8/2B5/K7 w - - 0 1'],
+    ['king and knight versus king', '7k/8/8/8/8/8/2N5/K7 w - - 0 1'],
+  ]) {
+    const pos = parse(fen);
+    assert.equal(pos.isInsufficientMaterial(), true, `${name} must be insufficient material`);
+    assert.equal(rules.adjudicateChess(pos, [rules.chessPositionKey(pos)])?.text, 'Draw by insufficient material');
+  }
 
   const mate = parse('7k/6Q1/6K1/8/8/8/8/8 b - - 0 1');
   assert.equal(mate.isCheckmate(), true);
@@ -140,10 +236,11 @@ try {
   assert.equal(stalemate.isStalemate(), true);
   assert.equal(rules.adjudicateChess(stalemate, [rules.chessPositionKey(stalemate)])?.text, 'Draw by stalemate');
 
-  // Explicit square parsing sanity for every back-rank file used by castling tests.
-  for (const square of ['a1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']) assert.notEqual(parseSquare(square), undefined);
+  for (const square of ['a1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', 'a8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8']) {
+    assert.notEqual(parseSquare(square), undefined);
+  }
 
-  console.log('Chess960 verification passed: 960 mappings, FEN round-trips, castling edge cases, repetition and draw rules.');
+  console.log(`Chess960 verification passed: 960 mappings, ${exhaustiveCastleChecks} exhaustive castling geometries, FEN round-trips, repetition and draw rules.`);
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }
