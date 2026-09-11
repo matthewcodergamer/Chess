@@ -145,15 +145,13 @@ function replaceRegexRequired(source, regex, to, label) {
     "  const slapClock = () => { if (!pendingSlap || pendingSlap === aiColor) return; if (clockVisible) sceneRef.current?.clock.slap(pendingSlap); playChessSound('slap'); setPendingSlap(null); };\n  slapRef.current = slapClock;",
     "  const slapClock = () => { if (!pendingSlap || pendingSlap === aiColor) return; setPendingSlap(null); };",
     'Premium manual clock transfer');
-  source = source.replaceAll('clockVisible ? ', 'showClock ? ');
-  source = source.replaceAll('${clockVisible ? ', '${showClock ? ');
-  source = source.replaceAll('clockVisible ? \'clock-visible\' : \'clock-hidden\'', "showClock ? 'clock-visible' : 'clock-hidden'");
+
+  // From this point the legacy local visibility variable no longer exists.
+  source = source.replaceAll('clockVisible', 'showClock');
   source = source.replaceAll('setClockVisible(v => !v)', 'setClockVisible(!showClock)');
-  source = source.replaceAll('aria-pressed={clockVisible}', 'aria-pressed={showClock}');
-  source = source.replaceAll('{clockVisible ? \'Clock on\' : \'Clock off\'}', "{showClock ? 'Clock on' : 'Clock off'}");
-  source = replaceRequired(source,
-    "<div ref={mount} className=\"three-board-mount\" aria-label=\"Interactive 3D chess board and tournament clock\"/><div className=\"three-preview-badge\">PREMIUM 3D</div><div className=\"three-board-help\">Tap piece, then destination{showClock ? ' · slap the curved white rocker after your move' : ''}</div>{showClock && <div className={`three-clock-hint ${phase === 'playing' && pendingSlap && pendingSlap !== aiColor ? 'ready' : ''}`}>{phase === 'playing' && pendingSlap && pendingSlap !== aiColor ? `TAP 3D CLOCK · ${pendingSlap.toUpperCase()}` : 'PHYSICAL 3D CLOCK · LIVE LCD'}</div>}",
-    "<div ref={mount} className=\"three-board-mount\" aria-label=\"Interactive 3D chess board\"/><div className=\"three-preview-badge\">PREMIUM 3D</div><div className=\"three-board-help\">Tap piece, then destination</div>",
+  source = replaceRegexRequired(source,
+/<div ref=\{mount\} className="three-board-mount" aria-label="Interactive 3D chess board and tournament clock"\/><div className="three-preview-badge">PREMIUM 3D<\/div><div className="three-board-help">Tap piece, then destination\{showClock \? ' · slap the curved white rocker after your move' : ''\}<\/div>\{showClock && <div className=\{`three-clock-hint \$\{phase === 'playing' && pendingSlap && pendingSlap !== aiColor \? 'ready' : ''\}`\}>\{phase === 'playing' && pendingSlap && pendingSlap !== aiColor \? `TAP 3D CLOCK · \$\{pendingSlap\.toUpperCase\(\)\}` : 'PHYSICAL 3D CLOCK · LIVE LCD'\}<\/div>\}/,
+'<div ref={mount} className="three-board-mount" aria-label="Interactive 3D chess board"/><div className="three-preview-badge">PREMIUM 3D</div><div className="three-board-help">Tap piece, then destination</div>',
     'Premium board clock hint');
   source = replaceRequired(source,
     '</section></div><aside className="three-side-column">',
@@ -163,7 +161,6 @@ function replaceRegexRequired(source, regex, to, label) {
 /<\/div><div className="three-clocks"><div className=\{\(pendingSlap \?\? turn\) === 'black'[\s\S]*?<\/div><\/div>\{phase === 'playing'/,
 '</div>{phase === \'playing\'',
     'Premium duplicate timer cards');
-  source = source.replaceAll('!clockVisible', '!showClock');
   source = source.replace('Full 3D curved rocker, sides, rear details and rubber feet.', 'True-depth curved rocker and housing; invisible underside detail is intentionally omitted for mobile FPS.');
   source = source.replace('One shared model for local Human vs Human and Stockfish AI.', 'The same reusable physical clock component is used in every QQURZ game mode.');
   write(path, source);
