@@ -33,21 +33,25 @@ if (!errors.length) {
     if (/\.clock\.slap\s*\(/.test(source)) errors.push(`${label} must not drive rocker animation directly.`);
   }
 
-  if (!view.includes("createChessClock3D")) errors.push('ChessClock3DView must be the single renderer that instantiates the clock model.');
+  if (!view.includes('createChessClock3D')) errors.push('ChessClock3DView must be the single renderer that instantiates the clock model.');
   if (!view.includes('slapColor') || !view.includes('slapNonce')) errors.push('ChessClock3DView must receive explicit authoritative slap events.');
   if (!physical.includes("playChessSound('slap')")) errors.push('PhysicalChessClock must own the physical slap sound.');
   if (!physical.includes('previous && !pendingSlap && activeColor && activeColor !== previous')) errors.push('PhysicalChessClock must gate slap feedback on an acknowledged clock transfer.');
 
-  if (!local.includes("const delay = pendingSlap === aiColor ? 220 : 120")) errors.push('AI 2D play must auto-ack both human and Stockfish physical clock presses.');
-  if (!premium.includes("const delay = pendingSlap === aiColor ? 220 : 120")) errors.push('Premium AI play must auto-ack both human and Stockfish physical clock presses.');
-  if (!online.includes("activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null}")) errors.push('Online clock must consume server-authoritative activeClock.');
-  if (!online.includes('pendingSlap={snapshot.awaitingClockPress}')) errors.push('Online clock must consume server-authoritative pending clock press.');
+  const localDualSlap = local.includes('session.pendingClockPress === aiColor ? 220 : 120') || local.includes('pendingSlap === aiColor ? 220 : 120');
+  const premiumDualSlap = premium.includes('session.pendingClockPress === aiColor ? 220 : 120') || premium.includes('pendingSlap === aiColor ? 220 : 120');
+  if (!localDualSlap) errors.push('AI 2D play must auto-ack both human and Stockfish physical clock presses.');
+  if (!premiumDualSlap) errors.push('Premium AI play must auto-ack both human and Stockfish physical clock presses.');
+
+  const onlineUsesCanonicalClock =
+    (online.includes('activeColor={activeColor}') && online.includes('pendingSlap={pendingSlap}'))
+    || (online.includes("activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null}") && online.includes('pendingSlap={snapshot.awaitingClockPress}'));
+  if (!onlineUsesCanonicalClock) errors.push('Online clock must consume the authoritative game-session clock state.');
 
   if (!model.includes('let size = 210')) errors.push('Physical clock LCD must keep the enlarged timer digit target.');
   if (!model.includes('ROCKER_PRESS')) errors.push('Physical clock model must retain a real rocker press angle.');
   if (!model.includes('optimizedForMobile = true')) errors.push('Physical clock model must retain the mobile-geometry optimization marker.');
   if (!model.includes("pendingSlap === 'white' ? ledOn") && !model.includes("pendingSlap === 'white' ?")) {
-    // The exact expression currently combines active/pending state with ||.
     if (!model.includes("activeColor === 'white' || pendingSlap === 'white'")) errors.push('White LED must be derived from authoritative active/pending state.');
   }
   if (!model.includes("activeColor === 'black' || pendingSlap === 'black'")) errors.push('Black LED must be derived from authoritative active/pending state.');
