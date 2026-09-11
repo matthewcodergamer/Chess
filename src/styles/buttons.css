@@ -22,7 +22,7 @@
 .qqurz-button.is-loading{cursor:wait}
 .qqurz-button.is-loading .qqurz-button-content{visibility:hidden}
 .qqurz-button-spinner{position:absolute;inset:50% auto auto 50%;width:var(--q-space-24);height:var(--q-space-24);margin:calc(var(--q-space-12) * -1) 0 0 calc(var(--q-space-12) * -1);border:3px solid color-mix(in srgb,currentColor 28%,transparent);border-top-color:currentColor;border-radius:50%;animation:qqurz-wheel var(--q-motion-spin) linear infinite}
-.qqurz-button-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.qqurz-button-sr{position:absolute;width:1px;height:1px;padding:0;margin:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .qqurz-icon-button{flex:0 0 auto;padding:0;border-radius:var(--q-radius-md)}
 .qqurz-icon-button.qqurz-button--sm{width:var(--q-control-sm)}
 .qqurz-icon-button.qqurz-button--md{width:var(--q-control-md)}
