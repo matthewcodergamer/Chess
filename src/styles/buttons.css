@@ -1,7 +1,45 @@
-/* Shared controls. Feature files choose variants; tokens own control size, radius, state and motion. */
+/* Shared button system. React controls in ui/controls.tsx own semantics; this file owns their physics and appearance. */
 .qqurz-product-system button{transition:transform var(--q-motion-press) var(--q-ease-standard),background-color var(--q-motion-fast) var(--q-ease-standard),border-color var(--q-motion-fast) var(--q-ease-standard),box-shadow var(--q-motion-fast) var(--q-ease-standard),opacity var(--q-motion-fast) var(--q-ease-standard)}
 .qqurz-product-system button:active:not(:disabled){transform:translateY(1px) scale(.995)}
 .qqurz-product-system button:focus-visible,.qqurz-product-system input:focus-visible,.qqurz-product-system select:focus-visible,.qqurz-product-system textarea:focus-visible{outline:3px solid var(--q-focus-ring);outline-offset:3px}
+
+.qqurz-button{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:0;padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-md);font-size:var(--q-type-body);font-weight:800;line-height:1.1;text-align:center;text-decoration:none;white-space:normal;user-select:none;-webkit-user-select:none;isolation:isolate}
+.qqurz-button--sm{min-height:var(--q-control-sm);padding-inline:var(--q-space-12);font-size:var(--q-type-label)}
+.qqurz-button--md{min-height:var(--q-control-md);padding-inline:var(--q-space-16);font-size:var(--q-type-body)}
+.qqurz-button--lg{min-height:var(--q-control-lg);padding-inline:var(--q-space-24);font-size:var(--q-type-action)}
+.qqurz-button--full{width:100%}
+.qqurz-button-content{display:inline-flex;align-items:center;justify-content:center;gap:var(--q-space-8);min-width:0}
+.qqurz-button-label{min-width:0}
+.qqurz-button-icon{display:inline-grid;place-items:center;flex:0 0 auto;font-family:Georgia,serif;font-size:var(--q-type-action-lg);line-height:1}
+.qqurz-button--primary{border-color:color-mix(in srgb,var(--q-action) 76%,var(--q-ink-inverse));background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action) 88%,white 12%),var(--q-action));color:var(--q-action-ink);box-shadow:var(--q-elevation-action)}
+.qqurz-button--primary:hover:not(:disabled){background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action-hover) 88%,white 12%),var(--q-action-hover))}
+.qqurz-button--primary:active:not(:disabled){background:var(--q-action-active);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--q-text-inverse) 12%,transparent),0 1px 0 color-mix(in srgb,var(--q-ink-inverse) 28%,transparent)}
+.qqurz-button--secondary{border-color:var(--q-line-strong);background:linear-gradient(to bottom,var(--q-surface-3),var(--q-surface-2));color:var(--q-text);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--q-text) 8%,transparent),0 2px 0 color-mix(in srgb,var(--q-ink-inverse) 22%,transparent)}
+.qqurz-button--secondary:hover:not(:disabled){border-color:color-mix(in srgb,var(--q-action) 35%,var(--q-line-strong));background:var(--q-surface-3)}
+.qqurz-button--destructive{border-color:color-mix(in srgb,var(--q-danger) 58%,var(--q-line));background:linear-gradient(to bottom,color-mix(in srgb,var(--q-danger-soft) 72%,var(--q-surface-2)),var(--q-danger-soft));color:var(--q-danger-strong);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--q-text) 7%,transparent),0 2px 0 color-mix(in srgb,var(--q-ink-inverse) 18%,transparent)}
+.qqurz-button--destructive:hover:not(:disabled){border-color:var(--q-danger);background:color-mix(in srgb,var(--q-danger-soft) 78%,var(--q-surface-2))}
+.qqurz-button:disabled{opacity:.48;filter:saturate(.62);box-shadow:none;transform:none}
+.qqurz-button.is-loading{cursor:wait}
+.qqurz-button.is-loading .qqurz-button-content{visibility:hidden}
+.qqurz-button-spinner{position:absolute;inset:50% auto auto 50%;width:var(--q-space-24);height:var(--q-space-24);margin:calc(var(--q-space-12) * -1) 0 0 calc(var(--q-space-12) * -1);border:3px solid color-mix(in srgb,currentColor 28%,transparent);border-top-color:currentColor;border-radius:50%;animation:qqurz-wheel var(--q-motion-spin) linear infinite}
+.qqurz-button-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.qqurz-icon-button{flex:0 0 auto;padding:0;border-radius:var(--q-radius-md)}
+.qqurz-icon-button.qqurz-button--sm{width:var(--q-control-sm)}
+.qqurz-icon-button.qqurz-button--md{width:var(--q-control-md)}
+.qqurz-icon-button.qqurz-button--lg{width:var(--q-control-lg)}
+.qqurz-icon-button .qqurz-button-content{font-size:var(--q-type-action-lg);line-height:1}
+
+.qqurz-segmented{display:grid;grid-template-columns:repeat(auto-fit,minmax(var(--q-control-md),1fr));gap:var(--q-space-4);padding:var(--q-space-4);border:1px solid var(--q-line);border-radius:var(--q-radius-md);background:var(--q-surface-2)}
+.qqurz-segmented-option{min-width:0;padding-inline:var(--q-space-12);border:1px solid transparent;border-radius:var(--q-radius-sm);background:transparent;color:var(--q-muted);font-size:var(--q-type-label);font-weight:780;box-shadow:none}
+.qqurz-segmented--sm .qqurz-segmented-option{min-height:var(--q-control-sm)}
+.qqurz-segmented--md .qqurz-segmented-option{min-height:var(--q-control-md)}
+.qqurz-segmented--lg .qqurz-segmented-option{min-height:var(--q-control-lg);font-size:var(--q-type-body)}
+.qqurz-segmented-option:hover:not(:disabled){color:var(--q-text);background:color-mix(in srgb,var(--q-surface-3) 72%,transparent)}
+.qqurz-segmented-option.selected{border-color:var(--q-action);background:var(--q-surface-1);color:var(--q-text);box-shadow:inset 0 0 0 1px var(--q-action)}
+.qqurz-segmented-option.selected:active:not(:disabled){transform:translateY(1px) scale(.995)}
+.qqurz-segmented-option:disabled{opacity:.42}
+
+/* Legacy aliases stay visually compatible while screens are migrated onto the React primitives. */
 .primary-black,.chess-primary-action,.matchmaking-find,.qqurz-live-strip>button,.online-primary,.join-room-box button,.lock-color-bid,.settle-color-auction,.local-start{min-height:var(--q-control-md);border:1px solid color-mix(in srgb,var(--q-action) 76%,var(--q-ink-inverse));border-radius:var(--q-radius-md);background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action) 88%,white 12%),var(--q-action));color:var(--q-action-ink);font-size:var(--q-type-action);font-weight:800;box-shadow:var(--q-elevation-action)}
 .primary-black{padding-inline:var(--q-space-24)}
 .secondary-clean,.chess-secondary-action,.online-back,.choose-pattern-button,.online-room-header button,.invite-link-button{min-height:var(--q-control-sm);padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-sm);background:var(--q-surface-2);color:var(--q-text);font-size:var(--q-type-body);font-weight:740}
