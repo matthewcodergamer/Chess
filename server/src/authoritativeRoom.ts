@@ -38,6 +38,28 @@ async function replayStorageKey(token: string): Promise<string> {
  * optimistic client receives a canonical snapshot after any rejected move.
  */
 export class AuthoritativeChessRoom extends BaseChessRoom {
+  private roomContext(): DurableObjectState {
+    return (this as unknown as { ctx: DurableObjectState }).ctx;
+  }
+
+  override async fetch(request: Request): Promise<Response> {
+    if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+      const token = new URL(request.url).searchParams.get('token');
+      if (token) {
+        // iOS can keep an old WebSocket half-alive after app suspension. A new
+        // connection with the same unguessable seat token replaces that stale
+        // transport so the server never counts two sockets for one player.
+        for (const existing of this.roomContext().getWebSockets()) {
+          const attachment = existing.deserializeAttachment() as SeatAttachment | null;
+          if (attachment?.token === token) {
+            try { existing.close(4001, 'seat reconnected'); } catch { /* already closing */ }
+          }
+        }
+      }
+    }
+    return super.fetch(request);
+  }
+
   private canonicalSnapshot(ws: WebSocket, token: string): void {
     // sendSnapshot is intentionally private in the base room. This wrapper is
     // kept at the transport boundary and invokes it only for reconciliation or
@@ -114,7 +136,7 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
     // generated command after a reload because clientSentAt changes.
     const replayKey = `${Number(sequence)}:${Math.trunc(Number(sentAt))}:${uci}`;
     const storageKey = await replayStorageKey(token);
-    const ctx = (this as unknown as { ctx: DurableObjectState }).ctx;
+    const ctx = this.roomContext();
     const recent = await ctx.storage.get<string[]>(storageKey) ?? [];
     if (recent.includes(replayKey)) {
       this.rejectMove(ws, token, 'Duplicate or replayed move ignored.');
