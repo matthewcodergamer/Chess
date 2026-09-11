@@ -1,3 +1,4 @@
+import { centsToUsdDecimal, positiveCents, usdDecimalToCents } from '../../shared/money';
 import { handleAccountRequest, resolveAccountSession, type AccountEnv } from './accounts';
 import { PaymentLedger, type PaymentLedgerEnv, type WalletSnapshot } from './paymentLedger';
 
@@ -41,8 +42,8 @@ function clean(value: unknown, max = 180): string {
 }
 
 function parseCents(value: unknown, min = 100, max = 100_000): number {
-  const amount = Math.floor(Number(value));
-  return Number.isFinite(amount) && amount >= min && amount <= max ? amount : 0;
+  const amount = positiveCents(value, max);
+  return amount >= min ? amount : 0;
 }
 
 function ledgerStub(env: PaymentsEnv): LedgerStub {
@@ -143,9 +144,9 @@ async function verifyDepositIntent(env: PaymentsEnv, token: string): Promise<{ a
   try {
     const [rawAccount, rawAmount, rawExpiry] = fromBase64Url(match[1]).split('.');
     const accountId = rawAccount.length === 32 ? `${rawAccount.slice(0, 8)}-${rawAccount.slice(8, 12)}-${rawAccount.slice(12, 16)}-${rawAccount.slice(16, 20)}-${rawAccount.slice(20)}` : '';
-    const amountCents = Math.floor(Number(rawAmount));
+    const amountCents = positiveCents(rawAmount, 100_000);
     const expiresAt = Number(rawExpiry);
-    if (!accountId || !Number.isFinite(amountCents) || amountCents <= 0 || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return null;
+    if (!accountId || !amountCents || !Number.isSafeInteger(expiresAt) || expiresAt < Date.now()) return null;
     return { accountId, amountCents };
   } catch {
     return null;
@@ -177,7 +178,7 @@ async function createNuveiDeposit(request: Request, env: PaymentsEnv, identity: 
   if (!wallet.compliance?.countryCode || !identity.email) return json({ error: 'Verified country and email are required before funding.' }, 403);
 
   const intent = await signedDepositIntent(env, identity.id, amountCents);
-  const total = (amountCents / 100).toFixed(2);
+  const total = centsToUsdDecimal(amountCents);
   const site = (env.PUBLIC_SITE_URL ?? 'https://qqurzchess.com').replace(/\/$/, '');
   const timestamp = utcTimestamp();
   const ordered: Array<[string, string]> = [
@@ -259,8 +260,8 @@ async function verifyStripeWebhook(request: Request, env: PaymentsEnv): Promise<
   if (event.type !== 'checkout.session.completed') return json({ received: true });
   const session = event.data?.object;
   const accountId = clean(session?.metadata?.account_id, 80);
-  const amountCents = Math.floor(Number(session?.metadata?.amount_cents));
-  if (!event.id || !session?.id || session.payment_status !== 'paid' || session?.metadata?.kind !== 'premium_purchase' || !accountId || !Number.isFinite(amountCents) || amountCents <= 0) {
+  const amountCents = positiveCents(session?.metadata?.amount_cents, 100_000);
+  if (!event.id || !session?.id || session.payment_status !== 'paid' || session?.metadata?.kind !== 'premium_purchase' || !accountId || !amountCents) {
     return json({ error: 'Stripe event does not match a QQURZ premium purchase.' }, 400);
   }
   const { response, data } = await ledgerJson<{ ok?: boolean }>(env, '/internal/provider-credit', {
@@ -289,8 +290,8 @@ async function verifyNuveiWebhook(request: Request, env: PaymentsEnv): Promise<R
   if (!['APPROVED', 'SUCCESS'].includes(status.toUpperCase())) return new Response('OK', { status: 200 });
   if (currency.toUpperCase() !== 'USD') return json({ error: 'Unexpected deposit currency.' }, 400);
   const intent = await verifyDepositIntent(env, productId);
-  const amountCents = Math.round(Number(totalAmount) * 100);
-  if (!intent || !Number.isFinite(amountCents) || amountCents !== intent.amountCents) return json({ error: 'Deposit intent does not match the approved transaction.' }, 400);
+  const amountCents = usdDecimalToCents(totalAmount, 100_000);
+  if (!intent || amountCents === null || amountCents !== intent.amountCents) return json({ error: 'Deposit intent does not match the approved transaction.' }, 400);
   const { response, data } = await ledgerJson<{ ok?: boolean }>(env, '/internal/provider-credit', {
     method: 'POST', headers: internalHeaders(env), body: JSON.stringify({
       accountId: intent.accountId, amountCents, purpose: 'wallet_deposit', provider: 'nuvei', providerReference: transactionId,
@@ -356,7 +357,7 @@ export async function releaseCompetitionHold(env: PaymentsEnv, input: { holdId: 
   await ledgerJson(env, '/internal/release-hold', { method: 'POST', headers: internalHeaders(env), body: JSON.stringify(input) });
 }
 
-export async function settleCompetitionFunds(env: PaymentsEnv, input: { contestId: string; winnerAccountId: string; holdIds: string[]; platformFeeBps?: number; prizePurpose?: 'friend_match_prize' | 'tournament_prize' }): Promise<{ ok: boolean; error?: string; potCents?: number; feeCents?: number; prizeCents?: number }> {
+export async function settleCompetitionFunds(env: PaymentsEnv, input: { contestId: string; winnerAccountId: string; holdIds: string[]; prizePurpose?: 'friend_match_prize' | 'tournament_prize' }): Promise<{ ok: boolean; error?: string; potCents?: number; feeCents?: number; prizeCents?: number }> {
   const { response, data } = await ledgerJson<{ potCents?: number; feeCents?: number; prizeCents?: number }>(env, '/internal/settle-contest', {
     method: 'POST', headers: internalHeaders(env), body: JSON.stringify(input),
   });
