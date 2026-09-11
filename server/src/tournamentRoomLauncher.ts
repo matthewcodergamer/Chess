@@ -1,16 +1,14 @@
-import type { Chess960RatingClass } from '../../shared/timeControl';
 import { pairingPosition, type EnginePairing, type EngineRound, type EngineTournament, type Participant, type Seat } from './tournamentEngineTypes';
 
-type LaunchEnv = { ROOMS: DurableObjectNamespace<any> };
+type RoomStub = { fetch(request: Request): Promise<Response> };
+type RoomNamespace = { idFromName(name: string): DurableObjectId; get(id: DurableObjectId): RoomStub };
+type LaunchEnv = { ROOMS: unknown };
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function roomCode(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
   return [...bytes].map(value => ROOM_CODE_ALPHABET[value % ROOM_CODE_ALPHABET.length]).join('');
-}
-function ratingBook(player: Participant): Partial<Record<Chess960RatingClass, number>> {
-  return { [player.ratingClass]: player.rating };
 }
 
 export async function launchTournamentRoom(
@@ -23,11 +21,12 @@ export async function launchTournamentRoom(
   const white = tournament.participants[pairing.whiteId];
   const black = tournament.participants[pairing.blackId];
   if (!white || !black) throw new Error('Pairing references a missing participant.');
+  const rooms = env.ROOMS as RoomNamespace;
 
   let lastError = 'Could not allocate game room.';
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const code = roomCode();
-    const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
+    const stub = rooms.get(rooms.idFromName(code));
     const positionId = pairingPosition(tournament, round);
     const create = await stub.fetch(new Request('https://room.internal/create', {
       method: 'POST',
@@ -65,8 +64,8 @@ export async function launchTournamentRoom(
       body: JSON.stringify({
         tournamentId: tournament.id,
         ratingsByToken: {
-          [whiteSeat.token]: ratingBook(white)[white.ratingClass],
-          [blackSeat.token]: ratingBook(black)[black.ratingClass],
+          [whiteSeat.token]: white.rating,
+          [blackSeat.token]: black.rating,
         },
       }),
     }));
