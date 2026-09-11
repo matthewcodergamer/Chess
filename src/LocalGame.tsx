@@ -7,6 +7,8 @@ import { makeSan } from 'chessops/san';
 import type { Move, Role } from 'chessops/types';
 import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
+import { useGameSession } from './game/useGameSession';
+import { canColorMove, clockOwner, sessionUiPhase, type GameResultKind } from '../shared/gameSession';
 import { playChessSound } from './ui/sound';
 import { motionTokenMs, useReducedMotion } from './ui/motion';
 import PhysicalChessClock from './ui/PhysicalChessClock';
@@ -15,7 +17,6 @@ import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfi
 import ChessPieceAsset from './ui/ChessPieceAsset';
 
 type GameMode = 'human' | 'ai';
-type Phase = 'setup' | 'strategy' | 'playing' | 'ended';
 type Difficulty = 'easy' | 'hard' | 'crazy';
 type SideChoice = 'white' | 'black' | 'random';
 type PromotionRole = Extract<Role, 'queen' | 'rook' | 'bishop' | 'knight'>;
@@ -31,58 +32,72 @@ type Engine = {
 
 type Props = { initialMode: GameMode };
 
-const GAME_SECONDS = 10 * 60;
-const STRATEGY_SECONDS = 120;
+const GAME_MS = 10 * 60 * 1000;
+const STRATEGY_MS = 2 * 60 * 1000;
 const DIFFICULTIES: Record<Difficulty, { label: string; note: string }> = {
   easy: { label: 'Easy', note: 'Relaxed and forgiving' },
   hard: { label: 'Hard', note: 'Strong club-level play' },
   crazy: { label: 'Crazy Hard', note: 'Stockfish at full skill' },
 };
 
-function formatClock(value: number): string {
-  const seconds = Math.max(0, Math.ceil(value));
+function formatClockMs(value: number): string {
+  const seconds = Math.max(0, Math.ceil(value / 1000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function opposite(color: Color): Color { return color === 'white' ? 'black' : 'white'; }
 function chooseColor(choice: SideChoice): Color { return choice === 'random' ? (Math.random() < .5 ? 'white' : 'black') : choice; }
 
-function gameResult(pos: Chess): string | null {
-  if (pos.isCheckmate()) return pos.turn === 'white' ? 'Black wins by checkmate' : 'White wins by checkmate';
-  if (pos.isStalemate()) return 'Draw by stalemate';
-  if (pos.isInsufficientMaterial()) return 'Draw by insufficient material';
-  if (pos.isEnd()) return 'Game over';
+function gameResult(pos: Chess): { kind: GameResultKind; text: string; winner: Color | null } | null {
+  if (pos.isCheckmate()) {
+    const winner = pos.turn === 'white' ? 'black' : 'white';
+    return { kind: 'CHECKMATE', text: `${winner === 'white' ? 'White' : 'Black'} wins by checkmate`, winner };
+  }
+  if (pos.isStalemate()) return { kind: 'DRAW', text: 'Draw by stalemate', winner: null };
+  if (pos.isInsufficientMaterial()) return { kind: 'DRAW', text: 'Draw by insufficient material', winner: null };
+  if (pos.isEnd()) return { kind: 'DRAW', text: 'Game over', winner: null };
   return null;
 }
 
 export default function LocalGame({ initialMode }: Props) {
   const ground = useRef<QQurzChessgroundApi | null>(null);
+  // chessops is the rules/execution cache; GameSessionModel is the authoritative app state.
   const position = useRef<Chess | null>(null);
   const moveHandler = useRef<(orig: Key, dest: Key) => void>(() => {});
   const engine = useRef<Engine | null>(null);
   const enginePromise = useRef<Promise<Engine> | null>(null);
+  const terminalSoundPlayed = useRef(false);
+
+  const { session, dispatchSession } = useGameSession({
+    state: 'LOBBY',
+    clockMs: GAME_MS,
+    incrementMs: 0,
+    connectionStatus: 'LOCAL',
+  });
 
   const [mode, setMode] = useState<GameMode>(initialMode);
-  const [phase, setPhase] = useState<Phase>('setup');
-  const [positionId, setPositionId] = useState<number | null>(null);
-  const [fen, setFen] = useState('');
-  const [turn, setTurn] = useState<Color>('white');
   const [orientation, setOrientation] = useState<Color>('white');
   const [lastMove, setLastMove] = useState<[Key, Key] | undefined>();
-  const [moves, setMoves] = useState<string[]>([]);
-  const [whiteClock, setWhiteClock] = useState(GAME_SECONDS);
-  const [blackClock, setBlackClock] = useState(GAME_SECONDS);
-  const [strategyTime, setStrategyTime] = useState(STRATEGY_SECONDS);
   const [fastForward, setFastForward] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>('hard');
   const [sideChoice, setSideChoice] = useState<SideChoice>('white');
   const [humanColor, setHumanColor] = useState<Color | null>(null);
   const [engineStatus, setEngineStatus] = useState<EngineStatus>('off');
   const [engineError, setEngineError] = useState('');
-  const [result, setResult] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
-  const [pendingSlap, setPendingSlap] = useState<Color | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+
+  const phase = sessionUiPhase(session);
+  const positionId = session.positionId;
+  const fen = session.fen;
+  const turn = session.sideToMove as Color;
+  const moves = session.movesSan;
+  const whiteClock = session.clocks.whiteMs / 1000;
+  const blackClock = session.clocks.blackMs / 1000;
+  const strategyTime = session.countdownMs / 1000;
+  const result = session.result;
+  const pendingSlap = session.pendingClockPress as Color | null;
+  const activeColor = clockOwner(session) as Color | null;
 
   const aiColor = mode === 'ai' && humanColor ? opposite(humanColor) : null;
   const backRank = useMemo(() => positionId === null ? '' : chess960BackRank(positionId), [positionId]);
@@ -102,9 +117,9 @@ export default function LocalGame({ initialMode }: Props) {
   }, []);
 
   const humanCanMove = useCallback((pos: Chess) => {
-    if (phase !== 'playing' || pendingSlap) return false;
+    if (!canColorMove(session, pos.turn)) return false;
     return mode === 'human' || humanColor === pos.turn;
-  }, [humanColor, mode, pendingSlap, phase]);
+  }, [humanColor, mode, session]);
 
   const syncBoard = useCallback(() => {
     const pos = position.current;
@@ -112,10 +127,10 @@ export default function LocalGame({ initialMode }: Props) {
     if (!pos || !api) return;
     const canMove = humanCanMove(pos);
     api.set({
-      fen: makeFen(pos.toSetup()),
+      fen: session.fen,
       orientation,
-      turnColor: pos.turn,
-      check: false,
+      turnColor: session.sideToMove,
+      check: session.check,
       lastMove,
       animation: { enabled: !reducedMotion, duration: pieceMotionMs },
       draggable: { enabled: canMove, showGhost: true, autoDistance: true },
@@ -128,34 +143,38 @@ export default function LocalGame({ initialMode }: Props) {
         showDests: true,
       },
     });
-  }, [humanCanMove, lastMove, orientation, pieceMotionMs, reducedMotion]);
+  }, [humanCanMove, lastMove, orientation, pieceMotionMs, reducedMotion, session.check, session.fen, session.sideToMove]);
 
   const createPosition = useCallback(() => {
     const id = randomChess960Id();
     const pos = Chess.fromSetup(parseFen(chess960Fen(id)).unwrap()).unwrap();
     const chosen = mode === 'ai' ? chooseColor(sideChoice) : null;
     position.current = pos;
-    setPositionId(id);
-    setFen(makeFen(pos.toSetup()));
-    setTurn('white');
+    terminalSoundPlayed.current = false;
+    dispatchSession({
+      type: 'RESET',
+      options: {
+        state: 'COUNTDOWN',
+        positionId: id,
+        fen: makeFen(pos.toSetup()),
+        sideToMove: 'white',
+        clockMs: GAME_MS,
+        incrementMs: 0,
+        countdownMs: STRATEGY_MS,
+        connectionStatus: 'LOCAL',
+      },
+    });
     setOrientation(chosen ?? 'white');
     setHumanColor(chosen);
-    setMoves([]);
     setLastMove(undefined);
-    setWhiteClock(GAME_SECONDS);
-    setBlackClock(GAME_SECONDS);
-    setStrategyTime(STRATEGY_SECONDS);
     setFastForward(false);
-    setResult(null);
     setPromotion(null);
-    setPendingSlap(null);
     setEngineError('');
-    setPhase('strategy');
-  }, [mode, sideChoice]);
+  }, [dispatchSession, mode, sideChoice]);
 
   const finishMove = useCallback((move: Move, orig: Key, dest: Key) => {
     const pos = position.current;
-    if (!pos || phase !== 'playing' || pendingSlap || !pos.isLegal(move)) {
+    if (!pos || !canColorMove(session, pos.turn) || !pos.isLegal(move)) {
       requestAnimationFrame(syncBoard);
       return false;
     }
@@ -168,22 +187,24 @@ export default function LocalGame({ initialMode }: Props) {
     const san = makeSan(pos, move);
     pos.play(move);
     playChessSound(isCapture ? 'capture' : 'move');
-    setFen(makeFen(pos.toSetup()));
-    setTurn(pos.turn);
+    const nextFen = makeFen(pos.toSetup());
+    dispatchSession({
+      type: 'MOVE_COMMITTED',
+      fen: nextFen,
+      sideToMove: pos.turn,
+      mover: movingColor,
+      san,
+      check: pos.isCheck(),
+      checkmate: pos.isCheckmate(),
+    });
     setLastMove([orig, dest]);
-    setMoves(values => [...values, san]);
     const ending = gameResult(pos);
     if (ending) {
-      setResult(ending);
-      setPhase('ended');
-      setPendingSlap(null);
-      playChessSound('win');
+      dispatchSession({ type: 'FINISH', ...ending });
       engine.current?.cancelSearch();
-    } else {
-      setPendingSlap(movingColor);
     }
     return true;
-  }, [pendingSlap, phase, syncBoard]);
+  }, [dispatchSession, session, syncBoard]);
 
   const boardMove = useCallback((orig: Key, dest: Key) => {
     const pos = position.current;
@@ -231,45 +252,40 @@ export default function LocalGame({ initialMode }: Props) {
   }, [ensureEngine, mode, positionId]);
 
   useEffect(() => {
-    if (phase !== 'strategy') return;
-    if (strategyTime <= 0) {
+    if (session.state !== 'COUNTDOWN') return;
+    if (session.countdownMs <= 0) {
       setFastForward(false);
-      setPhase('playing');
+      dispatchSession({ type: 'TRANSITION', to: 'ACTIVE' });
       return;
     }
     const delay = fastForward ? 250 : 1000;
-    const timer = window.setTimeout(() => setStrategyTime(value => Math.max(0, value - 1)), delay);
+    const timer = window.setTimeout(() => dispatchSession({ type: 'COUNTDOWN_TICK', elapsedMs: 1000 }), delay);
     return () => window.clearTimeout(timer);
-  }, [fastForward, phase, strategyTime]);
+  }, [dispatchSession, fastForward, session.countdownMs, session.state]);
 
   useEffect(() => {
-    if (phase !== 'playing') return;
+    if (session.state !== 'ACTIVE') return;
     const timer = window.setInterval(() => {
-      const pos = position.current;
-      if (!pos) return;
-      const clockOwner = pendingSlap ?? pos.turn;
-      if (mode === 'ai' && clockOwner === aiColor && engineStatus === 'loading') return;
-      const setter = clockOwner === 'white' ? setWhiteClock : setBlackClock;
-      setter(value => {
-        const next = Math.max(0, value - 1);
-        if (next === 0) {
-          setResult(clockOwner === 'white' ? 'Black wins on time' : 'White wins on time');
-          setPhase('ended');
-          setPendingSlap(null);
-          playChessSound('win');
-          engine.current?.cancelSearch();
-        }
-        return next;
-      });
+      const owner = clockOwner(session);
+      if (!owner) return;
+      if (mode === 'ai' && owner === aiColor && engineStatus === 'loading') return;
+      dispatchSession({ type: 'CLOCK_TICK', elapsedMs: 1000 });
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [aiColor, engineStatus, mode, pendingSlap, phase]);
+  }, [aiColor, dispatchSession, engineStatus, mode, session]);
+
+  useEffect(() => {
+    if (!session.resultKind || terminalSoundPlayed.current) return;
+    terminalSoundPlayed.current = true;
+    engine.current?.cancelSearch();
+    playChessSound('win');
+  }, [session.resultKind]);
 
   useEffect(() => {
     const pos = position.current;
-    if (phase !== 'playing' || mode !== 'ai' || !aiColor || !pos || pendingSlap || pos.turn !== aiColor || result) return;
+    if (session.state !== 'ACTIVE' || mode !== 'ai' || !aiColor || !pos || session.pendingClockPress || session.sideToMove !== aiColor || session.result) return;
     let cancelled = false;
-    const snapshot = makeFen(pos.toSetup());
+    const snapshot = session.fen;
     const run = async () => {
       try {
         const value = await ensureEngine();
@@ -293,29 +309,33 @@ export default function LocalGame({ initialMode }: Props) {
     };
     void run();
     return () => { cancelled = true; engine.current?.cancelSearch(); };
-  }, [aiColor, difficulty, ensureEngine, fen, finishMove, mode, pendingSlap, phase, result, turn]);
+  }, [aiColor, difficulty, ensureEngine, finishMove, mode, session.fen, session.pendingClockPress, session.result, session.sideToMove, session.state]);
 
   useEffect(() => {
-    if (phase !== 'playing' || mode !== 'ai' || !aiColor || !pendingSlap) return;
-    // AI mode is hands-free: both the human and Stockfish clock press are
-    // acknowledged from the same pendingSlap state that owns timer transfer.
-    const delay = pendingSlap === aiColor ? 220 : 120;
-    const timer = window.setTimeout(() => setPendingSlap(null), delay);
+    if (session.state !== 'ACTIVE' || mode !== 'ai' || !aiColor || !session.pendingClockPress) return;
+    // Both sides acknowledge their physical press through the same CLOCK_TRANSFERRED event.
+    const delay = session.pendingClockPress === aiColor ? 220 : 120;
+    const timer = window.setTimeout(() => dispatchSession({ type: 'CLOCK_TRANSFERRED' }), delay);
     return () => window.clearTimeout(timer);
-  }, [aiColor, mode, pendingSlap, phase]);
+  }, [aiColor, dispatchSession, mode, session.pendingClockPress, session.state]);
 
   useEffect(() => () => engine.current?.destroy(), []);
 
-  const startNow = () => { if (phase === 'strategy') { setStrategyTime(0); setFastForward(false); setPhase('playing'); playChessSound('start'); } };
+  const startNow = () => {
+    if (session.state !== 'COUNTDOWN') return;
+    dispatchSession({ type: 'SET_COUNTDOWN', remainingMs: 0 });
+    dispatchSession({ type: 'TRANSITION', to: 'ACTIVE' });
+    setFastForward(false);
+    playChessSound('start');
+  };
   const slapClock = useCallback(() => {
-    if (!pendingSlap || phase !== 'playing') return;
-    setPendingSlap(null);
-  }, [pendingSlap, phase]);
+    if (!session.pendingClockPress || session.state !== 'ACTIVE') return;
+    dispatchSession({ type: 'CLOCK_TRANSFERRED' });
+  }, [dispatchSession, session.pendingClockPress, session.state]);
   const playerName = (color: Color) => mode === 'ai' && aiColor === color ? `Stockfish · ${DIFFICULTIES[difficulty].label}` : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
   const topColor = opposite(orientation);
   const bottomColor = orientation;
-  const clockFor = (color: Color) => formatClock(color === 'white' ? whiteClock : blackClock);
-  const activeColor = phase === 'playing' ? (pendingSlap ?? turn) : null;
+  const clockFor = (color: Color) => formatClockMs(color === 'white' ? session.clocks.whiteMs : session.clocks.blackMs);
   const connectionFor = (color: Color) => {
     if (mode !== 'ai' || aiColor !== color) return 'Local';
     if (engineStatus === 'thinking') return 'Thinking';
@@ -324,13 +344,15 @@ export default function LocalGame({ initialMode }: Props) {
     return 'Ready';
   };
   const ratingFor = (color: Color) => mode === 'ai' && aiColor === color ? DIFFICULTIES[difficulty].label : 'Unrated';
-  const finishLocalGame = (text: string) => {
-    if (phase !== 'playing') return;
-    setResult(text);
-    setPhase('ended');
-    setPendingSlap(null);
-    engine.current?.cancelSearch();
-    playChessSound('win');
+  const agreeDraw = () => {
+    if (session.state !== 'ACTIVE') return;
+    dispatchSession({ type: 'OFFER_DRAW', by: bottomColor });
+    dispatchSession({ type: 'OFFER_DRAW', by: topColor });
+    dispatchSession({ type: 'FINISH', kind: 'DRAW', text: 'Draw by agreement', winner: null });
+  };
+  const resign = () => {
+    if (session.state !== 'ACTIVE') return;
+    dispatchSession({ type: 'RESIGN', by: bottomColor });
   };
   const boardConfig = useMemo<QQurzChessgroundConfig>(() => ({
     fen,
@@ -386,7 +408,7 @@ export default function LocalGame({ initialMode }: Props) {
   }
 
   return (
-    <section className="local-fast-shell local-chess-layout">
+    <section className="local-fast-shell local-chess-layout" data-game-state={session.state}>
       <div className="match-board-stack">
         <div className="match-game-meta">
           <b>Chess960 · #{positionId}</b>
@@ -417,7 +439,7 @@ export default function LocalGame({ initialMode }: Props) {
           {phase === 'strategy' && (
             <div className="local-board-overlay">
               <span>STRATEGY</span>
-              <strong>{formatClock(strategyTime)}</strong>
+              <strong>{formatClockMs(session.countdownMs)}</strong>
               <p>Green dots show legal destinations. Take your time, then start when you are ready.</p>
               <div>
                 <button onPointerDown={() => setFastForward(true)} onPointerUp={() => setFastForward(false)} onPointerCancel={() => setFastForward(false)}>Hold ×4</button>
@@ -455,19 +477,21 @@ export default function LocalGame({ initialMode }: Props) {
           <div className={`match-turn-note ${activeColor === bottomColor ? 'active' : ''}`}>
             {phase === 'strategy' ? 'Strategy phase' : phase === 'ended' ? result : pendingSlap === bottomColor ? 'Move made — press your clock' : activeColor === bottomColor ? 'Your move' : 'Opponent move'}
           </div>
-          <button onClick={() => finishLocalGame('Draw by agreement')} disabled={phase !== 'playing'}>Draw</button>
-          <button className="match-resign" onClick={() => finishLocalGame(`${opposite(bottomColor) === 'white' ? 'White' : 'Black'} wins by resignation`)} disabled={phase !== 'playing'}>Resign</button>
+          <button onClick={agreeDraw} disabled={session.state !== 'ACTIVE'}>Draw</button>
+          <button className="match-resign" onClick={resign} disabled={session.state !== 'ACTIVE'}>Resign</button>
           <button aria-expanded={optionsOpen} onClick={() => setOptionsOpen(value => !value)}>Options</button>
         </div>
 
         {optionsOpen && (
           <section className="match-options-panel" aria-label="Match options">
+            <div><span>State</span><b>{session.state}</b></div>
             <div><span>Position</span><b>Chess960 #{positionId}</b></div>
             <div><span>Back rank</span><b>{backRank}</b></div>
-            <div><span>Moves</span><b>{moves.length}</b></div>
+            <div><span>Move number</span><b>{session.moveNumber}</b></div>
+            <div><span>Increment</span><b>{session.clocks.incrementMs / 1000}s</b></div>
             <div className="match-options-actions">
               <button onClick={() => setOrientation(value => opposite(value))}>Flip board</button>
-              <button onClick={createPosition} disabled={phase === 'playing'}>{phase === 'playing' ? 'Position locked' : 'New position'}</button>
+              <button onClick={createPosition} disabled={session.state === 'ACTIVE'}>{session.state === 'ACTIVE' ? 'Position locked' : 'New position'}</button>
             </div>
             <div className="match-move-list">
               <span className="qqurz-kicker">MOVES</span>
