@@ -20,8 +20,9 @@ jobs:
         with:
           ref: main
       - name: Wire dashboard and responsive layout
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           app_path = Path('src/AppV14.tsx')
@@ -93,6 +94,7 @@ jobs:
 }
 """
           responsive_path.write_text(responsive)
+          PY
       - name: Validate production build
         run: npm ci && npm run build
       - name: Commit dashboard wiring
