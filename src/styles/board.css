@@ -20,3 +20,5 @@
 .captured-strip.compact .qqurz-piece-asset.qqurz-piece-sm{width:20px;height:20px}
 .promotion-grid button,.online-promotion button{display:flex;align-items:center;justify-content:center;gap:var(--q-space-8)}
 .promotion-grid button .qqurz-piece-asset,.online-promotion button .qqurz-piece-asset{flex:0 0 auto}
+
+.premium-physical-clock{margin-top:var(--q-space-12)}

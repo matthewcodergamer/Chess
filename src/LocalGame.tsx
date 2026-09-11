@@ -9,7 +9,7 @@ import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
 import { playChessSound } from './ui/sound';
 import { motionTokenMs, useReducedMotion } from './ui/motion';
-import ChessClock2D from './ui/ChessClock2D';
+import PhysicalChessClock from './ui/PhysicalChessClock';
 import MatchPlayerBar from './ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from './ui/ChessBoardSurface';
 import ChessPieceAsset from './ui/ChessPieceAsset';
@@ -296,11 +296,11 @@ export default function LocalGame({ initialMode }: Props) {
   }, [aiColor, difficulty, ensureEngine, fen, finishMove, mode, pendingSlap, phase, result, turn]);
 
   useEffect(() => {
-    if (phase !== 'playing' || mode !== 'ai' || !aiColor || pendingSlap !== aiColor) return;
-    const timer = window.setTimeout(() => {
-      playChessSound('slap');
-      setPendingSlap(null);
-    }, 260);
+    if (phase !== 'playing' || mode !== 'ai' || !aiColor || !pendingSlap) return;
+    // AI mode is hands-free: both the human and Stockfish clock press are
+    // acknowledged from the same pendingSlap state that owns timer transfer.
+    const delay = pendingSlap === aiColor ? 220 : 120;
+    const timer = window.setTimeout(() => setPendingSlap(null), delay);
     return () => window.clearTimeout(timer);
   }, [aiColor, mode, pendingSlap, phase]);
 
@@ -309,7 +309,6 @@ export default function LocalGame({ initialMode }: Props) {
   const startNow = () => { if (phase === 'strategy') { setStrategyTime(0); setFastForward(false); setPhase('playing'); playChessSound('start'); } };
   const slapClock = useCallback(() => {
     if (!pendingSlap || phase !== 'playing') return;
-    playChessSound('slap');
     setPendingSlap(null);
   }, [pendingSlap, phase]);
   const playerName = (color: Color) => mode === 'ai' && aiColor === color ? `Stockfish · ${DIFFICULTIES[difficulty].label}` : mode === 'ai' ? 'You' : color === 'white' ? 'White' : 'Black';
@@ -443,7 +442,7 @@ export default function LocalGame({ initialMode }: Props) {
           self
         />
 
-        <ChessClock2D
+        <PhysicalChessClock
           whiteSeconds={whiteClock}
           blackSeconds={blackClock}
           activeColor={activeColor}

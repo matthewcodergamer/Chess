@@ -6,7 +6,7 @@ import { parseFen } from 'chessops/fen';
 import { parseSquare } from 'chessops/util';
 import { celebratePurchase } from '../ui/purchaseCelebration';
 import Quarter3D from '../ui/Quarter3D';
-import ChessClock3DView from '../ui/ChessClock3DView';
+import PhysicalChessClock from '../ui/PhysicalChessClock';
 import MatchPlayerBar from '../ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from '../ui/ChessBoardSurface';
 import ChessPieceAsset from '../ui/ChessPieceAsset';
@@ -358,13 +358,18 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             self
           />
 
-          <section className={`qqurz-physical-clock-panel online-physical-clock match-clock-panel ${showClock ? '' : 'clock-hidden'}`} aria-label="Online 3D tournament clock">
-            <div className="qqurz-clock-panel-head">
-              <div><b>TOURNAMENT CLOCK</b><span>{snapshot.awaitingClockPress ? `${snapshot.awaitingClockPress.toUpperCase()} · press the rocker` : snapshot.status === 'playing' && snapshot.activeClock ? `${snapshot.activeClock.toUpperCase()} clock running` : 'Ready'}</span></div>
-              <button type="button" className="clock-visibility-toggle" onClick={() => setClockVisible(!showClock)}>{showClock ? 'Hide clock' : 'Show clock'}</button>
-            </div>
-            {showClock ? <ChessClock3DView whiteSeconds={whiteMs / 1000} blackSeconds={blackMs / 1000} activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null} pendingSlap={snapshot.awaitingClockPress} disabled={snapshot.awaitingClockPress !== seat.color} onSlap={() => send({ type: 'clock_slap' })} compact /> : null}
-          </section>
+          <PhysicalChessClock
+            whiteSeconds={whiteMs / 1000}
+            blackSeconds={blackMs / 1000}
+            activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null}
+            pendingSlap={snapshot.awaitingClockPress}
+            disabled={snapshot.awaitingClockPress !== seat.color}
+            onSlap={() => send({ type: 'clock_slap' })}
+            compact
+            visible={showClock}
+            onVisibleChange={setClockVisible}
+            className="online-physical-clock match-clock-panel"
+          />
 
           {colorBidAllowed && <section className="position-auction-card color-auction-card"><div><span className="eyebrow">BID FOR YOUR COLOR</span><h3>Choose White or Black. Highest verified bid gets that side.</h3><p>If another player outbids your active bid, QQURZ submits a Stripe refund to the original payment method automatically. If nobody bids, use the quarter toss above.</p></div><div className="color-choice-pills" role="radiogroup" aria-label="Desired chess color"><button className={desiredColor === 'white' ? 'selected' : ''} onClick={() => setDesiredColor('white')}>White</button><button className={desiredColor === 'black' ? 'selected' : ''} onClick={() => setDesiredColor('black')}>Black</button></div><div className="auction-status"><span>Leader</span><b>{snapshot.colorAuction.leaderName ?? 'No bid yet'}</b><span>Winning side</span><b>{snapshot.colorAuction.desiredColor ? snapshot.colorAuction.desiredColor[0].toUpperCase() + snapshot.colorAuction.desiredColor.slice(1) : '—'}</b><span>Top bid</span><b>{snapshot.colorAuction.leadingBidCents ? money(snapshot.colorAuction.leadingBidCents) : '—'}</b><span>Your last bid</span><b>{snapshot.colorAuction.yourBidCents ? `${money(snapshot.colorAuction.yourBidCents)}${snapshot.colorAuction.yourBidRefunded ? ' · refunded' : ''}` : '—'}</b></div><div className="auction-actions"><button onClick={() => buyColorBid(200)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 200 ? 'Opening…' : `Bid $2 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button><button onClick={() => buyColorBid(500)} disabled={!colorBidPaymentsAvailable || Boolean(colorBidBusy)}>{colorBidBusy === 500 ? 'Opening…' : `Bid $5 for ${desiredColor === 'white' ? 'White' : 'Black'}`}</button>{youLeadColorBid && <button className="settle-color-auction" onClick={() => send({ type: 'settle_color_bid' })}>Lock winning color</button>}</div><small>{paymentMode === 'test' ? 'Stripe test mode: refund flow is exercised without real money.' : liveColorBidsEnabled ? 'Live color bidding and automatic outbid refunds are enabled.' : 'Live color bidding is disabled by server policy.'}</small></section>}
 
