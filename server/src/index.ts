@@ -4,10 +4,10 @@ import { makeFen, parseFen } from 'chessops/fen';
 import { makeSan } from 'chessops/san';
 import { parseUci } from 'chessops/util';
 import { chess960Fen, randomChess960Id } from './chess960';
+import { canColorMove, clockOwner, createGameSession, isTerminalGameState, reduceGameSession, type GameResultKind, type GameSessionModel, type GameSessionState } from '../../shared/gameSession';
 
 type Color = 'white' | 'black';
 type CoinFace = 'heads' | 'tails';
-type RoomStatus = 'waiting' | 'coin' | 'strategy' | 'playing' | 'ended';
 type PlayerSeat = { name: string; token: string };
 type PaidBid = { cents: number; paidAt: number; sessionId: string };
 type PaidColorBid = { cents: number; desiredColor: Color; paidAt: number; sessionId: string; paymentIntentId: string; refundedAt: number | null };
@@ -16,19 +16,7 @@ type AuctionState = { bids: Record<string, PaidBid>; leaderToken: string | null;
 type ColorAuctionState = { bids: Record<string, PaidColorBid>; leaderToken: string | null; leadingBidCents: number; desiredColor: Color | null; usedSessions: string[]; settled: boolean };
 type RoomState = {
   code: string;
-  status: RoomStatus;
-  positionId: number;
-  fen: string;
-  turn: Color;
-  pendingClockPress: Color | null;
-  whiteClockMs: number;
-  blackClockMs: number;
-  turnStartedAt: number | null;
-  strategyEndsAt: number | null;
-  moves: string[];
-  result: string | null;
-  check: boolean;
-  checkmate: boolean;
+  session: GameSessionModel;
   createdAt: number;
   lastActivityAt: number;
   players: { white: PlayerSeat; black: PlayerSeat | null };
@@ -45,7 +33,10 @@ type ClientMessage =
   | { type: 'claim_position_bid'; sessionId: string }
   | { type: 'claim_color_bid'; sessionId: string }
   | { type: 'settle_color_bid' }
-  | { type: 'resign' };
+  | { type: 'resign' }
+  | { type: 'offer_draw' }
+  | { type: 'accept_draw' }
+  | { type: 'decline_draw' };
 type Env = {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   ALLOWED_ORIGINS?: string;
@@ -56,6 +47,7 @@ type Env = {
 };
 
 const GAME_CLOCK_MS = 10 * 60 * 1000;
+const GAME_INCREMENT_MS = 0;
 const STRATEGY_MS = 2 * 60 * 1000;
 const COIN_SHOW_MS = 2800;
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -64,6 +56,66 @@ const BID_VALUES = new Set([200, 500]);
 function emptyCoin(): CoinState { return { claimedFace: null, claimedByToken: null, result: null, winnerToken: null, flippedAt: null, endsAt: null }; }
 function emptyAuction(): AuctionState { return { bids: {}, leaderToken: null, leadingBidCents: 0, rerollCount: 0, usedSessions: [] }; }
 function emptyColorAuction(): ColorAuctionState { return { bids: {}, leaderToken: null, leadingBidCents: 0, desiredColor: null, usedSessions: [], settled: false }; }
+function legacyState(status: unknown, result: string | null, checkmate: boolean): GameSessionState {
+  if (status === 'waiting') return 'LOBBY';
+  if (status === 'coin') return 'COIN_TOSS';
+  if (status === 'strategy') return 'COUNTDOWN';
+  if (status === 'playing') return 'ACTIVE';
+  if (checkmate) return 'CHECKMATE';
+  if (/resign/i.test(result ?? '')) return 'RESIGN';
+  if (/time/i.test(result ?? '')) return 'TIMEOUT';
+  if (/draw|stalemate|insufficient/i.test(result ?? '')) return 'DRAW';
+  return 'FINAL';
+}
+function legacyStatus(state: GameSessionState): 'waiting' | 'coin' | 'strategy' | 'playing' | 'ended' {
+  if (state === 'LOBBY' || state === 'READY') return 'waiting';
+  if (state === 'COLOR_SELECTION' || state === 'COIN_TOSS') return 'coin';
+  if (state === 'COUNTDOWN') return 'strategy';
+  if (state === 'ACTIVE' || state === 'PAUSED' || state === 'RECONNECTING') return 'playing';
+  return 'ended';
+}
+function inferResultKind(result: string | null, checkmate: boolean): GameSessionModel['resultKind'] {
+  if (!result) return null;
+  if (checkmate) return 'CHECKMATE';
+  if (/resign/i.test(result)) return 'RESIGN';
+  if (/time/i.test(result)) return 'TIMEOUT';
+  if (/draw|stalemate|insufficient/i.test(result)) return 'DRAW';
+  return 'OTHER';
+}
+function migrateStoredRoom(raw: unknown): RoomState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const legacy = raw as Record<string, any>;
+  if (legacy.session) return legacy as RoomState;
+  if (!legacy.code || !legacy.players?.white) return null;
+  const now = Date.now();
+  const session = createGameSession({
+    id: `room-${legacy.code}`,
+    state: legacyState(legacy.status, legacy.result ?? null, Boolean(legacy.checkmate)),
+    positionId: Number.isInteger(legacy.positionId) ? legacy.positionId : null,
+    fen: typeof legacy.fen === 'string' ? legacy.fen : '',
+    sideToMove: legacy.turn === 'black' ? 'black' : 'white',
+    whiteClockMs: Number(legacy.whiteClockMs ?? GAME_CLOCK_MS),
+    blackClockMs: Number(legacy.blackClockMs ?? GAME_CLOCK_MS),
+    incrementMs: GAME_INCREMENT_MS,
+    countdownEndsAt: legacy.strategyEndsAt ?? null,
+    countdownMs: legacy.strategyEndsAt ? Math.max(0, legacy.strategyEndsAt - now) : 0,
+    connectionStatus: 'DISCONNECTED',
+    now: Number(legacy.createdAt ?? now),
+  });
+  session.pendingClockPress = legacy.pendingClockPress === 'white' || legacy.pendingClockPress === 'black' ? legacy.pendingClockPress : null;
+  session.movesSan = Array.isArray(legacy.moves) ? legacy.moves.slice(-400) : [];
+  session.moveNumber = session.movesSan.length;
+  session.result = typeof legacy.result === 'string' ? legacy.result : null;
+  session.resultKind = inferResultKind(session.result, Boolean(legacy.checkmate));
+  session.check = Boolean(legacy.check);
+  session.checkmate = Boolean(legacy.checkmate);
+  session.clocks.startedAt = typeof legacy.turnStartedAt === 'number' ? legacy.turnStartedAt : null;
+  return {
+    code: String(legacy.code), session,
+    createdAt: Number(legacy.createdAt ?? now), lastActivityAt: Number(legacy.lastActivityAt ?? now),
+    players: legacy.players, coin: legacy.coin ?? emptyCoin(), auction: legacy.auction ?? emptyAuction(), colorAuction: legacy.colorAuction ?? emptyColorAuction(),
+  };
+}
 function normalizeName(value: unknown): string {
   const name = String(value ?? 'Guest').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 28);
   return name || 'Guest';
@@ -84,16 +136,21 @@ function cors(request: Request, response: Response, env: Env): Response {
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS'); headers.set('access-control-allow-headers', 'content-type'); headers.set('access-control-max-age', '86400');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
-function resultText(position: Chess): string | null {
-  if (position.isCheckmate()) return position.turn === 'white' ? 'Black wins by checkmate' : 'White wins by checkmate';
-  if (position.isStalemate()) return 'Draw by stalemate';
-  if (position.isInsufficientMaterial()) return 'Draw by insufficient material';
-  return position.isEnd() ? 'Game over' : null;
+function resultInfo(position: Chess): { kind: GameResultKind; text: string; winner: Color | null } | null {
+  if (position.isCheckmate()) {
+    const winner: Color = position.turn === 'white' ? 'black' : 'white';
+    return { kind: 'CHECKMATE', text: `${winner === 'white' ? 'White' : 'Black'} wins by checkmate`, winner };
+  }
+  if (position.isStalemate()) return { kind: 'DRAW', text: 'Draw by stalemate', winner: null };
+  if (position.isInsufficientMaterial()) return { kind: 'DRAW', text: 'Draw by insufficient material', winner: null };
+  return position.isEnd() ? { kind: 'DRAW', text: 'Game over', winner: null } : null;
 }
-function activeClockColor(room: RoomState): Color | null { return room.status === 'playing' ? room.pendingClockPress ?? room.turn : null; }
+function activeClockColor(room: RoomState): Color | null { return clockOwner(room.session); }
 function remainingFor(room: RoomState, color: Color, at = Date.now()): number {
-  const stored = color === 'white' ? room.whiteClockMs : room.blackClockMs;
-  return activeClockColor(room) === color && room.turnStartedAt !== null ? Math.max(0, stored - Math.max(0, at - room.turnStartedAt)) : Math.max(0, stored);
+  const stored = color === 'white' ? room.session.clocks.whiteMs : room.session.clocks.blackMs;
+  return activeClockColor(room) === color && room.session.clocks.startedAt !== null
+    ? Math.max(0, stored - Math.max(0, at - room.session.clocks.startedAt))
+    : Math.max(0, stored);
 }
 function playerForToken(room: RoomState, token: string): PlayerSeat | null {
   if (room.players.white.token === token) return room.players.white;
@@ -114,15 +171,24 @@ function makeSnapshot(room: RoomState, connected: Set<Color>, viewerToken: strin
     ? viewerToken === room.coin.claimedByToken ? room.coin.claimedFace : oppositeFace(room.coin.claimedFace)
     : null;
   const yourColorBid = viewerToken ? room.colorAuction.bids[viewerToken] : undefined;
+  const whiteConnected = connected.has('white');
+  const blackConnected = connected.has('black');
+  const session: GameSessionModel = {
+    ...room.session,
+    clocks: { ...room.session.clocks, whiteMs: remainingFor(room, 'white', now), blackMs: remainingFor(room, 'black', now) },
+    countdownMs: room.session.countdownEndsAt ? Math.max(0, room.session.countdownEndsAt - now) : room.session.countdownMs,
+  };
   return {
-    code: room.code, status: room.status, positionId: room.positionId, fen: room.fen, turn: room.turn,
-    activeClock: activeClockColor(room), awaitingClockPress: room.pendingClockPress,
-    whiteClockMs: remainingFor(room, 'white', now), blackClockMs: remainingFor(room, 'black', now),
-    turnStartedAt: room.turnStartedAt, strategyEndsAt: room.strategyEndsAt, serverNow: now,
-    moves: room.moves, result: room.result, check: room.check, checkmate: room.checkmate, yourColor: viewerColor,
+    code: room.code,
+    session,
+    status: legacyStatus(session.state), positionId: session.positionId, fen: session.fen, turn: session.sideToMove,
+    activeClock: clockOwner(session), awaitingClockPress: session.pendingClockPress,
+    whiteClockMs: session.clocks.whiteMs, blackClockMs: session.clocks.blackMs,
+    turnStartedAt: session.clocks.startedAt, strategyEndsAt: session.countdownEndsAt, serverNow: now,
+    moves: session.movesSan, result: session.result, check: session.check, checkmate: session.checkmate, yourColor: viewerColor,
     players: {
-      white: { name: room.players.white.name, connected: connected.has('white') },
-      black: room.players.black ? { name: room.players.black.name, connected: connected.has('black') } : null,
+      white: { name: room.players.white.name, connected: whiteConnected },
+      black: room.players.black ? { name: room.players.black.name, connected: blackConnected } : null,
     },
     coin: { claimedFace: room.coin.claimedFace, claimedBy, result: room.coin.result, winner, flippedAt: room.coin.flippedAt, endsAt: room.coin.endsAt, yourFace },
     auction: {
@@ -183,12 +249,11 @@ export class ChessRoom extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.blockConcurrencyWhile(async () => {
-      this.room = (await this.ctx.storage.get<RoomState>('room')) ?? null;
+      this.room = migrateStoredRoom(await this.ctx.storage.get<unknown>('room'));
       if (this.room) {
         if (!this.room.coin) this.room.coin = emptyCoin();
         if (!this.room.auction) this.room.auction = emptyAuction();
         if (!this.room.colorAuction) this.room.colorAuction = emptyColorAuction();
-        if (this.room.pendingClockPress === undefined) this.room.pendingClockPress = null;
       }
     });
   }
@@ -202,9 +267,9 @@ export class ChessRoom extends DurableObject<Env> {
       if (!/^[A-Z0-9]{6}$/.test(code)) return json({ error: 'Invalid room code.' }, 400);
       const now = Date.now(), token = seatToken(), positionId = randomChess960Id();
       this.room = {
-        code, status: 'waiting', positionId, fen: chess960Fen(positionId), turn: 'white', pendingClockPress: null,
-        whiteClockMs: GAME_CLOCK_MS, blackClockMs: GAME_CLOCK_MS, turnStartedAt: null, strategyEndsAt: null,
-        moves: [], result: null, check: false, checkmate: false, createdAt: now, lastActivityAt: now,
+        code,
+        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: chess960Fen(positionId), sideToMove: 'white', clockMs: GAME_CLOCK_MS, incrementMs: GAME_INCREMENT_MS, connectionStatus: 'DISCONNECTED', now }),
+        createdAt: now, lastActivityAt: now,
         players: { white: { name: normalizeName(body.name), token }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
       };
       await this.persist();
@@ -214,7 +279,7 @@ export class ChessRoom extends DurableObject<Env> {
     if (url.hostname === 'room.internal' && url.pathname === '/join' && request.method === 'POST') {
       if (!this.room) return json({ error: 'That room does not exist.' }, 404);
       if (this.room.players.black) return json({ error: 'That room already has two players.' }, 409);
-      if (this.room.status === 'ended') return json({ error: 'That room has already ended.' }, 409);
+      if (isTerminalGameState(this.room.session.state)) return json({ error: 'That room has already ended.' }, 409);
       const body = await request.json() as { name?: string }; const token = seatToken();
       this.room.players.black = { name: normalizeName(body.name), token };
       this.prepareCoin(Date.now()); await this.persist(); await this.scheduleForState(); this.broadcast();
@@ -226,7 +291,7 @@ export class ChessRoom extends DurableObject<Env> {
       const token = url.searchParams.get('token') ?? '';
       if (!colorForToken(this.room, token)) return json({ error: 'Invalid room seat token.' }, 401);
       const pair = new WebSocketPair(); const client = pair[0], server = pair[1];
-      this.ctx.acceptWebSocket(server); server.serializeAttachment({ token } satisfies SocketAttachment); this.sendSnapshot(server, token); queueMicrotask(() => this.broadcast());
+      this.ctx.acceptWebSocket(server); server.serializeAttachment({ token } satisfies SocketAttachment); await this.syncConnectionState(); this.sendSnapshot(server, token); this.broadcast();
       return new Response(null, { status: 101, webSocket: client });
     }
     return json({ error: 'Not found.' }, 404);
@@ -248,38 +313,36 @@ export class ChessRoom extends DurableObject<Env> {
     if (payload.type === 'move') return void await this.handleMove(ws, color, payload.uci);
     if (payload.type === 'clock_slap') return void await this.handleClockSlap(ws, color);
     if (payload.type === 'start_now') {
-      if (this.room.status !== 'strategy' || !this.room.players.black) return this.sendError(ws, 'The game cannot start yet.');
+      if (this.room.session.state !== 'COUNTDOWN' || !this.room.players.black) return this.sendError(ws, 'The game cannot start yet.');
       this.startPlaying(Date.now()); await this.persist(); await this.scheduleForState(); this.broadcast(); return;
     }
     if (payload.type === 'resign') {
-      if (this.room.status !== 'playing') return this.sendError(ws, 'There is no active game to resign.');
-      this.settleActiveClock(Date.now()); this.room.status = 'ended'; this.room.result = `${color === 'white' ? 'Black' : 'White'} wins by resignation`;
-      this.room.pendingClockPress = null; this.room.turnStartedAt = null; this.room.lastActivityAt = Date.now();
+      if (this.room.session.state !== 'ACTIVE') return this.sendError(ws, 'There is no active game to resign.');
+      this.settleActiveClock(Date.now()); this.room.session.state = 'FINAL'; this.room.session.result = `${color === 'white' ? 'Black' : 'White'} wins by resignation`;
+      this.room.session.pendingClockPress = null; this.room.session.clocks.startedAt = null; this.room.lastActivityAt = Date.now();
       await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }
     this.sendError(ws, 'Unknown command.');
   }
 
-  async webSocketClose(): Promise<void> { this.broadcast(); }
-  async webSocketError(): Promise<void> { this.broadcast(); }
+  async webSocketClose(): Promise<void> { await this.syncConnectionState(); this.broadcast(); }
+  async webSocketError(): Promise<void> { await this.syncConnectionState(); this.broadcast(); }
 
   async alarm(): Promise<void> {
-    if (!this.room) return; const now = Date.now();
-    if (this.room.status === 'coin' && this.room.coin.result && (this.room.coin.endsAt ?? 0) <= now) {
+    if (!this.room) return;
+    const now = Date.now();
+    if (this.room.session.state === 'COIN_TOSS' && this.room.coin.result && (this.room.coin.endsAt ?? 0) <= now) {
       this.startStrategy(now); this.room.coin.endsAt = null;
       await this.persist(); await this.scheduleForState(); this.broadcast(); return;
     }
-    if (this.room.status === 'strategy') {
-      if ((this.room.strategyEndsAt ?? 0) <= now) { this.startPlaying(now); await this.persist(); this.broadcast(); }
-      await this.scheduleForState(); return;
+    if (this.room.session.state === 'COUNTDOWN') {
+      if ((this.room.session.countdownEndsAt ?? 0) <= now) this.startPlaying(now);
+      await this.persist(); await this.scheduleForState(); this.broadcast(); return;
     }
-    if (this.room.status === 'playing') {
-      const owner = activeClockColor(this.room); this.settleActiveClock(now);
-      const remaining = owner ? (owner === 'white' ? this.room.whiteClockMs : this.room.blackClockMs) : 0;
-      if (owner && remaining <= 0) {
-        this.room.status = 'ended'; this.room.result = `${opposite(owner) === 'white' ? 'White' : 'Black'} wins on time`;
-        this.room.pendingClockPress = null; this.room.turnStartedAt = null; this.room.lastActivityAt = now;
-        await this.persist(); this.broadcast(); return;
+    if (this.room.session.state === 'ACTIVE') {
+      this.settleActiveClock(now);
+      if (this.room.session.resultKind === 'TIMEOUT') {
+        this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
       }
       await this.persist(); await this.scheduleForState(); this.broadcast();
     }
@@ -304,18 +367,26 @@ export class ChessRoom extends DurableObject<Env> {
 
   private prepareCoin(now: number): void {
     if (!this.room) return;
-    this.room.status = 'coin'; this.room.turnStartedAt = null; this.room.pendingClockPress = null; this.room.strategyEndsAt = null;
-    this.room.whiteClockMs = GAME_CLOCK_MS; this.room.blackClockMs = GAME_CLOCK_MS; this.room.moves = []; this.room.result = null;
-    this.room.check = false; this.room.checkmate = false; this.room.coin = emptyCoin(); this.room.auction = emptyAuction(); this.room.colorAuction = emptyColorAuction(); this.room.lastActivityAt = now;
+    const current = this.room.session;
+    let next = createGameSession({
+      id: current.id, state: 'LOBBY', positionId: current.positionId, fen: current.fen, sideToMove: 'white',
+      clockMs: GAME_CLOCK_MS, incrementMs: GAME_INCREMENT_MS, connectionStatus: 'CONNECTED', now,
+    });
+    next = reduceGameSession(next, { type: 'TRANSITION', to: 'READY', at: now });
+    next = reduceGameSession(next, { type: 'TRANSITION', to: 'COIN_TOSS', at: now });
+    this.room.session = next;
+    this.room.coin = emptyCoin(); this.room.auction = emptyAuction(); this.room.colorAuction = emptyColorAuction(); this.room.lastActivityAt = now;
   }
 
   private startStrategy(now: number): void {
     if (!this.room) return;
-    this.room.status = 'strategy'; this.room.strategyEndsAt = now + STRATEGY_MS; this.room.turnStartedAt = null; this.room.pendingClockPress = null; this.room.lastActivityAt = now;
+    this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'COUNTDOWN', at: now });
+    this.room.session = reduceGameSession(this.room.session, { type: 'SET_COUNTDOWN', remainingMs: STRATEGY_MS, endsAt: now + STRATEGY_MS, at: now });
+    this.room.lastActivityAt = now;
   }
 
   private async callCoin(ws: WebSocket, token: string, face: CoinFace): Promise<void> {
-    if (!this.room || this.room.status !== 'coin' || !this.room.players.black) return this.sendError(ws, 'The coin toss is not available right now.');
+    if (!this.room || this.room.session.state !== 'COIN_TOSS' || !this.room.players.black) return this.sendError(ws, 'The coin toss is not available right now.');
     if (this.room.colorAuction.leaderToken) return this.sendError(ws, 'A paid color bid is active. Outbid it or let the leader lock the winning side.');
     if (face !== 'heads' && face !== 'tails') return this.sendError(ws, 'Choose Heads or Tails.');
     if (this.room.coin.result || this.room.coin.claimedByToken) return this.sendError(ws, 'Another player already called the coin.');
@@ -356,7 +427,7 @@ export class ChessRoom extends DurableObject<Env> {
   }
 
   private async claimPositionBid(ws: WebSocket, token: string, rawSessionId: unknown): Promise<void> {
-    if (!this.room || (this.room.status !== 'coin' && this.room.status !== 'strategy')) return this.sendError(ws, 'Position bidding closes when play begins.');
+    if (!this.room || (this.room.session.state !== 'COIN_TOSS' && this.room.session.state !== 'COUNTDOWN')) return this.sendError(ws, 'Position bidding closes when play begins.');
     const sessionId = String(rawSessionId ?? '').trim();
     if (!sessionId) return this.sendError(ws, 'Missing Checkout Session.');
     if (this.room.auction.usedSessions.includes(sessionId)) return this.sendError(ws, 'That bid payment has already been claimed.');
@@ -408,7 +479,7 @@ export class ChessRoom extends DurableObject<Env> {
   }
 
   private async claimColorBid(ws: WebSocket, token: string, rawSessionId: unknown): Promise<void> {
-    if (!this.room || this.room.status !== 'coin' || !this.room.players.black || this.room.coin.result) return this.sendError(ws, 'Color bidding is only open before the coin toss is resolved.');
+    if (!this.room || this.room.session.state !== 'COIN_TOSS' || !this.room.players.black || this.room.coin.result) return this.sendError(ws, 'Color bidding is only open before the coin toss is resolved.');
     const sessionId = String(rawSessionId ?? '').trim();
     if (!sessionId) return this.sendError(ws, 'Missing color-bid Checkout Session.');
     if (this.room.colorAuction.usedSessions.includes(sessionId)) return this.sendError(ws, 'That color-bid payment has already been claimed.');
@@ -466,7 +537,7 @@ export class ChessRoom extends DurableObject<Env> {
   }
 
   private async settleColorBid(ws: WebSocket, token: string): Promise<void> {
-    if (!this.room || this.room.status !== 'coin' || this.room.coin.result) return this.sendError(ws, 'The color auction can no longer be settled.');
+    if (!this.room || this.room.session.state !== 'COIN_TOSS' || this.room.coin.result) return this.sendError(ws, 'The color auction can no longer be settled.');
     if (!this.room.colorAuction.leaderToken || !this.room.colorAuction.desiredColor) return this.sendError(ws, 'There is no winning color bid yet.');
     if (this.room.colorAuction.leaderToken !== token) return this.sendError(ws, 'Only the current high bidder can lock the winning side. You can still outbid them.');
     this.assignTokenToColor(token, this.room.colorAuction.desiredColor);
@@ -476,70 +547,121 @@ export class ChessRoom extends DurableObject<Env> {
   }
 
   private rerollPosition(): void {
-    if (!this.room) return; const positionId = randomChess960Id();
-    this.room.positionId = positionId; this.room.fen = chess960Fen(positionId); this.room.turn = 'white'; this.room.moves = []; this.room.result = null; this.room.check = false; this.room.checkmate = false;
+    if (!this.room) return;
+    const positionId = randomChess960Id();
+    this.room.session = {
+      ...this.room.session,
+      positionId, fen: chess960Fen(positionId), sideToMove: 'white', pendingClockPress: null,
+      movesSan: [], moveNumber: 0, result: null, resultKind: null, winner: null,
+      drawOffers: { white: false, black: false }, resignedBy: null, check: false, checkmate: false,
+    };
   }
   private startPlaying(now: number): void {
-    if (!this.room) return; this.room.status = 'playing'; this.room.strategyEndsAt = null; this.room.pendingClockPress = null; this.room.turnStartedAt = now; this.room.lastActivityAt = now;
+    if (!this.room || this.room.session.state !== 'COUNTDOWN') return;
+    this.room.session = reduceGameSession(this.room.session, { type: 'SET_COUNTDOWN', remainingMs: 0, endsAt: null, at: now });
+    this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
+    this.room.lastActivityAt = now;
   }
   private settleActiveClock(now: number): void {
-    if (!this.room || this.room.status !== 'playing' || this.room.turnStartedAt === null) return;
-    const owner = activeClockColor(this.room); if (!owner) return;
-    const elapsed = Math.max(0, now - this.room.turnStartedAt);
-    if (owner === 'white') this.room.whiteClockMs = Math.max(0, this.room.whiteClockMs - elapsed);
-    else this.room.blackClockMs = Math.max(0, this.room.blackClockMs - elapsed);
-    this.room.turnStartedAt = now;
+    if (!this.room || this.room.session.state !== 'ACTIVE' || this.room.session.clocks.startedAt === null) return;
+    const elapsed = Math.max(0, now - this.room.session.clocks.startedAt);
+    if (!elapsed) return;
+    this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TICK', elapsedMs: elapsed, at: now });
   }
   private async handleClockSlap(ws: WebSocket, color: Color): Promise<void> {
-    if (!this.room || this.room.status !== 'playing' || this.room.result) return this.sendError(ws, 'The clock is not accepting presses.');
-    if (this.room.pendingClockPress !== color) return this.sendError(ws, 'Make your move before pressing your clock.');
+    if (!this.room || this.room.session.state !== 'ACTIVE' || this.room.session.result) return this.sendError(ws, 'The clock is not accepting presses.');
+    if (this.room.session.pendingClockPress !== color) return this.sendError(ws, 'Make your move before pressing your clock.');
     const now = Date.now(); this.settleActiveClock(now);
-    const remaining = color === 'white' ? this.room.whiteClockMs : this.room.blackClockMs;
-    if (remaining <= 0) {
-      this.room.status = 'ended'; this.room.result = `${opposite(color) === 'white' ? 'White' : 'Black'} wins on time`; this.room.pendingClockPress = null; this.room.turnStartedAt = null; this.room.lastActivityAt = now;
-      await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
+    if (this.room.session.resultKind === 'TIMEOUT') {
+      this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }
-    this.room.pendingClockPress = null; this.room.turnStartedAt = now; this.room.lastActivityAt = now;
+    this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TRANSFERRED', at: now });
+    this.room.lastActivityAt = now;
     await this.persist(); await this.scheduleForState(); this.broadcast();
+  }
+  private async handleDrawOffer(ws: WebSocket, color: Color): Promise<void> {
+    if (!this.room || this.room.session.state !== 'ACTIVE') return this.sendError(ws, 'Draw offers are only available during active play.');
+    const other = opposite(color);
+    const now = Date.now();
+    if (this.room.session.drawOffers[other]) {
+      this.room.session = reduceGameSession(this.room.session, { type: 'OFFER_DRAW', by: color, at: now });
+      this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', kind: 'DRAW', text: 'Draw by agreement', winner: null, at: now });
+      await this.ctx.storage.deleteAlarm();
+    } else {
+      this.room.session = reduceGameSession(this.room.session, { type: 'OFFER_DRAW', by: color, at: now });
+    }
+    this.room.lastActivityAt = now; await this.persist(); this.broadcast();
+  }
+  private async handleDrawAccept(ws: WebSocket, color: Color): Promise<void> {
+    if (!this.room || this.room.session.state !== 'ACTIVE') return this.sendError(ws, 'There is no active draw offer.');
+    const other = opposite(color);
+    if (!this.room.session.drawOffers[other]) return this.sendError(ws, 'Your opponent has not offered a draw.');
+    const now = Date.now();
+    this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', kind: 'DRAW', text: 'Draw by agreement', winner: null, at: now });
+    this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast();
+  }
+  private async handleDrawDecline(ws: WebSocket, color: Color): Promise<void> {
+    if (!this.room || this.room.session.state !== 'ACTIVE') return this.sendError(ws, 'There is no active draw offer.');
+    const other = opposite(color);
+    if (!this.room.session.drawOffers[other]) return this.sendError(ws, 'Your opponent has not offered a draw.');
+    const now = Date.now();
+    this.room.session = reduceGameSession(this.room.session, { type: 'CLEAR_DRAW_OFFER', by: other, at: now });
+    this.room.lastActivityAt = now; await this.persist(); this.broadcast();
   }
   private async handleMove(ws: WebSocket, color: Color, rawUci: unknown): Promise<void> {
     if (!this.room) return;
-    if (this.room.status !== 'playing' || this.room.result) return this.sendError(ws, 'The game is not accepting moves.');
-    if (this.room.turn !== color) return this.sendError(ws, 'It is not your turn.');
-    if (this.room.pendingClockPress) return this.sendError(ws, 'The previous move is waiting for a clock press.');
+    if (!canColorMove(this.room.session, color)) return this.sendError(ws, this.room.session.pendingClockPress ? 'The previous move is waiting for a clock press.' : 'The game is not accepting that move.');
     const now = Date.now(); this.settleActiveClock(now);
-    const currentClock = color === 'white' ? this.room.whiteClockMs : this.room.blackClockMs;
-    if (currentClock <= 0) {
-      this.room.status = 'ended'; this.room.result = `${opposite(color) === 'white' ? 'White' : 'Black'} wins on time`; this.room.pendingClockPress = null; this.room.turnStartedAt = null;
-      await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
+    if (this.room.session.resultKind === 'TIMEOUT') {
+      this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
     }
     const uci = String(rawUci ?? '').trim().toLowerCase();
     if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return this.sendError(ws, 'Invalid move format.');
     let position: Chess;
-    try { position = Chess.fromSetup(parseFen(this.room.fen).unwrap()).unwrap(); }
+    try { position = Chess.fromSetup(parseFen(this.room.session.fen).unwrap()).unwrap(); }
     catch { return this.sendError(ws, 'The server could not read the room position.'); }
     const move = parseUci(uci);
-    if (!move || !position.isLegal(move)) { this.room.turnStartedAt = now; await this.persist(); await this.scheduleForState(); return this.sendError(ws, 'That move is not legal.'); }
+    if (!move || !position.isLegal(move)) { this.room.session.clocks.startedAt = now; await this.persist(); await this.scheduleForState(); return this.sendError(ws, 'That move is not legal.'); }
     const san = makeSan(position, move); position.play(move);
-    this.room.fen = makeFen(position.toSetup()); this.room.turn = position.turn; this.room.moves = [...this.room.moves, san].slice(-400);
-    this.room.check = position.isCheck(); this.room.checkmate = position.isCheckmate(); this.room.lastActivityAt = now;
-    const ending = resultText(position);
+    this.room.session = reduceGameSession(this.room.session, {
+      type: 'MOVE_COMMITTED', fen: makeFen(position.toSetup()), sideToMove: position.turn, mover: color, san,
+      check: position.isCheck(), checkmate: position.isCheckmate(), at: now,
+    });
+    this.room.lastActivityAt = now;
+    const ending = resultInfo(position);
     if (ending) {
-      this.room.status = 'ended'; this.room.result = ending; this.room.pendingClockPress = null; this.room.turnStartedAt = null; await this.ctx.storage.deleteAlarm();
-    } else {
-      this.room.pendingClockPress = color; this.room.turnStartedAt = now;
+      this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', ...ending, at: now });
+      await this.ctx.storage.deleteAlarm();
     }
     await this.persist(); await this.scheduleForState(); this.broadcast();
   }
 
   private async persist(): Promise<void> { if (this.room) await this.ctx.storage.put('room', this.room); }
+  private async syncConnectionState(): Promise<void> {
+    if (!this.room) return;
+    const connected = this.connectedColors();
+    const white = connected.has('white');
+    const black = connected.has('black');
+    const both = white && Boolean(this.room.players.black) && black;
+    const now = Date.now();
+    if (this.room.session.state === 'ACTIVE' && !both) {
+      this.settleActiveClock(now);
+      if (this.room.session.state === 'ACTIVE') this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'RECONNECTING', white, black, at: now });
+    } else if (this.room.session.state === 'RECONNECTING' && both) {
+      this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
+    } else {
+      const status = both ? 'CONNECTED' : 'DISCONNECTED';
+      this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status, white, black, at: now });
+    }
+    await this.persist(); await this.scheduleForState();
+  }
   private async scheduleForState(): Promise<void> {
     if (!this.room) return;
-    if (this.room.status === 'coin' && this.room.coin.endsAt) { await this.ctx.storage.setAlarm(this.room.coin.endsAt); return; }
-    if (this.room.status === 'strategy' && this.room.strategyEndsAt) { await this.ctx.storage.setAlarm(this.room.strategyEndsAt); return; }
-    if (this.room.status === 'playing' && this.room.turnStartedAt !== null) {
+    if (this.room.session.state === 'COIN_TOSS' && this.room.coin.endsAt) { await this.ctx.storage.setAlarm(this.room.coin.endsAt); return; }
+    if (this.room.session.state === 'COUNTDOWN' && this.room.session.countdownEndsAt) { await this.ctx.storage.setAlarm(this.room.session.countdownEndsAt); return; }
+    if (this.room.session.state === 'ACTIVE' && this.room.session.clocks.startedAt !== null) {
       const owner = activeClockColor(this.room); if (!owner) return;
-      const remaining = owner === 'white' ? this.room.whiteClockMs : this.room.blackClockMs;
+      const remaining = owner === 'white' ? this.room.session.clocks.whiteMs : this.room.session.clocks.blackMs;
       await this.ctx.storage.setAlarm(Date.now() + Math.max(1, remaining)); return;
     }
     await this.ctx.storage.deleteAlarm();
