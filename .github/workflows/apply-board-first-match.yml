@@ -1,0 +1,29 @@
+name: Apply board-first 2D match layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply-board-first-match.mjs'
+      - '.github/workflows/apply-board-first-match.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply board-first match migration
+        run: node scripts/apply-board-first-match.mjs
+      - name: Commit match layout
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/LocalGame.tsx src/multiplayer/OnlineArena.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Make 2D match board first"
+          git push origin main
