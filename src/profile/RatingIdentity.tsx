@@ -16,6 +16,8 @@ function recordLabel(state: Chess960RatingState): string {
 }
 
 export default function RatingIdentity({ account }: { account: Account }) {
+  const ratedGames = RATING_ORDER.reduce((total, key) => total + account.chess960Ratings[key].games, 0);
+
   return (
     <section className="player-rating-sheet" aria-label="Chess960 ratings">
       <header className="player-rating-heading">
@@ -53,7 +55,8 @@ export default function RatingIdentity({ account }: { account: Account }) {
       </div>
 
       <footer className="player-rating-footer">
-        <span><b>{account.gamesPlayed}</b> rated games</span>
+        <span><b>{ratedGames}</b> rated games</span>
+        <span><b>{account.gamesPlayed}</b> completed online games</span>
         <span><b>{account.wins}-{account.losses}-{account.draws}</b> overall record</span>
         <span>Lower RD means the rating is more established.</span>
       </footer>
