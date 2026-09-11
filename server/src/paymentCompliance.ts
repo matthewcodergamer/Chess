@@ -1,5 +1,6 @@
 import type { PaymentsEnv } from './paymentApi';
 
+type ComplianceEnv = PaymentsEnv & { PAYMENTS_COMPLIANCE_WEBHOOK_SECRET?: string };
 type LedgerStub = { fetch(request: Request): Promise<Response> };
 type LedgerNamespace = { idFromName(name: string): DurableObjectId; get(id: DurableObjectId): LedgerStub };
 
@@ -40,12 +41,12 @@ function constantTimeEqual(left: string, right: string): boolean {
   return mismatch === 0;
 }
 
-function ledgerStub(env: PaymentsEnv): LedgerStub {
+function ledgerStub(env: ComplianceEnv): LedgerStub {
   const namespace = env.PAYMENTS as unknown as LedgerNamespace;
   return namespace.get(namespace.idFromName('qqurz-global-payment-ledger-v1'));
 }
 
-export async function handlePaymentComplianceWebhook(request: Request, env: PaymentsEnv): Promise<Response | null> {
+export async function handlePaymentComplianceWebhook(request: Request, env: ComplianceEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== '/payments/webhooks/compliance') return null;
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
