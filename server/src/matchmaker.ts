@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { resolveAccountSession, type AccountEnv } from './accounts';
 
 type SeatColor = 'white' | 'black';
 type RoomSeat = { code: string; token: string; color: SeatColor };
@@ -6,6 +7,7 @@ type PresenceRecord = { name: string; lastSeen: number };
 type TicketRecord = {
   id: string;
   name: string;
+  accountId: string | null;
   presenceId: string;
   createdAt: number;
   status: 'waiting' | 'matched';
@@ -19,7 +21,7 @@ type LobbyState = {
   tickets: Record<string, TicketRecord>;
 };
 
-export type MatchmakerEnv = {
+export type MatchmakerEnv = AccountEnv & {
   MATCHMAKER: DurableObjectNamespace<Matchmaker>;
   ROOMS: DurableObjectNamespace;
 };
@@ -65,14 +67,16 @@ export async function handleMatchmakerRequest(request: Request, env: MatchmakerE
     || url.pathname === '/matchmaking/cancel';
   if (!handled) return null;
 
+  const identity = await resolveAccountSession(request, env);
   const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
   const target = new URL(`https://matchmaker.internal${url.pathname}${url.search}`);
   const stub = env.MATCHMAKER.get(env.MATCHMAKER.idFromName('qqurz-global-lobby'));
-  return stub.fetch(new Request(target, {
-    method: request.method,
-    headers: { 'content-type': request.headers.get('content-type') ?? 'application/json' },
-    body,
-  }));
+  const headers = new Headers({ 'content-type': request.headers.get('content-type') ?? 'application/json' });
+  if (identity) {
+    headers.set('x-qqurz-account-id', identity.id);
+    headers.set('x-qqurz-account-name', identity.displayName);
+  }
+  return stub.fetch(new Request(target, { method: request.method, headers, body }));
 }
 
 export class Matchmaker extends DurableObject<MatchmakerEnv> {
@@ -123,14 +127,14 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     };
   }
 
-  private async allocateRoom(firstName: string, secondName: string): Promise<{ first: RoomSeat; second: RoomSeat }> {
+  private async allocateRoom(firstName: string, firstAccountId: string | null, secondName: string, secondAccountId: string | null): Promise<{ first: RoomSeat; second: RoomSeat }> {
     for (let attempt = 0; attempt < 12; attempt += 1) {
       const code = roomCode();
       const room = this.env.ROOMS.get(this.env.ROOMS.idFromName(code));
       const created = await room.fetch(new Request('https://room.internal/create', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ code, name: firstName }),
+        body: JSON.stringify({ code, name: firstName, accountId: firstAccountId }),
       }));
       if (created.status === 409) continue;
       if (!created.ok) throw new Error('Could not create a matchmaking room.');
@@ -139,7 +143,7 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
       const joined = await room.fetch(new Request('https://room.internal/join', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: secondName }),
+        body: JSON.stringify({ name: secondName, accountId: secondAccountId }),
       }));
       if (!joined.ok) throw new Error('Could not seat the matched opponent.');
       const second = await joined.json() as RoomSeat;
@@ -152,6 +156,8 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     const url = new URL(request.url);
     const now = Date.now();
     this.prune(now);
+    const authenticatedName = request.headers.get('x-qqurz-account-name');
+    const accountId = request.headers.get('x-qqurz-account-id') || null;
 
     if (request.method === 'GET' && url.pathname === '/presence') {
       await this.persist();
@@ -161,19 +167,20 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     if (request.method === 'POST' && url.pathname === '/presence/ping') {
       const body = await request.json().catch(() => ({})) as Record<string, unknown>;
       const presenceId = normalizePresenceId(body.presenceId);
-      this.touchPresence(presenceId, normalizeName(body.name), now);
+      this.touchPresence(presenceId, authenticatedName ? normalizeName(authenticatedName) : normalizeName(body.name), now);
       await this.persist();
       return json({ presenceId, onlinePlayers: this.onlinePlayers() });
     }
 
     if (request.method === 'POST' && url.pathname === '/matchmaking/enqueue') {
       const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-      const name = normalizeName(body.name);
+      const name = authenticatedName ? normalizeName(authenticatedName) : normalizeName(body.name);
       const presenceId = normalizePresenceId(body.presenceId);
       this.touchPresence(presenceId, name, now);
 
       const previous = Object.values(this.state.tickets).find(ticket => ticket.presenceId === presenceId && ticket.status === 'waiting');
       if (previous) {
+        if (accountId && !previous.accountId) previous.accountId = accountId;
         await this.persist();
         return json(this.ticketPayload(previous));
       }
@@ -187,6 +194,7 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
       const newcomer: TicketRecord = {
         id,
         name,
+        accountId,
         presenceId,
         createdAt: now,
         status: 'waiting',
@@ -204,7 +212,7 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
 
       const opponent = this.state.tickets[opponentId];
       try {
-        const seats = await this.allocateRoom(opponent.name, newcomer.name);
+        const seats = await this.allocateRoom(opponent.name, opponent.accountId ?? null, newcomer.name, newcomer.accountId);
         opponent.status = 'matched';
         opponent.seat = seats.first;
         opponent.opponent = newcomer.name;
