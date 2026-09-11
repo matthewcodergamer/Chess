@@ -1,0 +1,105 @@
+name: Apply chess-app homepage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/ui/HomeDashboard.tsx'
+      - 'src/ui/HomeBoardPreview.tsx'
+      - 'src/styles/home.css'
+      - '.github/workflows/apply-home-dashboard.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Wire dashboard and responsive layout
+        shell: python
+        run: |
+          from pathlib import Path
+
+          app_path = Path('src/AppV14.tsx')
+          app = app_path.read_text()
+          app = app.replace("import HomeBoardPreview from './ui/HomeBoardPreview';", "import HomeDashboard from './ui/HomeDashboard';")
+          start_marker = "      {screen === 'home' && ("
+          end_marker = "      {screen === 'local' &&"
+          start = app.index(start_marker)
+          end = app.index(end_marker, start)
+          replacement = """      {screen === 'home' && (
+        <HomeDashboard
+          onlineLabel={onlineLabel}
+          onProfile={() => openScreen('account')}
+          onTournament={() => openScreen('tournaments')}
+          onFriend={openFriends}
+          onSameDevice={() => openLocal('human')}
+          onMatchmaking={openMatchmaking}
+          onPremium3D={() => openScreen('3d')}
+          onAI={() => openLocal('ai')}
+        />
+      )}\n\n"""
+          app = app[:start] + replacement + app[end:]
+          app_path.write_text(app)
+
+          responsive_path = Path('src/styles/responsive.css')
+          responsive = responsive_path.read_text()
+          marker = '/* Home dashboard responsive layout */'
+          if marker not in responsive:
+              responsive += """
+
+/* Home dashboard responsive layout */
+@media (max-width:900px){
+  .home-dashboard{grid-template-columns:1fr;max-width:760px}
+  .home-player-status,.home-activity-grid,.home-premium-row,.home-ai-row,.qqurz-home-footer-v24{grid-column:1}
+  .home-board-area{width:100%;max-width:680px;justify-self:center}
+}
+
+@media (max-width:720px){
+  .qqurz-home-v24.home-dashboard{width:100%;max-width:none;padding:var(--q-space-16) var(--q-space-12) calc(var(--q-space-32) + env(safe-area-inset-bottom));gap:var(--q-space-16)}
+  .home-player-status{min-height:0;padding:var(--q-space-8);gap:var(--q-space-8)}
+  .home-player-identity,.home-online-status{padding-inline:var(--q-space-8)}
+  .home-player-avatar{width:var(--q-control-sm);height:var(--q-control-sm)}
+  .home-play-panel{padding:var(--q-space-16);gap:var(--q-space-16);border-radius:var(--q-radius-md)}
+  .home-play-heading h1{font-size:var(--q-type-title)}
+  .home-time-control{padding-top:var(--q-space-12)}
+  .home-secondary-play{grid-template-columns:1fr;gap:var(--q-space-8)}
+  .home-board-area{padding:var(--q-space-8);border-radius:var(--q-radius-md);box-shadow:none}
+  .home-section-heading{padding:var(--q-space-4) var(--q-space-4) var(--q-space-8)}
+  .home-live-board-shell{padding:var(--q-space-8);border-radius:var(--q-radius-sm);box-shadow:none}
+  .home-activity-grid{grid-template-columns:1fr;gap:var(--q-space-8)}
+  .home-activity-card{grid-template-columns:auto minmax(0,1fr);padding:var(--q-space-12)}
+  .home-activity-card>.qqurz-button{grid-column:1/-1;width:100%}
+  .home-premium-row,.home-ai-row{grid-template-columns:auto minmax(0,1fr);gap:var(--q-space-12);padding:var(--q-space-12)}
+  .home-premium-row>.qqurz-button,.home-ai-row>.qqurz-button{grid-column:1/-1;width:100%}
+  .qqurz-home-footer-v24{padding-top:var(--q-space-8)}
+}
+
+@media (max-width:480px){
+  .home-player-status{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .home-online-status{width:var(--q-control-sm);padding:0;justify-content:center}
+  .home-online-status>span:last-child{display:none}
+  .home-play-heading{align-items:flex-start}
+  .home-time-control>div:first-child{align-items:flex-start;flex-direction:column;gap:var(--q-space-4)}
+  .home-time-segments{gap:var(--q-space-4)}
+  .home-section-heading{align-items:flex-start}
+  .home-section-heading>div{min-width:0}
+  .home-section-heading>.qqurz-button{flex:0 0 auto}
+  .qqurz-home-footer-v24{display:grid;gap:var(--q-space-4)}
+}
+"""
+          responsive_path.write_text(responsive)
+      - name: Validate production build
+        run: npm ci && npm run build
+      - name: Commit dashboard wiring
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/AppV14.tsx src/styles/responsive.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Finish chess-app homepage dashboard"
+          git push origin main
