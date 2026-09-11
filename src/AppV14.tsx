@@ -4,6 +4,14 @@ import type { RoomSeat } from './multiplayer/types';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
 import { IconButton } from './ui/controls';
 import HomeDashboard from './ui/HomeDashboard';
+import FirstRunOnboarding from './onboarding/FirstRunOnboarding';
+import {
+  boardAppearanceLabel,
+  hasCompletedOnboarding,
+  loadBoardAppearance,
+  saveBoardAppearance,
+  type BoardAppearance,
+} from './onboarding/preferences';
 
 const LocalGame = lazy(() => import('./LocalGame'));
 const OnlineArena = lazy(() => import('./multiplayer/OnlineArena'));
@@ -69,6 +77,8 @@ export default function AppV14() {
   const [localMode, setLocalMode] = useState<LocalMode>('human');
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [fontScale, setFontScale] = useState<FontScale>(initialFontScale);
+  const [boardAppearance, setBoardAppearance] = useState<BoardAppearance>(loadBoardAppearance);
+  const [onboardingComplete, setOnboardingComplete] = useState(hasCompletedOnboarding);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(soundEnabled);
@@ -87,6 +97,11 @@ export default function AppV14() {
   }, [fontScale]);
 
   useEffect(() => {
+    document.documentElement.dataset.boardTheme = boardAppearance;
+    saveBoardAppearance(boardAppearance);
+  }, [boardAppearance]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       void import('./LocalGame');
       void import('./multiplayer/OnlineArena');
@@ -96,7 +111,7 @@ export default function AppV14() {
   }, []);
 
   useEffect(() => {
-    if (!multiplayerConfigured) return;
+    if (!onboardingComplete || !multiplayerConfigured) return;
     let stopped = false;
     const ping = async () => {
       try {
@@ -115,7 +130,7 @@ export default function AppV14() {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [presenceId]);
+  }, [onboardingComplete, presenceId]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -171,17 +186,34 @@ export default function AppV14() {
     setFontScale(value => value === 'default' ? 'large' : value === 'large' ? 'extra' : 'default');
   };
 
+  const cycleBoardAppearance = () => {
+    setBoardAppearance(value => value === 'walnut' ? 'tournament' : value === 'tournament' ? 'slate' : 'walnut');
+  };
+
   const handleRandomMatch = (_seat: RoomSeat) => {
     setOnlineVariant('friends');
     closeMenus();
     setScreen('online');
   };
 
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    setSoundEnabled(next);
+  const applySound = (value: boolean) => {
+    setSoundOn(value);
+    setSoundEnabled(value);
   };
+
+  const toggleSound = () => applySound(!soundOn);
+
+  if (!onboardingComplete) {
+    return (
+      <FirstRunOnboarding
+        initialBoardAppearance={boardAppearance}
+        initialSoundOn={soundOn}
+        onBoardAppearanceChange={setBoardAppearance}
+        onSoundChange={applySound}
+        onComplete={() => setOnboardingComplete(true)}
+      />
+    );
+  }
 
   const onlineLabel = onlinePlayers === null ? 'Connecting…' : `${onlinePlayers.toLocaleString()} online`;
 
@@ -225,7 +257,8 @@ export default function AppV14() {
               <button className={fontScale === 'extra' ? 'selected' : ''} onClick={() => setFontScale('extra')}>Extra large</button>
             </div>
           </div>
-          <div className="display-setting-row"><span>Board theme</span><button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Light' : 'Dark'}</button></div>
+          <div className="display-setting-row"><span>App theme</span><button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Light' : 'Dark'}</button></div>
+          <div className="display-setting-row"><span>Board appearance</span><button onClick={cycleBoardAppearance}>{boardAppearanceLabel(boardAppearance)}</button></div>
           <div className="display-setting-row"><span>Game sounds</span><button onClick={toggleSound}>{soundOn ? 'On' : 'Off'}</button></div>
         </section>
       )}
@@ -250,7 +283,8 @@ export default function AppV14() {
               <button onClick={openMatchmaking}>Find an opponent</button>
             </div>
             <div className="drawer-settings" aria-label="Preferences and settings">
-              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><div><b>Theme</b><small>{theme === 'dark' ? 'Dark' : 'Light'}</small></div></button>
+              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><div><b>App theme</b><small>{theme === 'dark' ? 'Dark' : 'Light'}</small></div></button>
+              <button onClick={cycleBoardAppearance}><span>▦</span><div><b>Board</b><small>{boardAppearanceLabel(boardAppearance)}</small></div></button>
               <button onClick={toggleSound}><span>{soundOn ? '♪' : '×'}</span><div><b>Sound</b><small>{soundOn ? 'On' : 'Off'}</small></div></button>
               <button onClick={cycleTextSize}><span>Aa</span><div><b>Text size</b><small>{fontScaleLabel(fontScale)}</small></div></button>
               <button onClick={openDisplaySettings}><span>◎</span><div><b>Accessibility</b><small>Readable display controls</small></div></button>
