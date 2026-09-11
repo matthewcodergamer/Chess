@@ -6,7 +6,7 @@ import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRo
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
 import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngineRegistry';
-import { TournamentChessRoom as ChessRoom } from './tournamentRoom';
+import { CoinGateChessRoom as ChessRoom } from './coinGateRoom';
 
 export { AccountRegistry, ChessRoom, Matchmaker, TournamentRegistry };
 
