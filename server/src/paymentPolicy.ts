@@ -1,3 +1,5 @@
+import { basisPointsAmount } from '../../shared/money';
+
 export type MoneyPurpose =
   | 'wallet_deposit'
   | 'friend_match_entry'
@@ -8,9 +10,41 @@ export type MoneyPurpose =
   | 'position_bid'
   | 'premium_purchase'
   | 'refund'
-  | 'withdrawal';
+  | 'withdrawal'
+  | 'adjustment';
 
 export type CompetitionProvider = 'nuvei' | 'approved_provider';
+export type PaymentFeePolicyId = 'friend_match_v1' | 'tournament_v1';
+
+export type PaymentFeePolicy = {
+  id: PaymentFeePolicyId;
+  platformFeeBps: number;
+  currency: 'USD';
+  description: string;
+};
+
+export const PAYMENT_FEE_POLICY_TABLE: Readonly<Record<PaymentFeePolicyId, Readonly<PaymentFeePolicy>>> = Object.freeze({
+  friend_match_v1: Object.freeze({
+    id: 'friend_match_v1',
+    platformFeeBps: 2_000,
+    currency: 'USD',
+    description: 'QQURZ friend-match platform fee: 20% of the funded pot.',
+  }),
+  tournament_v1: Object.freeze({
+    id: 'tournament_v1',
+    platformFeeBps: 2_000,
+    currency: 'USD',
+    description: 'QQURZ tournament platform fee: 20% of the funded entry pot before prize shares.',
+  }),
+});
+
+export function feePolicyForPurpose(purpose: 'friend_match_prize' | 'tournament_prize'): Readonly<PaymentFeePolicy> {
+  return purpose === 'tournament_prize' ? PAYMENT_FEE_POLICY_TABLE.tournament_v1 : PAYMENT_FEE_POLICY_TABLE.friend_match_v1;
+}
+
+export function platformFeeCents(potCents: number, policy: Pick<PaymentFeePolicy, 'platformFeeBps'>): number {
+  return basisPointsAmount(potCents, policy.platformFeeBps);
+}
 
 export type JurisdictionPolicy = {
   enabled: boolean;
@@ -102,7 +136,7 @@ export function parseJurisdictionPolicies(env: PaymentPolicyEnv): Record<string,
 }
 
 function capabilityForPurpose(policy: JurisdictionPolicy, purpose: MoneyPurpose): boolean {
-  if (purpose === 'premium_purchase' || purpose === 'refund') return true;
+  if (purpose === 'premium_purchase' || purpose === 'refund' || purpose === 'adjustment') return true;
   if (purpose === 'wallet_deposit') return policy.deposits;
   if (purpose === 'friend_match_entry' || purpose === 'friend_match_prize' || purpose === 'color_bid' || purpose === 'position_bid') return policy.friendMatches;
   if (purpose === 'tournament_entry') return policy.tournamentEntries;
