@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/migrate-online-session.mjs'
+      - 'scripts/check-clock-system.mjs'
       - '.github/workflows/migrate-online-session.yml'
 
 permissions:
