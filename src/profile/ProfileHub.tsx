@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DestructiveButton, PrimaryButton, SecondaryButton, SegmentedControl } from '../ui/controls';
+import RatingIdentity from './RatingIdentity';
 import {
   accountToken,
   blockPlayer,
@@ -261,7 +262,6 @@ export default function ProfileHub({ onBack }: Props) {
     );
   }
 
-  const winRate = account.gamesPlayed ? Math.round((account.wins / account.gamesPlayed) * 100) : 0;
 
   return (
     <div className="account-page qqurz-content-page">
@@ -269,7 +269,7 @@ export default function ProfileHub({ onBack }: Props) {
         <SecondaryButton size="sm" leadingIcon="←" onClick={onBack}>Home</SecondaryButton>
         <div className="account-identity">
           <Avatar account={account} large />
-          <div><span className="qqurz-kicker">PLAYER ACCOUNT</span><h1>{account.displayName}</h1><p>@{account.username} · {flagFor(account.countryCode)} {account.countryCode || 'Country not set'}</p></div>
+          <div><span className="qqurz-kicker">CHESS960 PLAYER</span><h1>{account.displayName}</h1><p>@{account.username} · {flagFor(account.countryCode)} {account.countryCode || 'Country not set'}</p></div>
         </div>
         <SecondaryButton size="sm" onClick={doLogout} loading={busy}>Log out</SecondaryButton>
       </header>
@@ -288,11 +288,7 @@ export default function ProfileHub({ onBack }: Props) {
 
       {tab === 'overview' && (
         <div className="account-content-grid">
-          <section className="account-stats" aria-label="Ratings">
-            <article><small>RATING</small><strong>{account.rating}</strong><span>{account.gamesPlayed} rated games</span></article>
-            <article><small>CHESS960</small><strong>{account.chess960Rating}</strong><span>QQURZ freestyle rating</span></article>
-            <article><small>RECORD</small><strong>{account.wins}-{account.losses}-{account.draws}</strong><span>{winRate}% wins</span></article>
-          </section>
+          <RatingIdentity account={account} />
 
           <section className="account-panel account-profile-editor">
             <div className="account-panel-heading"><div><span className="qqurz-kicker">IDENTITY</span><h2>Player profile</h2></div><span>{flagFor(countryCode)}</span></div>
@@ -323,7 +319,7 @@ export default function ProfileHub({ onBack }: Props) {
         <section className="account-panel account-history-panel">
           <div className="account-panel-heading"><div><span className="qqurz-kicker">GAME HISTORY</span><h2>{account.gameHistory.length ? `${account.gameHistory.length} recent games` : 'No rated games yet'}</h2></div></div>
           <div className="account-history-list">
-            {account.gameHistory.map(game => <article key={game.id}><span className={`account-result ${game.outcome}`}>{game.outcome === 'win' ? 'W' : game.outcome === 'loss' ? 'L' : 'D'}</span><div><b>{game.opponentName}</b><small>{dateLabel(game.playedAt)} · {timeControl(game.baseMs, game.incrementMs)} · Chess960 #{game.positionId ?? '—'}</small><p>{game.result}</p></div><strong>{game.chess960RatingAfter}{game.rated ? ` ${game.chess960RatingAfter >= game.chess960RatingBefore ? '+' : ''}${game.chess960RatingAfter - game.chess960RatingBefore}` : ''}</strong></article>)}
+            {account.gameHistory.map(game => <article key={game.id}><span className={`account-result ${game.outcome}`}>{game.outcome === 'win' ? 'W' : game.outcome === 'loss' ? 'L' : 'D'}</span><div><b>{game.opponentName}</b><small>{dateLabel(game.playedAt)} · {timeControl(game.baseMs, game.incrementMs)} · Chess960 {game.ratingClass[0].toUpperCase() + game.ratingClass.slice(1)} · #{game.positionId ?? '—'}</small><p>{game.result}{game.rated ? ` · RD ${Math.round(game.ratingDeviationAfter)}` : ' · Unrated'}</p></div><strong>{Math.round(game.ratingAfter)}{game.rated ? ` ${Math.round(game.ratingAfter - game.ratingBefore) >= 0 ? '+' : ''}${Math.round(game.ratingAfter - game.ratingBefore)}` : ''}</strong></article>)}
             {!account.gameHistory.length && <div className="account-empty"><span>♟</span><b>Your completed online games will appear here.</b><small>Ratings and results are written by the server, not by the browser.</small></div>}
           </div>
         </section>

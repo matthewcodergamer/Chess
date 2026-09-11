@@ -1,4 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
+import { ratingClassForTimeControl, type Chess960RatingClass } from '../../shared/timeControl';
+import { createGlicko2Rating, normalizeGlicko2Rating, rateGlicko2, type Glicko2Rating } from './rating';
 
 export type AccountEnv = {
   ACCOUNTS: DurableObjectNamespace<AccountRegistry>;
@@ -26,6 +28,8 @@ type AccountSettings = {
   timezone: string;
 };
 
+type Chess960RatingBook = Record<Chess960RatingClass, Glicko2Rating>;
+
 type AccountGame = {
   id: string;
   roomCode: string;
@@ -37,8 +41,11 @@ type AccountGame = {
   resultKind: string | null;
   outcome: 'win' | 'loss' | 'draw';
   rated: boolean;
+  ratingClass: Chess960RatingClass;
   ratingBefore: number;
   ratingAfter: number;
+  ratingDeviationBefore: number;
+  ratingDeviationAfter: number;
   chess960RatingBefore: number;
   chess960RatingAfter: number;
   positionId: number | null;
@@ -84,6 +91,8 @@ type AccountRecord = {
   countryCode: string;
   avatar: string;
   avatarImage: string | null;
+  ratingModel: 'glicko2';
+  chess960Ratings: Chess960RatingBook;
   rating: number;
   chess960Rating: number;
   gamesPlayed: number;
@@ -253,6 +262,46 @@ function ipPrefix(value: string): string {
   return parts.length === 4 ? `${parts[0]}.${parts[1]}.${parts[2]}.0` : '';
 }
 
+function createRatingBook(seedRating = 1500): Chess960RatingBook {
+  return {
+    rapid: createGlicko2Rating(seedRating),
+    blitz: createGlicko2Rating(seedRating),
+    bullet: createGlicko2Rating(seedRating),
+  };
+}
+
+function migrateStoredAccount(raw: unknown): AccountRecord | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const account = raw as AccountRecord & Record<string, any>;
+  if (!account.id || !account.email || !account.username) return null;
+  const legacySeed = Number.isFinite(Number(account.chess960Rating)) ? Number(account.chess960Rating) : 1500;
+  const source = account.chess960Ratings as Partial<Chess960RatingBook> | undefined;
+  account.ratingModel = 'glicko2';
+  account.chess960Ratings = {
+    rapid: normalizeGlicko2Rating(source?.rapid, legacySeed),
+    blitz: normalizeGlicko2Rating(source?.blitz, legacySeed),
+    bullet: normalizeGlicko2Rating(source?.bullet, legacySeed),
+  };
+  account.rating = Math.round(account.chess960Ratings.rapid.rating);
+  account.chess960Rating = Math.round(account.chess960Ratings.rapid.rating);
+  account.gameHistory = Array.isArray(account.gameHistory) ? account.gameHistory.map((game: any) => {
+    const ratingClass: Chess960RatingClass = game.ratingClass === 'rapid' || game.ratingClass === 'blitz' || game.ratingClass === 'bullet'
+      ? game.ratingClass
+      : ratingClassForTimeControl(Number(game.baseMs) || 0, Number(game.incrementMs) || 0);
+    return {
+      ...game,
+      ratingClass,
+      ratingDeviationBefore: Number.isFinite(Number(game.ratingDeviationBefore)) ? Number(game.ratingDeviationBefore) : 350,
+      ratingDeviationAfter: Number.isFinite(Number(game.ratingDeviationAfter)) ? Number(game.ratingDeviationAfter) : 350,
+    };
+  }) : [];
+  account.tournamentHistory = Array.isArray(account.tournamentHistory) ? account.tournamentHistory : [];
+  account.trophies = Array.isArray(account.trophies) ? account.trophies : [];
+  account.blockedPlayerIds = Array.isArray(account.blockedPlayerIds) ? account.blockedPlayerIds : [];
+  account.sessions = account.sessions && typeof account.sessions === 'object' ? account.sessions : {};
+  return account;
+}
+
 function publicAccount(account: AccountRecord): PublicAccount {
   const { passwordHash: _passwordHash, passwordSalt: _passwordSalt, passwordIterations: _passwordIterations, failedLoginCount: _failed, lockUntil: _lock, sessions, ...rest } = account;
   return { ...rest, sessionCount: Object.keys(sessions).length };
@@ -339,7 +388,12 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
   }
 
   private async getAccount(id: string): Promise<AccountRecord | null> {
-    return (await this.ctx.storage.get<AccountRecord>(`account:${id}`)) ?? null;
+    const raw = await this.ctx.storage.get<unknown>(`account:${id}`);
+    const migrated = migrateStoredAccount(raw);
+    if (migrated && raw && typeof raw === 'object' && (!(raw as Record<string, unknown>).chess960Ratings || (raw as Record<string, unknown>).ratingModel !== 'glicko2')) {
+      await this.ctx.storage.put(`account:${id}`, migrated);
+    }
+    return migrated;
   }
 
   private async putAccount(account: AccountRecord): Promise<void> {
@@ -468,8 +522,10 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
       countryCode: normalizeCountry(body.countryCode),
       avatar: normalizeAvatar(body.avatar),
       avatarImage: normalizeAvatarImage(body.avatarImage),
-      rating: 1200,
-      chess960Rating: 1200,
+      ratingModel: 'glicko2',
+      chess960Ratings: createRatingBook(),
+      rating: 1500,
+      chess960Rating: 1500,
       gamesPlayed: 0,
       wins: 0,
       draws: 0,
@@ -727,10 +783,6 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
     return winner === null ? 'draw' : winner === color ? 'win' : 'loss';
   }
 
-  private expected(rating: number, opponent: number): number {
-    return 1 / (1 + 10 ** ((opponent - rating) / 400));
-  }
-
   private async recordGameResult(request: Request): Promise<Response> {
     const game = await request.json().catch(() => null) as GameResultInput | null;
     if (!game?.id || !game.roomCode) return json({ error: 'Invalid game result.' }, 400);
@@ -740,23 +792,22 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
     const white = game.white.accountId ? await this.getAccount(game.white.accountId) : null;
     const black = game.black.accountId ? await this.getAccount(game.black.accountId) : null;
     const rated = Boolean(white && black && white.id !== black.id);
-    const whiteBefore = white?.rating ?? 1200;
-    const blackBefore = black?.rating ?? 1200;
-    const white960Before = white?.chess960Rating ?? 1200;
-    const black960Before = black?.chess960Rating ?? 1200;
+    const ratingClass = ratingClassForTimeControl(game.baseMs, game.incrementMs);
+    const playedAt = Number(game.playedAt) || Date.now();
+    const whiteBefore = white?.chess960Ratings[ratingClass] ?? createGlicko2Rating();
+    const blackBefore = black?.chess960Ratings[ratingClass] ?? createGlicko2Rating();
     const scoreWhite = game.winner === null ? .5 : game.winner === 'white' ? 1 : 0;
     const scoreBlack = 1 - scoreWhite;
-    const K = 32;
-    const whiteAfter = rated ? Math.round(whiteBefore + K * (scoreWhite - this.expected(whiteBefore, blackBefore))) : whiteBefore;
-    const blackAfter = rated ? Math.round(blackBefore + K * (scoreBlack - this.expected(blackBefore, whiteBefore))) : blackBefore;
-    const white960After = rated ? Math.round(white960Before + K * (scoreWhite - this.expected(white960Before, black960Before))) : white960Before;
-    const black960After = rated ? Math.round(black960Before + K * (scoreBlack - this.expected(black960Before, white960Before))) : black960Before;
+    const whiteAfter = rated ? rateGlicko2(whiteBefore, blackBefore, scoreWhite, playedAt) : whiteBefore;
+    const blackAfter = rated ? rateGlicko2(blackBefore, whiteBefore, scoreBlack, playedAt) : blackBefore;
 
-    const apply = async (account: AccountRecord | null, color: 'white' | 'black', opponent: GameResultInput['white'], ratingBefore: number, ratingAfter: number, rating960Before: number, rating960After: number) => {
+    const apply = async (account: AccountRecord | null, color: 'white' | 'black', opponent: GameResultInput['white'], before: Glicko2Rating, after: Glicko2Rating) => {
       if (!account) return;
       const outcome = this.outcomeFor(color, game.winner);
-      account.rating = ratingAfter;
-      account.chess960Rating = rating960After;
+      if (rated) account.chess960Ratings[ratingClass] = after;
+      account.ratingModel = 'glicko2';
+      account.rating = Math.round(account.chess960Ratings.rapid.rating);
+      account.chess960Rating = Math.round(account.chess960Ratings.rapid.rating);
       account.gamesPlayed += 1;
       if (outcome === 'win') account.wins += 1;
       else if (outcome === 'loss') account.losses += 1;
@@ -764,7 +815,7 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
       account.gameHistory = [{
         id: game.id,
         roomCode: game.roomCode,
-        playedAt: Number(game.playedAt) || Date.now(),
+        playedAt,
         color,
         opponentName: opponent.name,
         opponentAccountId: opponent.accountId,
@@ -772,10 +823,13 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
         resultKind: game.resultKind ? String(game.resultKind).slice(0, 32) : null,
         outcome,
         rated,
-        ratingBefore,
-        ratingAfter,
-        chess960RatingBefore: rating960Before,
-        chess960RatingAfter: rating960After,
+        ratingClass,
+        ratingBefore: before.rating,
+        ratingAfter: after.rating,
+        ratingDeviationBefore: before.deviation,
+        ratingDeviationAfter: after.deviation,
+        chess960RatingBefore: before.rating,
+        chess960RatingAfter: after.rating,
         positionId: Number.isInteger(game.positionId) ? game.positionId : null,
         baseMs: Math.max(0, Number(game.baseMs) || 0),
         incrementMs: Math.max(0, Number(game.incrementMs) || 0),
@@ -784,10 +838,10 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
       await this.putAccount(account);
     };
 
-    await apply(white, 'white', game.black, whiteBefore, whiteAfter, white960Before, white960After);
-    await apply(black, 'black', game.white, blackBefore, blackAfter, black960Before, black960After);
+    await apply(white, 'white', game.black, whiteBefore, whiteAfter);
+    await apply(black, 'black', game.white, blackBefore, blackAfter);
     await this.ctx.storage.put(dedupeKey, true);
-    return json({ ok: true, rated });
+    return json({ ok: true, rated, ratingClass });
   }
 
   private async recordTournament(request: Request): Promise<Response> {
