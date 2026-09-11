@@ -30,9 +30,10 @@ export function loadOnboardingRecord(): OnboardingRecord | null {
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<OnboardingRecord>;
     if (value.version !== 1 || !isExperience(value.experience) || !isBoardAppearance(value.boardAppearance)) return null;
+    const completedAt = typeof value.completedAt === 'number' && Number.isFinite(value.completedAt) ? value.completedAt : Date.now();
     return {
       version: 1,
-      completedAt: Number.isFinite(value.completedAt) ? Number(value.completedAt) : Date.now(),
+      completedAt,
       experience: value.experience,
       boardAppearance: value.boardAppearance,
       soundEnabled: value.soundEnabled !== false,
