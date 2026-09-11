@@ -7,12 +7,15 @@ import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tou
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
 import { EngineTournamentRegistry as TournamentRegistry } from './tournamentEngineRegistry';
 import { CoinGateChessRoom as ChessRoom } from './coinGateRoom';
+import { PaymentLedger } from './paymentLedger';
+import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 
-export { AccountRegistry, ChessRoom, Matchmaker, TournamentRegistry };
+export { AccountRegistry, ChessRoom, Matchmaker, PaymentLedger, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & {
+type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
+  PAYMENTS: DurableObjectNamespace<PaymentLedger>;
   ALLOWED_ORIGINS?: string;
 };
 
@@ -27,7 +30,7 @@ function withCors(request: Request, response: Response, env: Env): Response {
     headers.set('vary', 'Origin');
   }
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
-  headers.set('access-control-allow-headers', 'content-type,authorization');
+  headers.set('access-control-allow-headers', 'content-type,authorization,idempotency-key');
   headers.set('access-control-max-age', '86400');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
@@ -35,6 +38,9 @@ function withCors(request: Request, response: Response, env: Env): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
+
+    const paymentResponse = await handlePaymentRequest(request, env);
+    if (paymentResponse) return withCors(request, paymentResponse, env);
 
     const accountResponse = await handleAccountRequest(request, env);
     if (accountResponse) return withCors(request, accountResponse, env);
