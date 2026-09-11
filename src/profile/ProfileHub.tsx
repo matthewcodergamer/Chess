@@ -1,35 +1,9 @@
 import { useMemo, useState } from 'react';
 import { PrimaryButton, SecondaryButton, SegmentedControl } from '../ui/controls';
 import { playChessSound } from '../ui/sound';
+import { AVATARS, loadProfile, randomUsername, saveProfile } from './profileStore';
 
 type Props = { onBack: () => void };
-
-type Profile = {
-  username: string;
-  avatar: string;
-  createdAt: number;
-};
-
-const PROFILE_KEY = 'qqurz:profile';
-const AVATARS = ['♟', '♞', '♜', '♝', '♛', '♚', '960', 'Q'] as const;
-const FIRST = ['Rapid', 'Quiet', 'Royal', 'Green', 'Park', 'Knight', 'Castle', 'Tempo', 'Sharp', 'Freestyle'];
-const SECOND = ['Rook', 'Pawn', 'Bishop', 'Knight', 'Queen', 'Gambit', 'Clock', 'Hustler', 'File', 'Fork'];
-
-function randomUsername(): string {
-  const first = FIRST[Math.floor(Math.random() * FIRST.length)];
-  const second = SECOND[Math.floor(Math.random() * SECOND.length)];
-  const number = 10 + Math.floor(Math.random() * 990);
-  return `${first}${second}${number}`;
-}
-
-function loadProfile(): Profile | null {
-  try {
-    const raw = window.localStorage.getItem(PROFILE_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as Profile;
-    return value.username && value.avatar ? value : null;
-  } catch { return null; }
-}
 
 export default function ProfileHub({ onBack }: Props) {
   const initial = useMemo(loadProfile, []);
@@ -38,10 +12,9 @@ export default function ProfileHub({ onBack }: Props) {
   const [saved, setSaved] = useState(Boolean(initial));
 
   const save = () => {
-    const clean = username.replace(/[^A-Za-z0-9_ -]/g, '').trim().slice(0, 24) || randomUsername();
-    const profile: Profile = { username: clean, avatar, createdAt: initial?.createdAt ?? Date.now() };
-    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-    setUsername(clean);
+    const profile = saveProfile(username, avatar, initial?.createdAt);
+    setUsername(profile.username);
+    setAvatar(profile.avatar);
     setSaved(true);
     playChessSound('start');
   };
