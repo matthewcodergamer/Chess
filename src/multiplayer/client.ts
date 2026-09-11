@@ -149,10 +149,21 @@ export async function cancelMatch(ticket: string): Promise<{ cancelled: boolean;
   });
 }
 
+function selectedTournamentId(tournamentTemplateId?: TournamentTimeTemplateId): string | undefined {
+  if (!tournamentTemplateId || typeof sessionStorage === 'undefined') return undefined;
+  try {
+    const raw = sessionStorage.getItem('qqurz:selected-tournament');
+    const selected = raw ? JSON.parse(raw) as { id?: string; timeControlTemplateId?: TournamentTimeTemplateId } : null;
+    const id = selected?.id?.trim();
+    if (selected?.timeControlTemplateId !== tournamentTemplateId || !id || !/^knockout-\d+-\d+$/.test(id)) return undefined;
+    return id;
+  } catch { return undefined; }
+}
+
 export async function createRoom(name: string, timeControl?: TimeControl, tournamentTemplateId?: TournamentTimeTemplateId): Promise<RoomSeat> {
   return requestJson<RoomSeat>('/rooms', {
     method: 'POST',
-    body: JSON.stringify({ name, timeControl, tournamentTemplateId }),
+    body: JSON.stringify({ name, timeControl, tournamentTemplateId, tournamentId: selectedTournamentId(tournamentTemplateId) }),
   });
 }
 
@@ -266,9 +277,6 @@ export function connectRoom(
     next.addEventListener('error', () => {
       if (stopped || currentGeneration !== generation || socket !== next) return;
       emitStatus('reconnecting');
-      // WebSocket error events contain no useful recovery details. Closing the
-      // failed transport gives every browser, including iOS Safari, one path
-      // into the same bounded reconnect loop.
       try { next.close(); } catch { scheduleReconnect(); }
     });
   };
@@ -289,9 +297,6 @@ export function connectRoom(
     syncTimer = window.setTimeout(() => {
       syncTimer = null;
       if (stopped || socket !== current) return;
-      // iOS can leave an apparently OPEN WebSocket behind after app suspension.
-      // If the server does not answer the foreground resync, replace that stale
-      // transport and reconnect with the same seat token.
       emitStatus('reconnecting');
       try { current.close(); } catch { scheduleReconnect(true); }
     }, FOREGROUND_SYNC_TIMEOUT_MS);
