@@ -120,11 +120,15 @@
   /* Motion. */
   --q-motion-press:100ms;
   --q-motion-fast:140ms;
+  --q-motion-piece:160ms;
+  --q-motion-route:180ms;
   --q-motion-base:180ms;
-  --q-motion-slow:260ms;
-  --q-motion-progress:360ms;
+  --q-motion-modal:200ms;
+  --q-motion-drawer:220ms;
+  --q-motion-slow:220ms;
+  --q-motion-progress:320ms;
   --q-motion-spin:720ms;
-  --q-motion-confetti:1220ms;
+  --q-motion-confetti:900ms;
   --q-ease-standard:cubic-bezier(.2,.7,.2,1);
   --q-ease-enter:cubic-bezier(.22,.72,.24,1);
   --q-ease-drawer:cubic-bezier(.2,.8,.2,1);

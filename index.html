@@ -29,20 +29,20 @@
         display: grid;
         place-content: center;
         justify-items: center;
-        gap: 12px;
+        gap: 0;
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         background: #181816;
         color: #f4f1ea;
         opacity: 0;
         pointer-events: none;
         animation: qqurz-boot-show .12s ease-out .07s forwards;
-        transition: opacity .22s ease, visibility .22s ease;
+        transition: opacity .18s ease, visibility .18s ease;
       }
       html[data-theme='light'] #qqurz-boot { background: #eee9df; color: #1b1a17; }
       #qqurz-boot.is-hidden { animation: none; opacity: 0; visibility: hidden; }
       .qqurz-boot-wheel {
-        width: 30px;
-        height: 30px;
+        width: 24px;
+        height: 24px;
         color: currentColor;
         opacity: .82;
         animation: qqurz-boot-spin .84s steps(12, end) infinite;
@@ -53,15 +53,18 @@
         stroke-linecap: round;
       }
       .qqurz-boot-label {
-        font: 700 13px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-        letter-spacing: .02em;
-        opacity: .58;
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
       @keyframes qqurz-boot-show { to { opacity: 1; } }
       @keyframes qqurz-boot-spin { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) {
-        .qqurz-boot-wheel { animation-duration: 1.6s; }
-        #qqurz-boot { animation-delay: 0s; }
+        .qqurz-boot-wheel { animation: none; }
+        #qqurz-boot { animation: none; opacity: 1; }
       }
     </style>
   </head>

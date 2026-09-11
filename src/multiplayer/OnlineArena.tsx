@@ -12,6 +12,7 @@ import ChessClock3DView from '../ui/ChessClock3DView';
 import CapturedPieces from '../ui/CapturedPieces';
 import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';
 import { playChessSound } from '../ui/sound';
+import { motionTokenMs, useReducedMotion } from '../ui/motion';
 import { createCheckout, loadTournamentCatalog, type PaymentMode } from '../tournaments/client';
 import { connectRoom, createRoom, joinRoom, multiplayerConfigured } from './client';
 import type { CoinFace, RoomSeat, RoomSnapshot, ServerEvent } from './types';
@@ -94,6 +95,8 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [livePositionBidsEnabled, setLivePositionBidsEnabled] = useState(false);
   const [liveColorBidsEnabled, setLiveColorBidsEnabled] = useState(false);
   const [showClock, setShowClock] = useState(clockVisible);
+  const reducedMotion = useReducedMotion();
+  const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
 
   const pos = useMemo(() => roomPosition(snapshot), [snapshot]);
   const yourTurn = Boolean(seat && snapshot && snapshot.status === 'playing' && !snapshot.awaitingClockPress && snapshot.turn === seat.color && !snapshot.result);
@@ -128,7 +131,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
       orientation: seat?.color ?? 'white',
       turnColor: snapshot.turn,
       check: false,
-      animation: { enabled: true, duration: 160 },
+      animation: { enabled: !reducedMotion, duration: pieceMotionMs },
       draggable: { enabled: yourTurn, autoDistance: true, showGhost: true },
       selectable: { enabled: yourTurn },
       movable: {
@@ -139,7 +142,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
         rookCastle: true,
       },
     });
-  }, [pos, seat?.color, snapshot, yourTurn]);
+  }, [pieceMotionMs, pos, reducedMotion, seat?.color, snapshot, yourTurn]);
 
   const handleMove = useCallback((orig: Key, dest: Key) => {
     if (!yourTurn || !pos) return requestAnimationFrame(syncBoard);

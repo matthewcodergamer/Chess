@@ -26,7 +26,7 @@ const requiredTokens = [
   '--q-board-light:', '--q-board-dark:', '--q-board-frame:', '--q-board-legal:',
   '--q-overlay-modal:', '--q-overlay-board:', '--q-overlay-card:',
   '--q-elevation-1:', '--q-elevation-2:', '--q-elevation-3:', '--q-elevation-board:',
-  '--q-motion-press:', '--q-motion-fast:', '--q-motion-base:', '--q-motion-slow:', '--q-motion-progress:', '--q-motion-spin:',
+  '--q-motion-press:', '--q-motion-fast:', '--q-motion-piece:', '--q-motion-route:', '--q-motion-modal:', '--q-motion-drawer:', '--q-motion-base:', '--q-motion-slow:', '--q-motion-progress:', '--q-motion-spin:',
 ];
 
 const errors = [];

@@ -10,6 +10,7 @@ import type { Move, Role } from 'chessops/types';
 import { parseSquare, parseUci } from 'chessops/util';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './game/chess960';
 import { playChessSound } from './ui/sound';
+import { motionTokenMs, useReducedMotion } from './ui/motion';
 import ChessClock2D from './ui/ChessClock2D';
 import CapturedPieces from './ui/CapturedPieces';
 
@@ -85,6 +86,8 @@ export default function LocalGame({ initialMode }: Props) {
 
   const aiColor = mode === 'ai' && humanColor ? opposite(humanColor) : null;
   const backRank = useMemo(() => positionId === null ? '' : chess960BackRank(positionId), [positionId]);
+  const reducedMotion = useReducedMotion();
+  const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
 
   const ensureEngine = useCallback(async (): Promise<Engine> => {
     if (engine.current) return engine.current;
@@ -114,7 +117,7 @@ export default function LocalGame({ initialMode }: Props) {
       turnColor: pos.turn,
       check: false,
       lastMove,
-      animation: { enabled: true, duration: 150 },
+      animation: { enabled: !reducedMotion, duration: pieceMotionMs },
       draggable: { enabled: canMove, showGhost: true, autoDistance: true },
       selectable: { enabled: canMove },
       movable: {
@@ -125,7 +128,7 @@ export default function LocalGame({ initialMode }: Props) {
         showDests: true,
       },
     });
-  }, [humanCanMove, lastMove, orientation]);
+  }, [humanCanMove, lastMove, orientation, pieceMotionMs, reducedMotion]);
 
   const createPosition = useCallback(() => {
     const id = randomChess960Id();

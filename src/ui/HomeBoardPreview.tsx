@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Chessground } from '@lichess-org/chessground';
 import type { Api as ChessgroundApi } from '@lichess-org/chessground/api';
 import { chess960Fen } from '../game/chess960';
+import { motionTokenMs, useReducedMotion } from './motion';
 
 const HOME_POSITION = 518;
 
@@ -13,6 +14,7 @@ const HOME_POSITION = 518;
 export default function HomeBoardPreview() {
   const node = useRef<HTMLDivElement | null>(null);
   const ground = useRef<ChessgroundApi | null>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!node.current) return;
@@ -24,13 +26,13 @@ export default function HomeBoardPreview() {
       coordinatesOnSquares: true,
       viewOnly: true,
       highlight: { lastMove: false, check: true },
-      animation: { enabled: true, duration: 180 },
+      animation: { enabled: !reducedMotion, duration: reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160) },
     });
     return () => {
       ground.current?.destroy();
       ground.current = null;
     };
-  }, []);
+  }, [reducedMotion]);
 
   return (
     <section className="home-live-board-shell" aria-label="QQURZ Chess960 game board preview">
