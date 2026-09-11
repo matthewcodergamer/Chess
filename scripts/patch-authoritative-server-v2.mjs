@@ -3,6 +3,11 @@ import fs from 'node:fs';
 const path = 'server/src/index.ts';
 let source = fs.readFileSync(path, 'utf8');
 
+if (source.includes("if (payload.type === 'offer_draw') return void await this.handleDrawOffer(ws, color);") && !/session\.state\s*=\s*'FINAL'/.test(source)) {
+  console.log('Authoritative realtime command routing is already applied.');
+  process.exit(0);
+}
+
 function required(from, to, label) {
   if (!source.includes(from)) throw new Error(`Missing ${label}`);
   source = source.replace(from, to);
