@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { multiplayerConfigured } from '../multiplayer/client';
 import { celebratePurchase } from '../ui/purchaseCelebration';
+import TournamentLivePanel from './TournamentLivePanel';
 import {
   createCheckout,
   FALLBACK_TOURNAMENTS,
@@ -33,7 +34,7 @@ type Props = {
   onShow3D: () => void;
 };
 
-type DetailTab = 'prizes' | 'grid' | 'bracket' | 'rules';
+type DetailTab = 'live' | 'prizes' | 'grid' | 'bracket' | 'rules';
 
 function money(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -295,6 +296,7 @@ export default function TournamentHub({ onBack, onPlayOnline }: Props) {
       <section className="tournament-details-v22">
         <div className="detail-tabs-v22" role="tablist" aria-label="Tournament details">
           {([
+            ['live', 'Live'],
             ['prizes', 'Prizes'],
             ['grid', 'All events'],
             ['bracket', 'Bracket'],
@@ -305,6 +307,8 @@ export default function TournamentHub({ onBack, onPlayOnline }: Props) {
         </div>
 
         <div className="detail-panel-v22" role="tabpanel">
+          {activeTab === 'live' && <TournamentLivePanel tournamentId={selectedEvent.id} tournamentName={selectedEvent.name} />}
+
           {activeTab === 'prizes' && (
             <div className="prize-panel-v22">
               <div className="detail-heading-v22"><div><span className="qqurz-kicker">PRIZE BREAKDOWN</span><h2>{money(selectedEvent.prizePoolCents)} player pool</h2></div><span>Top {selectedEvent.paidPlaces.toLocaleString()} paid</span></div>
