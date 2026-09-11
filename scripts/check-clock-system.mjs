@@ -43,10 +43,24 @@ if (!errors.length) {
   if (!localDualSlap) errors.push('AI 2D play must auto-ack both human and Stockfish physical clock presses.');
   if (!premiumDualSlap) errors.push('Premium AI play must auto-ack both human and Stockfish physical clock presses.');
 
-  const onlineUsesCanonicalClock =
-    (online.includes('activeColor={activeColor}') && online.includes('pendingSlap={pendingSlap}'))
-    || (online.includes("activeColor={snapshot.status === 'playing' ? snapshot.activeClock : null}") && online.includes('pendingSlap={snapshot.awaitingClockPress}'));
-  if (!onlineUsesCanonicalClock) errors.push('Online clock must consume the authoritative game-session clock state.');
+  const onlineUsesAuthoritativeSession =
+    online.includes('authoritativeRoomSession(snapshot)')
+    && online.includes('clockOwner(gameSession)')
+    && online.includes('gameSession.clocks.whiteMs')
+    && online.includes('gameSession.clocks.blackMs')
+    && online.includes('activeColor={activeColor}')
+    && /pendingSlap=\{gameSession\?\.pendingClockPress(?:\s*\?\?\s*null)?\}/.test(online);
+  if (!onlineUsesAuthoritativeSession) errors.push('Online clock must consume active side, pending press and remaining time from the authoritative GameSessionModel.');
+
+  const forbiddenLegacyOnlineClockReads = [
+    'snapshot.activeClock',
+    'snapshot.awaitingClockPress',
+    'snapshot.whiteClockMs',
+    'snapshot.blackClockMs',
+  ].filter(token => online.includes(token));
+  if (forbiddenLegacyOnlineClockReads.length) {
+    errors.push(`Online clock must not derive state from legacy room aliases: ${forbiddenLegacyOnlineClockReads.join(', ')}.`);
+  }
 
   if (!model.includes('let size = 210')) errors.push('Physical clock LCD must keep the enlarged timer digit target.');
   if (!model.includes('ROCKER_PRESS')) errors.push('Physical clock model must retain a real rocker press angle.');
@@ -88,4 +102,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ physical clock OK: one renderer/component, authoritative transfer feedback, AI dual slap, mobile-optimized geometry.');
+console.log('QQURZ physical clock OK: one renderer/component, authoritative GameSession timing, AI dual slap, mobile-optimized geometry.');
