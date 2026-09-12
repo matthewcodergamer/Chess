@@ -12,7 +12,8 @@
       { "name": "MATCHMAKER", "class_name": "Matchmaker" },
       { "name": "ACCOUNTS", "class_name": "AccountRegistry" },
       { "name": "PAYMENTS", "class_name": "PaymentLedger" },
-      { "name": "INTEGRITY", "class_name": "IntegrityReviewRegistry" }
+      { "name": "INTEGRITY", "class_name": "IntegrityReviewRegistry" },
+      { "name": "NOTIFICATIONS", "class_name": "NotificationRegistry" }
     ]
   },
   "exports": {
@@ -21,7 +22,8 @@
     "Matchmaker": { "type": "durable-object", "storage": "sqlite" },
     "AccountRegistry": { "type": "durable-object", "storage": "sqlite" },
     "PaymentLedger": { "type": "durable-object", "storage": "sqlite" },
-    "IntegrityReviewRegistry": { "type": "durable-object", "storage": "sqlite" }
+    "IntegrityReviewRegistry": { "type": "durable-object", "storage": "sqlite" },
+    "NotificationRegistry": { "type": "durable-object", "storage": "sqlite" }
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
