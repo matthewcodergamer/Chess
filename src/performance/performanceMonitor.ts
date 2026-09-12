@@ -6,8 +6,10 @@ export type QQurzPerformanceSnapshot = {
   longTaskCount: number;
   longTaskTotalMs: number;
   longTaskMaxMs: number;
+  longTaskSource: 'longtask-api' | 'event-loop-drift';
   maxInputDelayMs: number;
   maxInteractionDurationMs: number;
+  interactionSource: 'event-timing-api' | 'event-timestamp-fallback';
   jsHeapUsedBytes: number | null;
   jsHeapLimitBytes: number | null;
   memorySource: 'performance.memory' | 'measureUserAgentSpecificMemory' | 'unavailable';
@@ -21,9 +23,7 @@ type MemoryPerformance = Performance & {
 };
 
 declare global {
-  interface Window {
-    __QQURZ_PERFORMANCE__?: () => Readonly<QQurzPerformanceSnapshot>;
-  }
+  interface Window { __QQURZ_PERFORMANCE__?: () => Readonly<QQurzPerformanceSnapshot>; }
 }
 
 const state: QQurzPerformanceSnapshot = {
@@ -34,8 +34,10 @@ const state: QQurzPerformanceSnapshot = {
   longTaskCount: 0,
   longTaskTotalMs: 0,
   longTaskMaxMs: 0,
+  longTaskSource: 'event-loop-drift',
   maxInputDelayMs: 0,
   maxInteractionDurationMs: 0,
+  interactionSource: 'event-timestamp-fallback',
   jsHeapUsedBytes: null,
   jsHeapLimitBytes: null,
   memorySource: 'unavailable',
@@ -73,6 +75,23 @@ async function sampleMemory() {
 }
 
 export function startPerformanceMonitoring(): () => void {
+  const longTaskObserver = observe('longtask', entries => {
+    state.longTaskSource = 'longtask-api';
+    for (const entry of entries) {
+      state.longTaskCount += 1;
+      state.longTaskTotalMs += entry.duration;
+      state.longTaskMaxMs = Math.max(state.longTaskMaxMs, entry.duration);
+    }
+  });
+  const eventObserver = observe('event', entries => {
+    state.interactionSource = 'event-timing-api';
+    for (const entry of entries as EventTimingEntry[]) {
+      if (entry.processingStart !== undefined) {
+        state.maxInputDelayMs = Math.max(state.maxInputDelayMs, entry.processingStart - entry.startTime);
+      }
+      state.maxInteractionDurationMs = Math.max(state.maxInteractionDurationMs, entry.duration ?? 0);
+    }
+  });
   const observers = [
     observe('paint', entries => {
       const fcp = entries.find(entry => entry.name === 'first-contentful-paint');
@@ -87,22 +106,34 @@ export function startPerformanceMonitoring(): () => void {
         if (!entry.hadRecentInput) state.cumulativeLayoutShift += entry.value ?? 0;
       }
     }),
-    observe('longtask', entries => {
-      for (const entry of entries) {
-        state.longTaskCount += 1;
-        state.longTaskTotalMs += entry.duration;
-        state.longTaskMaxMs = Math.max(state.longTaskMaxMs, entry.duration);
-      }
-    }),
-    observe('event', entries => {
-      for (const entry of entries as EventTimingEntry[]) {
-        if (entry.processingStart !== undefined) {
-          state.maxInputDelayMs = Math.max(state.maxInputDelayMs, entry.processingStart - entry.startTime);
-        }
-        state.maxInteractionDurationMs = Math.max(state.maxInteractionDurationMs, entry.duration ?? 0);
-      }
-    }),
+    longTaskObserver,
+    eventObserver,
   ].filter(Boolean) as PerformanceObserver[];
+
+  let expected = performance.now() + 100;
+  const driftTimer = window.setInterval(() => {
+    const now = performance.now();
+    const drift = Math.max(0, now - expected);
+    expected = now + 100;
+    if (longTaskObserver || document.visibilityState !== 'visible' || drift < 50) return;
+    state.longTaskCount += 1;
+    state.longTaskTotalMs += drift;
+    state.longTaskMaxMs = Math.max(state.longTaskMaxMs, drift);
+  }, 100);
+
+  const inputEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'touchstart'];
+  const onInput = (event: Event) => {
+    if (eventObserver) return;
+    const timestamp = event.timeStamp;
+    if (!Number.isFinite(timestamp)) return;
+    const delay = Math.max(0, performance.now() - timestamp);
+    state.maxInputDelayMs = Math.max(state.maxInputDelayMs, delay);
+    const started = performance.now();
+    requestAnimationFrame(() => {
+      state.maxInteractionDurationMs = Math.max(state.maxInteractionDurationMs, performance.now() - started + delay);
+    });
+  };
+  inputEvents.forEach(type => window.addEventListener(type, onInput, { capture: true, passive: true }));
 
   window.__QQURZ_PERFORMANCE__ = () => Object.freeze({ ...state });
   const idle = window.requestIdleCallback?.(() => void sampleMemory(), { timeout: 3000 })
@@ -112,6 +143,8 @@ export function startPerformanceMonitoring(): () => void {
 
   return () => {
     observers.forEach(observer => observer.disconnect());
+    window.clearInterval(driftTimer);
+    inputEvents.forEach(type => window.removeEventListener(type, onInput, { capture: true }));
     if (window.cancelIdleCallback && typeof idle === 'number') window.cancelIdleCallback(idle);
     else window.clearTimeout(idle);
     document.removeEventListener('visibilitychange', onVisibility);
