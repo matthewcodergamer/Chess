@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { accountToken } from '../account/client';
 import FairPlayActions from './FairPlayActions';
 import { blockRoomPlayer, reportRoomPlayer, type FairPlayReportReason } from './client';
@@ -13,9 +13,23 @@ function currentRoomCode(): string {
 }
 
 export default function FairPlayRoomTools() {
-  const roomCode = useMemo(currentRoomCode, [window.location.search]);
+  const [roomCode, setRoomCode] = useState(currentRoomCode);
   const [message, setMessage] = useState('');
   const [opponentName, setOpponentName] = useState('Current opponent');
+
+  useEffect(() => {
+    if (roomCode) return;
+    const sync = () => {
+      const next = currentRoomCode();
+      if (next) setRoomCode(next);
+    };
+    window.addEventListener('popstate', sync);
+    const timer = window.setInterval(sync, 400);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.clearInterval(timer);
+    };
+  }, [roomCode]);
 
   if (!accountToken() || !roomCode) return null;
 
