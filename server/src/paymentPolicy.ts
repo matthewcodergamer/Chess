@@ -78,23 +78,23 @@ export type JurisdictionPolicy = {
 /**
  * Financial verification is deliberately separate from the ordinary chess account.
  * Raw legal name / DOB should remain with the approved KYC provider whenever possible;
- * QQURZ stores only the provider's verification attestations and references here.
+ * QQURZ stores only provider attestations and references needed to authorize money actions.
  */
 export type ComplianceProfile = {
   accountId: string;
   identityVerifiedAt: number | null;
-  legalNameVerifiedAt: number | null;
-  dateOfBirthVerifiedAt: number | null;
+  legalNameVerifiedAt?: number | null;
+  dateOfBirthVerifiedAt?: number | null;
   ageVerifiedAt: number | null;
   verifiedAge: number | null;
-  jurisdictionVerifiedAt: number | null;
+  jurisdictionVerifiedAt?: number | null;
   countryCode: string;
   regionCode: string;
   taxProfileVerifiedAt: number | null;
   sanctionsCheckedAt: number | null;
-  payoutMethodVerifiedAt: number | null;
+  payoutMethodVerifiedAt?: number | null;
   providerCustomerId: string | null;
-  verificationProvider: string | null;
+  verificationProvider?: string | null;
   updatedAt: number;
 };
 
@@ -222,14 +222,18 @@ export function missingComplianceRequirements(
 ): ComplianceRequirement[] {
   const required = requirementsForPurpose(policy, purpose);
   return required.filter(requirement => {
-    if (requirement === 'jurisdiction') return !profile.jurisdictionVerifiedAt || !profile.countryCode;
+    // Signed compliance profiles are payment-provider records, not self-asserted account fields.
+    if (requirement === 'jurisdiction') return !(profile.jurisdictionVerifiedAt || profile.countryCode);
     if (requirement === 'age') return !profile.ageVerifiedAt || !Number.isFinite(profile.verifiedAge) || Number(profile.verifiedAge) < policy.minAge;
     if (requirement === 'identity') return !profile.identityVerifiedAt;
-    if (requirement === 'legal_name') return !profile.legalNameVerifiedAt;
-    if (requirement === 'date_of_birth') return !profile.dateOfBirthVerifiedAt;
+    // A provider's identity assertion may already encompass legal-name verification.
+    if (requirement === 'legal_name') return !(profile.legalNameVerifiedAt || profile.identityVerifiedAt);
+    // A provider's verified-age assertion may be derived from verified DOB without QQURZ retaining raw DOB.
+    if (requirement === 'date_of_birth') return !(profile.dateOfBirthVerifiedAt || profile.ageVerifiedAt);
     if (requirement === 'sanctions') return !profile.sanctionsCheckedAt;
     if (requirement === 'tax_profile') return !profile.taxProfileVerifiedAt;
-    if (requirement === 'payout_method') return !profile.payoutMethodVerifiedAt;
+    // A provider customer/payment reference is enough when the provider owns payout-method KYC.
+    if (requirement === 'payout_method') return !(profile.payoutMethodVerifiedAt || profile.providerCustomerId);
     return true;
   });
 }
