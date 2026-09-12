@@ -98,7 +98,6 @@ function pushTopic(notification: InAppNotification): string {
 function toWebPushSubscription(record: StoredPushSubscription): WebPushSubscription {
   return {
     endpoint: record.endpoint,
-    expirationTime: record.expirationTime,
     keys: { p256dh: record.keys.p256dh, auth: record.keys.auth },
   };
 }
@@ -179,7 +178,7 @@ export class WebPushNotificationRegistry extends NotificationRegistry {
     if (!ids.length) return;
 
     const records = (await Promise.all(ids.map(id => ctx.storage.get<StoredPushSubscription>(`${PUSH_ITEM_PREFIX}${id}`))))
-      .filter((item): item is StoredPushSubscription => Boolean(item) && item.accountId === notification.accountId);
+      .filter((item): item is StoredPushSubscription => item !== undefined && item !== null && item.accountId === notification.accountId);
     if (!records.length) return;
 
     const payload = JSON.stringify({
