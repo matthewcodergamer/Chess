@@ -42,6 +42,23 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Configure integrity capabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          INTERNAL_SECRET="$(openssl rand -hex 32)"
+          printf '%s' "$INTERNAL_SECRET" | npx wrangler secret put INTEGRITY_INTERNAL_SECRET
+          if [ -n "${INTEGRITY_ADMIN_SECRET:-}" ]; then
+            printf '%s' "$INTEGRITY_ADMIN_SECRET" | npx wrangler secret put INTEGRITY_ADMIN_SECRET
+          fi
+          if [ -n "${INTEGRITY_SIGNAL_SECRET:-}" ]; then
+            printf '%s' "$INTEGRITY_SIGNAL_SECRET" | npx wrangler secret put INTEGRITY_SIGNAL_SECRET
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          INTEGRITY_ADMIN_SECRET: ${{ secrets.INTEGRITY_ADMIN_SECRET }}
+          INTEGRITY_SIGNAL_SECRET: ${{ secrets.INTEGRITY_SIGNAL_SECRET }}
+
       - name: Deploy Worker
         run: npx wrangler deploy
         env:
