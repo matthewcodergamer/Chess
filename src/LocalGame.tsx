@@ -36,7 +36,7 @@ export default function LocalGame({ initialMode }: Props) {
       movable: {
         free: false,
         color: game.movableColor,
-        dests: game.legalDests,
+        dests: game.legalDests as Map<Key, Key[]>,
         rookCastle: true,
         showDests: true,
         events: { after: (orig, dest) => moveHandler.current(orig, dest) },
