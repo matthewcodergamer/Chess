@@ -66,7 +66,8 @@
 .notification-panel-head>div{display:grid;gap:var(--q-space-4)}
 .notification-panel-head h2{margin:0;font-size:var(--q-type-action-lg);line-height:var(--q-leading-tight)}
 .notification-panel-head>button,
-.notification-challenge-row>button{
+.notification-challenge-row>button,
+.notification-push-box>button{
   min-height:var(--q-control-sm);
   padding:0 var(--q-space-12);
   border:1px solid var(--q-line-strong);
@@ -76,7 +77,9 @@
   font-weight:700;
 }
 .notification-panel-head>button:not(:disabled):hover,
-.notification-challenge-row>button:not(:disabled):hover{border-color:var(--q-action);background:var(--q-action-soft)}
+.notification-challenge-row>button:not(:disabled):hover,
+.notification-push-box>button:not(:disabled):hover{border-color:var(--q-action);background:var(--q-action-soft)}
+.notification-push-box,
 .notification-challenge-box{
   display:grid;
   gap:var(--q-space-12);
@@ -86,6 +89,35 @@
   border-radius:var(--q-radius-md);
   background:var(--q-surface-1);
 }
+.notification-push-box{border-color:var(--q-line-strong)}
+.notification-push-copy{
+  display:grid;
+  grid-template-columns:var(--q-space-32) minmax(0,1fr) auto;
+  gap:var(--q-space-12);
+  align-items:start;
+}
+.notification-push-copy>span{
+  width:var(--q-space-32);
+  height:var(--q-space-32);
+  display:grid;
+  place-items:center;
+  border-radius:var(--q-radius-sm);
+  background:var(--q-action-soft);
+  color:var(--q-action-strong);
+  font-size:var(--q-type-action);
+}
+.notification-push-copy>div{display:grid;gap:var(--q-space-4)}
+.notification-push-copy>div>small{color:var(--q-muted);line-height:var(--q-leading-body)}
+.notification-push-copy>strong{
+  padding:var(--q-space-4) var(--q-space-8);
+  border-radius:var(--q-radius-pill);
+  background:var(--q-surface-2);
+  color:var(--q-muted);
+  font-size:var(--q-type-caption);
+  white-space:nowrap;
+}
+.notification-push-box>button{width:100%}
+.notification-push-message{color:var(--q-muted);line-height:var(--q-leading-body)}
 .notification-challenge-box>div:first-child{display:grid;gap:var(--q-space-4)}
 .notification-challenge-box small{color:var(--q-muted);line-height:var(--q-leading-body)}
 .notification-challenge-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--q-space-8)}
