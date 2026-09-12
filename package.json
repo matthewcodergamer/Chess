@@ -12,10 +12,11 @@
     "check:account": "node scripts/check-account-system.mjs",
     "check:engine-isolation": "node scripts/check-engine-isolation.mjs",
     "check:3d-boundary": "node scripts/check-3d-presentation-boundary.mjs",
+    "check:performance": "node scripts/check-performance-budgets.mjs",
     "prepare:engine": "node scripts/copy-stockfish.mjs",
     "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
     "dev": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && vite",
-    "build": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build",
+    "build": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && tsc -b && vite build && npm run check:performance",
     "preview": "vite preview"
   },
   "dependencies": {

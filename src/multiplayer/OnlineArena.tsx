@@ -5,7 +5,7 @@ import { chessgroundDests } from 'chessops/compat';
 import { parseFen } from 'chessops/fen';
 import { parseSquare } from 'chessops/util';
 import { celebratePurchase } from '../ui/purchaseCelebration';
-import Quarter3D from '../ui/Quarter3D';
+import Quarter3D from '../ui/LazyQuarter3D';
 import PhysicalChessClock from '../ui/PhysicalChessClock';
 import MatchPlayerBar from '../ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from '../ui/ChessBoardSurface';

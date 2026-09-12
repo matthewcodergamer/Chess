@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { Color } from '@lichess-org/chessground/types';
-import ChessClock3DView from './ChessClock3DView';
 import { clockVisible, setClockVisible, subscribeClockVisible } from './clockPreference';
 import { playChessSound } from './sound';
+
+const ChessClock3DView = lazy(() => import('./ChessClock3DView'));
 
 export type PhysicalChessClockProps = {
   whiteSeconds: number;
@@ -22,13 +23,9 @@ export type PhysicalChessClockProps = {
 type SlapEvent = { color: Color | null; nonce: number };
 
 /**
- * The one React-facing physical clock used across QQURZ.
- *
- * The parent owns the authoritative game/clock state. This component never
- * changes turns or time itself. A physical slap (animation + recorded sound)
- * is emitted only after authoritative state confirms a pending clock press has
- * transferred control to the other side. That keeps timer, LED, rocker, sound
- * and game turn from drifting apart, including over realtime multiplayer.
+ * React-facing physical clock. Authoritative time/turn state stays in the
+ * parent. The Three.js clock view is deliberately lazy so Chessground and the
+ * rest of normal 2D play never wait for a 3D bundle.
  */
 export default function PhysicalChessClock({
   whiteSeconds,
@@ -53,8 +50,6 @@ export default function PhysicalChessClock({
 
   useEffect(() => {
     const previous = previousPending.current;
-    // A real transfer is pending side -> no pending side -> opposite active side.
-    // Do not slap if the pending state disappeared because the game ended.
     if (previous && !pendingSlap && activeColor && activeColor !== previous) {
       playChessSound('slap');
       setSlapEvent(value => ({ color: previous, nonce: value.nonce + 1 }));
@@ -88,17 +83,19 @@ export default function PhysicalChessClock({
         )}
       </div>
       {isVisible ? (
-        <ChessClock3DView
-          whiteSeconds={whiteSeconds}
-          blackSeconds={blackSeconds}
-          activeColor={activeColor}
-          pendingSlap={pendingSlap}
-          disabled={disabled}
-          onSlap={onSlap}
-          compact={compact}
-          slapColor={slapEvent.color}
-          slapNonce={slapEvent.nonce}
-        />
+        <Suspense fallback={<div className={`qqurz-clock-3d-view ${compact ? 'compact' : ''} loading`.trim()} aria-hidden="true" />}>
+          <ChessClock3DView
+            whiteSeconds={whiteSeconds}
+            blackSeconds={blackSeconds}
+            activeColor={activeColor}
+            pendingSlap={pendingSlap}
+            disabled={disabled}
+            onSlap={onSlap}
+            compact={compact}
+            slapColor={slapEvent.color}
+            slapNonce={slapEvent.nonce}
+          />
+        </Suspense>
       ) : (
         <div className="qqurz-clock-hidden-note">Clock hidden. Game timing continues normally.</div>
       )}
