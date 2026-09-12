@@ -24,6 +24,16 @@ type MoneyMatchControl = {
   updatedAt: number;
 };
 
+export type MoneySettlementGuardContext = {
+  contestId: string;
+  roomCode: string;
+  stakeCents: number;
+  winnerAccountId: string;
+  holdIds: string[];
+};
+
+export type MoneySettlementGuardResult = { allowed: true } | { allowed: false; reason: string };
+
 const MONEY_CONTROL_KEY = 'money-match:v1';
 const FUNDING_TTL_MS = 30 * 60_000;
 
@@ -48,6 +58,10 @@ export class MoneyChessRoom extends CoinGateChessRoom {
   private async putControl(control: MoneyMatchControl): Promise<void> {
     control.updatedAt = Date.now();
     await this.moneyInternals().ctx.storage.put(MONEY_CONTROL_KEY, control);
+  }
+
+  protected async beforeMoneySettlement(_context: MoneySettlementGuardContext): Promise<MoneySettlementGuardResult> {
+    return { allowed: true };
   }
 
   private async createMoneyRoom(request: Request, body: Record<string, unknown>): Promise<Response> {
@@ -154,6 +168,20 @@ export class MoneyChessRoom extends CoinGateChessRoom {
       await this.putControl(control);
       return;
     }
+
+    const guard = await this.beforeMoneySettlement({
+      contestId: control.contestId,
+      roomCode: room.code,
+      stakeCents: control.stakeCents,
+      winnerAccountId: winner.accountId,
+      holdIds,
+    });
+    if (!guard.allowed) {
+      control.settlementError = guard.reason || 'Funded settlement is awaiting integrity review.';
+      await this.putControl(control);
+      return;
+    }
+
     const settled = await settleCompetitionFunds(internal.env, {
       contestId: control.contestId,
       winnerAccountId: winner.accountId,

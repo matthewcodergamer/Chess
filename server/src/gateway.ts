@@ -6,15 +6,16 @@ import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRo
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
 import { MoneyTournamentRegistry as TournamentRegistry } from './moneyTournamentRegistry';
-import { MoneyChessRoom as ChessRoom } from './moneyRoom';
+import { IntegrityChessRoom as ChessRoom } from './integrityRoom';
 import { handleMoneyRoomRequest } from './moneyRoomApi';
 import { CompetitionPaymentLedger as PaymentLedger } from './competitionPaymentLedger';
 import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
+import { handleIntegrityAdminRequest, IntegrityReviewRegistry, type IntegrityEnv } from './integrityReview';
 
-export { AccountRegistry, ChessRoom, Matchmaker, PaymentLedger, TournamentRegistry };
+export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, PaymentLedger, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & {
+type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   PAYMENTS: DurableObjectNamespace<PaymentLedger>;
@@ -33,7 +34,7 @@ function withCors(request: Request, response: Response, env: Env): Response {
     headers.set('vary', 'Origin');
   }
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
-  headers.set('access-control-allow-headers', 'content-type,authorization,idempotency-key');
+  headers.set('access-control-allow-headers', 'content-type,authorization,idempotency-key,x-integrity-admin');
   headers.set('access-control-max-age', '86400');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
@@ -41,6 +42,9 @@ function withCors(request: Request, response: Response, env: Env): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
+
+    const integrityAdminResponse = await handleIntegrityAdminRequest(request, env);
+    if (integrityAdminResponse) return withCors(request, integrityAdminResponse, env);
 
     const complianceResponse = await handlePaymentComplianceWebhook(request, env);
     if (complianceResponse) return withCors(request, complianceResponse, env);
