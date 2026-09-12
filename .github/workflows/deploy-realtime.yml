@@ -59,6 +59,38 @@ jobs:
           INTEGRITY_ADMIN_SECRET: ${{ secrets.INTEGRITY_ADMIN_SECRET }}
           INTEGRITY_SIGNAL_SECRET: ${{ secrets.INTEGRITY_SIGNAL_SECRET }}
 
+      - name: Ensure stable Web Push VAPID keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRETS_JSON="$(npx wrangler secret list --format json)"
+          HAS_PUBLIC="$(printf '%s' "$SECRETS_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);process.stdout.write(a.some(x=>x.name==='WEB_PUSH_VAPID_PUBLIC_KEY')?'1':'0')})")"
+          HAS_PRIVATE="$(printf '%s' "$SECRETS_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);process.stdout.write(a.some(x=>x.name==='WEB_PUSH_VAPID_PRIVATE_KEY')?'1':'0')})")"
+
+          if [ "$HAS_PUBLIC" = "1" ] && [ "$HAS_PRIVATE" = "1" ]; then
+            echo "Web Push VAPID keys already configured; preserving the existing pair."
+            exit 0
+          fi
+          if [ "$HAS_PUBLIC" != "$HAS_PRIVATE" ]; then
+            echo "Only one Web Push VAPID key is configured. Refusing to create a mismatched pair." >&2
+            exit 1
+          fi
+
+          umask 077
+          node --input-type=module <<'NODE'
+          import { generateVAPIDKeys } from 'web-push-neo';
+          import { writeFile } from 'node:fs/promises';
+          const keys = await generateVAPIDKeys();
+          await writeFile('.vapid-public', keys.publicKey, { mode: 0o600 });
+          await writeFile('.vapid-private', keys.privateKey, { mode: 0o600 });
+          NODE
+          printf '%s' "$(cat .vapid-public)" | npx wrangler secret put WEB_PUSH_VAPID_PUBLIC_KEY
+          printf '%s' "$(cat .vapid-private)" | npx wrangler secret put WEB_PUSH_VAPID_PRIVATE_KEY
+          rm -f .vapid-public .vapid-private
+          echo "Created and stored the initial Web Push VAPID key pair."
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Deploy Worker
         run: npx wrangler deploy
         env:
