@@ -196,12 +196,3 @@
 .social-tournament-row>div:first-child{display:grid;gap:var(--q-space-4)}
 .social-tournament-row small{color:var(--q-muted);font-size:var(--q-type-caption)}
 .social-tournament-row>.social-actions{grid-column:2;justify-content:flex-end;max-width:220px}
-@media (max-width:640px){
-  .qqurz-social-center{right:max(var(--q-space-12),env(safe-area-inset-right))}
-  .social-panel{width:calc(100vw - var(--q-space-16));max-height:calc(100dvh - var(--q-header-h) - (var(--q-control-sm) * 2) - var(--q-space-32))}
-  .social-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .social-player-row{grid-template-columns:var(--q-control-sm) minmax(0,1fr)}
-  .social-actions{grid-column:1 / -1}
-  .social-tournament-row{grid-template-columns:1fr}
-  .social-tournament-row>.social-actions{grid-column:1;justify-content:flex-start;max-width:none}
-}
