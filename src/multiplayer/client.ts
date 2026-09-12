@@ -1,6 +1,7 @@
 import type { RoomSeat, ServerEvent } from './types';
 import type { TimeControl, TournamentTimeTemplateId } from '../../shared/timeControl';
 import { accountToken } from '../account/client';
+import { emitLocalNotification } from '../notifications/client';
 
 const configuredBase = (import.meta.env.VITE_MULTIPLAYER_API as string | undefined)?.trim().replace(/\/$/, '');
 
@@ -193,11 +194,31 @@ export function connectRoom(
   let retryAttempt = 0;
   let generation = 0;
   let status: RoomConnectionStatus = 'connecting';
+  let seenOpponentSnapshot = false;
+  let lastOpponentConnected = false;
 
   const emitStatus = (next: RoomConnectionStatus) => {
     if (status === next) return;
+    const previous = status;
     status = next;
     onStatus(next);
+    if (previous === 'connected' && next === 'reconnecting') {
+      emitLocalNotification({
+        kind: 'reconnect_warning',
+        title: 'Connection interrupted',
+        body: `Trying to reconnect to room ${seat.code}. Your authoritative clock and game state stay on the server.`,
+        priority: 'important',
+        roomCode: seat.code,
+      });
+    } else if (previous === 'reconnecting' && next === 'connected') {
+      emitLocalNotification({
+        kind: 'reconnected',
+        title: 'Back online',
+        body: `Room ${seat.code} is synchronized with the server again.`,
+        priority: 'normal',
+        roomCode: seat.code,
+      });
+    }
   };
 
   const clearRetry = () => {
@@ -232,7 +253,23 @@ export function connectRoom(
         return;
       }
       if (payload.type === 'move_ack') return;
-      if (payload.type === 'snapshot') clearSyncTimeout();
+      if (payload.type === 'snapshot') {
+        clearSyncTimeout();
+        const opponentColor = seat.color === 'white' ? 'black' : 'white';
+        const opponent = payload.room.players[opponentColor];
+        const opponentConnected = Boolean(opponent?.connected);
+        if (opponentConnected && (!seenOpponentSnapshot || !lastOpponentConnected)) {
+          emitLocalNotification({
+            kind: 'opponent_connected',
+            title: 'Opponent connected',
+            body: `${opponent?.name || 'Your opponent'} is connected to room ${seat.code}.`,
+            priority: 'normal',
+            roomCode: seat.code,
+          });
+        }
+        seenOpponentSnapshot = true;
+        lastOpponentConnected = opponentConnected;
+      }
       onEvent(payload);
     } catch {
       onEvent({ type: 'error', message: 'The multiplayer server sent an unreadable update.' });
