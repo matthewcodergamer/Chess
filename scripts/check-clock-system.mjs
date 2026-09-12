@@ -9,10 +9,12 @@ const physicalPath = 'src/ui/PhysicalChessClock.tsx';
 const viewPath = 'src/ui/ChessClock3DView.tsx';
 const modelPath = 'src/premium/chessClock3D.ts';
 const localPath = 'src/LocalGame.tsx';
+const localChromePath = 'src/game/LocalMatchChrome.tsx';
+const localControllerPath = 'src/game/useLocalGameController.ts';
 const onlinePath = 'src/multiplayer/OnlineArena.tsx';
 const premiumPath = 'src/premium/PremiumBoard3D.tsx';
 
-for (const file of [physicalPath, viewPath, modelPath, localPath, onlinePath, premiumPath]) {
+for (const file of [physicalPath, viewPath, modelPath, localPath, localChromePath, localControllerPath, onlinePath, premiumPath]) {
   if (!fs.existsSync(path.join(root, file))) errors.push(`Missing clock-system file: ${file}`);
 }
 
@@ -21,10 +23,12 @@ if (!errors.length) {
   const view = read(viewPath);
   const model = read(modelPath);
   const local = read(localPath);
+  const localChrome = read(localChromePath);
+  const localController = read(localControllerPath);
   const online = read(onlinePath);
   const premium = read(premiumPath);
 
-  for (const [label, source] of [['LocalGame', local], ['OnlineArena', online], ['PremiumBoard3D', premium]]) {
+  for (const [label, source] of [['LocalMatchChrome', localChrome], ['OnlineArena', online], ['PremiumBoard3D', premium]]) {
     if (!source.includes('PhysicalChessClock')) errors.push(`${label} must render PhysicalChessClock.`);
     if (source.includes('ChessClock3DView')) errors.push(`${label} must not render ChessClock3DView directly.`);
     if (source.includes('ChessClock2D')) errors.push(`${label} must not use the legacy ChessClock2D wrapper.`);
@@ -38,10 +42,10 @@ if (!errors.length) {
   if (!physical.includes("playChessSound('slap')")) errors.push('PhysicalChessClock must own the physical slap sound.');
   if (!physical.includes('previous && !pendingSlap && activeColor && activeColor !== previous')) errors.push('PhysicalChessClock must gate slap feedback on an acknowledged clock transfer.');
 
-  const localDualSlap = local.includes('session.pendingClockPress === aiColor ? 220 : 120') || local.includes('pendingSlap === aiColor ? 220 : 120');
-  const premiumDualSlap = premium.includes('session.pendingClockPress === aiColor ? 220 : 120') || premium.includes('pendingSlap === aiColor ? 220 : 120');
-  if (!localDualSlap) errors.push('AI 2D play must auto-ack both human and Stockfish physical clock presses.');
-  if (!premiumDualSlap) errors.push('Premium AI play must auto-ack both human and Stockfish physical clock presses.');
+  const sharedDualSlap = localController.includes('session.pendingClockPress === aiColor ? 220 : 120') || localController.includes('pendingSlap === aiColor ? 220 : 120');
+  if (!sharedDualSlap) errors.push('Shared local game controller must auto-ack both human and Stockfish physical clock presses.');
+  if (!local.includes('useLocalGameController')) errors.push('AI 2D play must consume the shared local clock/game controller.');
+  if (!premium.includes('useLocalGameController')) errors.push('Premium AI play must consume the same shared local clock/game controller.');
 
   const onlineUsesAuthoritativeSession =
     online.includes('authoritativeRoomSession(snapshot)')
@@ -102,4 +106,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ physical clock OK: one renderer/component, authoritative GameSession timing, AI dual slap, mobile-optimized geometry.');
+console.log('QQURZ physical clock OK: one renderer/component, shared local controller, authoritative online timing, mobile-optimized geometry.');
