@@ -18,17 +18,21 @@ import {
 import { handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
 import {
   NotificationAccountRegistry as AccountRegistry,
-  NotificationRegistry,
   NotifyingChessRoom as ChessRoom,
   NotifyingPaymentLedger as PaymentLedger,
   NotifyingTournamentRegistry as TournamentRegistry,
   handleNotificationRequest,
   type NotificationEnv,
 } from './notifications';
+import {
+  WebPushNotificationRegistry as NotificationRegistry,
+  handleWebPushRequest,
+  type WebPushEnv,
+} from './webPush';
 
 export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, NotificationRegistry, PaymentLedger, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & NotificationEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & {
+type Env = MatchmakerEnv & AccountEnv & NotificationEnv & WebPushEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   PAYMENTS: DurableObjectNamespace<PaymentLedger>;
@@ -67,6 +71,9 @@ export default {
 
     const fairPlayRoomActionResponse = await handleFairPlayRoomActionRequest(request, env);
     if (fairPlayRoomActionResponse) return withCors(request, fairPlayRoomActionResponse, env);
+
+    const webPushResponse = await handleWebPushRequest(request, env);
+    if (webPushResponse) return withCors(request, webPushResponse, env);
 
     const notificationResponse = await handleNotificationRequest(request, env);
     if (notificationResponse) return withCors(request, notificationResponse, env);
