@@ -26,8 +26,14 @@ for (const file of rendererFiles) {
 
 const premiumPage = fs.readFileSync('src/premium/PremiumBoard3D.tsx', 'utf8');
 if (!/useLocalGameController/.test(premiumPage)) errors.push('PremiumBoard3D must consume the shared local game controller.');
-for (const pattern of [/chessops\/chess/, /adjudicateChess/, /(?:from\s+['"][^'"]*engine\/stockfish|import\(\s*['"][^'"]*engine\/stockfish)/i, /parseUci/, /makeSan/]) {
-  if (pattern.test(premiumPage)) errors.push(`PremiumBoard3D contains forbidden chess implementation: ${pattern}`);
+const forbiddenPremiumPagePatterns = [
+  ['chess implementation', /chessops\/chess|adjudicateChess|parseUci|makeSan/],
+  ['AI engine import', /(?:from\s+['"][^'"]*engine\/stockfish|import\(\s*['"][^'"]*engine\/stockfish)/i],
+  ['network implementation', /WebSocket|connectRoom|createRoom|joinRoom|send\s*\(\s*\{\s*type:\s*['"]move/i],
+  ['tournament implementation', /tournamentEngine|pairing|standings/i],
+];
+for (const [label, pattern] of forbiddenPremiumPagePatterns) {
+  if (pattern.test(premiumPage)) errors.push(`PremiumBoard3D contains forbidden ${label}; it must stay a presentation surface.`);
 }
 
 const local2d = fs.readFileSync('src/LocalGame.tsx', 'utf8');
@@ -41,4 +47,4 @@ if (errors.length) {
   for (const error of errors) console.error(` - ${error}`);
   process.exit(1);
 }
-console.log('Premium 3D boundary OK: shared chess controller, presentation-only renderer.');
+console.log('Premium 3D boundary OK: shared chess controller, presentation-only renderer, no network/tournament fork.');
