@@ -39,13 +39,13 @@ export default function WalletPanel() {
 
   if (!signedIn) return (
     <section className="wallet-balance-panel" aria-label="QQURZ wallet">
-      <div><span className="eyebrow">PLAYER WALLET</span><h3>Sign in to use real-money features</h3><p>Balances and competition eligibility are stored on the payment server, not in this browser.</p></div>
+      <div><span className="eyebrow">PLAYER WALLET</span><h3>Money features are optional</h3><p>You can play free chess without financial identity verification. Sign in only when you want wallet or paid-competition features.</p></div>
     </section>
   );
 
   if (!wallet) return (
     <section className="wallet-balance-panel" aria-label="QQURZ wallet">
-      <div><span className="eyebrow">PLAYER WALLET</span><h3>{loading ? 'Loading wallet…' : 'Wallet unavailable'}</h3>{message && <p>{message}</p>}</div>
+      <div><span className="eyebrow">PLAYER WALLET</span><h3>{loading ? 'Loading wallet…' : 'Wallet unavailable'}</h3>{message && <p>{message}</p>}<p>Free chess does not depend on the wallet or financial verification.</p></div>
       {!loading && <button onClick={() => void refresh()}>Try again</button>}
     </section>
   );
@@ -67,9 +67,9 @@ export default function WalletPanel() {
           {[500, 1000, 2500, 5000].map(amount => <button key={amount} onClick={() => void deposit(amount)} disabled={loading}>Add {formatUsdCents(amount)}</button>)}
         </div>
       ) : (
-        <div className="wallet-policy-note"><b>Real-money funding unavailable</b><span>{depositDecision.reason || 'Your jurisdiction or verification status is not approved.'}</span></div>
+        <div className="wallet-policy-note"><b>Money verification is separate from your chess account</b><span>{depositDecision.reason || 'Funding may require age, jurisdiction, identity, tax, or payment verification depending on the money feature and approved jurisdiction.'}</span><span>You can keep playing free chess without completing financial verification.</span></div>
       )}
-      <small>Provider confirmations update this balance through the backend ledger. Checkout redirects never credit money by themselves.</small>
+      <small>Financial checks are requested only for money features that require them. Provider confirmations update this balance through the backend ledger; checkout redirects never credit money by themselves.</small>
       {message && <p className="wallet-message" role="status">{message}</p>}
     </section>
   );
