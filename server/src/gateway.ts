@@ -12,12 +12,12 @@ import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
 import { handleIntegrityAdminRequest, type IntegrityEnv } from './integrityReview';
 import {
-  FairPlayChessRoom as ChessRoom,
   FairPlayIntegrityRegistry as IntegrityReviewRegistry,
   handleFairPlayAdminRequest,
   handleFairPlayRequest,
   requireFairPlayForCompetitiveRequest,
 } from './fairPlay';
+import { FairPlayActionChessRoom as ChessRoom, handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
 
 export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, PaymentLedger, TournamentRegistry };
 
@@ -57,6 +57,9 @@ export default {
 
     const fairPlayResponse = await handleFairPlayRequest(request, env);
     if (fairPlayResponse) return withCors(request, fairPlayResponse, env);
+
+    const fairPlayRoomActionResponse = await handleFairPlayRoomActionRequest(request, env);
+    if (fairPlayRoomActionResponse) return withCors(request, fairPlayRoomActionResponse, env);
 
     const complianceResponse = await handlePaymentComplianceWebhook(request, env);
     if (complianceResponse) return withCors(request, complianceResponse, env);
