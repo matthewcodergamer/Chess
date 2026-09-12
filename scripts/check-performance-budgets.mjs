@@ -92,6 +92,8 @@ for (const [label, source, maxKiB] of routeBudgets) {
 
 const localKey = keyForSource('src/LocalGame.tsx');
 const localKeys = localKey ? staticClosure(localKey) : new Set();
+const onlineKey = keyForSource('src/multiplayer/OnlineArena.tsx');
+const onlineKeys = onlineKey ? staticClosure(onlineKey) : new Set();
 const forbiddenInitial = [
   ['Stockfish adapter', 'src/engine/stockfish.ts'],
   ['Premium 3D board', 'src/premium/PremiumBoard3D.tsx'],
@@ -101,6 +103,15 @@ for (const [label, source] of forbiddenInitial) {
   const key = keyForSource(source);
   if (key && initialKeys.has(key)) errors.push(`${label} must not be in the initial shell static closure.`);
   if (key && localKeys.has(key)) errors.push(`${label} must not block the LocalGame 2D static closure.`);
+}
+
+const onlineThreeSources = [
+  ['Animated quarter', 'src/ui/Quarter3D.tsx'],
+  ['3D physical clock', 'src/ui/ChessClock3DView.tsx'],
+];
+for (const [label, source] of onlineThreeSources) {
+  const key = keyForSource(source);
+  if (key && onlineKeys.has(key)) errors.push(`${label} must not block the OnlineArena 2D static closure.`);
 }
 
 const mustBeDynamic = [
