@@ -6,12 +6,14 @@ import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles/index.css';
 import AppV14 from './AppV14';
 import NotificationCenter from './notifications/NotificationCenter';
+import SocialCenter from './social/SocialCenter';
 import { motionTokenMs } from './ui/motion';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppV14 />
     <NotificationCenter />
+    <SocialCenter />
   </StrictMode>,
 );
 
