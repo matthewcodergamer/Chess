@@ -5,6 +5,7 @@ import { motionTokenMs, useReducedMotion } from './ui/motion';
 import LocalGameSetup from './game/LocalGameSetup';
 import LocalMatchChrome from './game/LocalMatchChrome';
 import LocalPromotionDialog from './game/LocalPromotionDialog';
+import { localBoardViewState } from './game/boardViewState';
 import { useLocalGameController, type LocalGameMode } from './game/useLocalGameController';
 
 type Props = { initialMode: LocalGameMode };
@@ -17,14 +18,19 @@ export default function LocalGame({ initialMode }: Props) {
   const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
   moveHandler.current = game.boardMove;
 
+  const boardState = useMemo(
+    () => localBoardViewState(game),
+    [game.fen, game.legalDests, game.lastMove, game.movableColor, game.orientation, game.session.check, game.session.sideToMove],
+  );
+
   const boardConfig = useMemo<QQurzChessgroundConfig>(() => {
-    const canMove = Boolean(game.movableColor);
+    const canMove = Boolean(boardState.movableColor);
     return {
-      fen: game.fen,
-      orientation: game.orientation,
-      turnColor: game.session.sideToMove,
-      check: game.session.check,
-      lastMove: game.lastMove,
+      fen: boardState.fen,
+      orientation: boardState.orientation,
+      turnColor: boardState.turnColor,
+      check: boardState.check,
+      lastMove: boardState.lastMove ? [...boardState.lastMove] as [Key, Key] : undefined,
       coordinates: true,
       coordinatesOnSquares: true,
       autoCastle: true,
@@ -35,14 +41,14 @@ export default function LocalGame({ initialMode }: Props) {
       selectable: { enabled: canMove },
       movable: {
         free: false,
-        color: game.movableColor,
-        dests: game.legalDests as Map<Key, Key[]>,
+        color: boardState.movableColor,
+        dests: boardState.legalDests as Map<Key, Key[]>,
         rookCastle: true,
         showDests: true,
         events: { after: (orig, dest) => moveHandler.current(orig, dest) },
       },
     };
-  }, [game.fen, game.legalDests, game.lastMove, game.movableColor, game.orientation, game.session.check, game.session.sideToMove, pieceMotionMs, reducedMotion]);
+  }, [boardState, pieceMotionMs, reducedMotion]);
 
   if (game.phase === 'setup') return <LocalGameSetup game={game} />;
 
