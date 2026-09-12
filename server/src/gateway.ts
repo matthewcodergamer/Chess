@@ -6,12 +6,18 @@ import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRo
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
 import { MoneyTournamentRegistry as TournamentRegistry } from './moneyTournamentRegistry';
-import { IntegrityChessRoom as ChessRoom } from './integrityRoom';
 import { handleMoneyRoomRequest } from './moneyRoomApi';
 import { CompetitionPaymentLedger as PaymentLedger } from './competitionPaymentLedger';
 import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
-import { handleIntegrityAdminRequest, IntegrityReviewRegistry, type IntegrityEnv } from './integrityReview';
+import { handleIntegrityAdminRequest, type IntegrityEnv } from './integrityReview';
+import {
+  FairPlayIntegrityRegistry as IntegrityReviewRegistry,
+  handleFairPlayAdminRequest,
+  handleFairPlayRequest,
+  requireFairPlayForCompetitiveRequest,
+} from './fairPlay';
+import { FairPlayActionChessRoom as ChessRoom, handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
 
 export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, PaymentLedger, TournamentRegistry };
 
@@ -43,8 +49,17 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
 
+    const fairPlayAdminResponse = await handleFairPlayAdminRequest(request, env);
+    if (fairPlayAdminResponse) return withCors(request, fairPlayAdminResponse, env);
+
     const integrityAdminResponse = await handleIntegrityAdminRequest(request, env);
     if (integrityAdminResponse) return withCors(request, integrityAdminResponse, env);
+
+    const fairPlayResponse = await handleFairPlayRequest(request, env);
+    if (fairPlayResponse) return withCors(request, fairPlayResponse, env);
+
+    const fairPlayRoomActionResponse = await handleFairPlayRoomActionRequest(request, env);
+    if (fairPlayRoomActionResponse) return withCors(request, fairPlayRoomActionResponse, env);
 
     const complianceResponse = await handlePaymentComplianceWebhook(request, env);
     if (complianceResponse) return withCors(request, complianceResponse, env);
@@ -54,6 +69,9 @@ export default {
 
     const accountResponse = await handleAccountRequest(request, env);
     if (accountResponse) return withCors(request, accountResponse, env);
+
+    const fairPlayGate = await requireFairPlayForCompetitiveRequest(request, env);
+    if (fairPlayGate) return withCors(request, fairPlayGate, env);
 
     const matchmakerResponse = await handleMatchmakerRequest(request, env);
     if (matchmakerResponse) return withCors(request, matchmakerResponse, env);

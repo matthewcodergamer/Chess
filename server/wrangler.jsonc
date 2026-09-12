@@ -11,7 +11,8 @@
       { "name": "TOURNAMENTS", "class_name": "TournamentRegistry" },
       { "name": "MATCHMAKER", "class_name": "Matchmaker" },
       { "name": "ACCOUNTS", "class_name": "AccountRegistry" },
-      { "name": "PAYMENTS", "class_name": "PaymentLedger" }
+      { "name": "PAYMENTS", "class_name": "PaymentLedger" },
+      { "name": "INTEGRITY", "class_name": "IntegrityReviewRegistry" }
     ]
   },
   "exports": {
@@ -19,7 +20,8 @@
     "TournamentRegistry": { "type": "durable-object", "storage": "sqlite" },
     "Matchmaker": { "type": "durable-object", "storage": "sqlite" },
     "AccountRegistry": { "type": "durable-object", "storage": "sqlite" },
-    "PaymentLedger": { "type": "durable-object", "storage": "sqlite" }
+    "PaymentLedger": { "type": "durable-object", "storage": "sqlite" },
+    "IntegrityReviewRegistry": { "type": "durable-object", "storage": "sqlite" }
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
@@ -33,7 +35,8 @@
     "REAL_MONEY_ENABLED": "disabled",
     "REAL_MONEY_PROVIDER": "disabled",
     "REAL_MONEY_JURISDICTIONS_JSON": "{}",
-    "NUVEI_ENV": "test"
+    "NUVEI_ENV": "test",
+    "INTEGRITY_SIGNAL_CAPTURE": "disabled"
   },
   "observability": { "enabled": true }
 }
