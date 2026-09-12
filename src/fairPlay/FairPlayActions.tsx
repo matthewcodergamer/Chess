@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FairPlayReportReason } from '../../server/src/fairPlay';
+import type { FairPlayReportReason } from './client';
 
 type Props = {
   opponentName: string;
