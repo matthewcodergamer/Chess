@@ -13,19 +13,35 @@ import {
   type BoardAppearance,
 } from './onboarding/preferences';
 
-const LocalGame = lazy(() => import('./LocalGame'));
-const OnlineArena = lazy(() => import('./multiplayer/OnlineArena'));
-const RandomMatchmaking = lazy(() => import('./multiplayer/RandomMatchmaking'));
-const TournamentHub = lazy(() => import('./tournaments/TournamentHub'));
-const Premium3DGate = lazy(() => import('./premium/Premium3DGate'));
-const ProfileHub = lazy(() => import('./profile/ProfileHub'));
-const FairPlayPrompt = lazy(() => import('./fairPlay/FairPlayPrompt'));
-const FairPlayRoomTools = lazy(() => import('./fairPlay/FairPlayRoomTools'));
+const loadLocalGame = () => import('./LocalGame');
+const loadOnlineArena = () => import('./multiplayer/OnlineArena');
+const loadRandomMatchmaking = () => import('./multiplayer/RandomMatchmaking');
+const loadTournamentHub = () => import('./tournaments/TournamentHub');
+const loadPremium3DGate = () => import('./premium/Premium3DGate');
+const loadProfileHub = () => import('./profile/ProfileHub');
+const loadFairPlayPrompt = () => import('./fairPlay/FairPlayPrompt');
+const loadFairPlayRoomTools = () => import('./fairPlay/FairPlayRoomTools');
+
+const LocalGame = lazy(loadLocalGame);
+const OnlineArena = lazy(loadOnlineArena);
+const RandomMatchmaking = lazy(loadRandomMatchmaking);
+const TournamentHub = lazy(loadTournamentHub);
+const Premium3DGate = lazy(loadPremium3DGate);
+const ProfileHub = lazy(loadProfileHub);
+const FairPlayPrompt = lazy(loadFairPlayPrompt);
+const FairPlayRoomTools = lazy(loadFairPlayRoomTools);
 
 type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'account';
 type LocalMode = 'human' | 'ai';
 type Theme = 'light' | 'dark';
 type FontScale = 'default' | 'large' | 'extra';
+type NetworkInformation = { saveData?: boolean; effectiveType?: string };
+
+function canPrefetch(): boolean {
+  const connection = (navigator as Navigator & { connection?: NetworkInformation }).connection;
+  if (!connection) return true;
+  return !connection.saveData && connection.effectiveType !== 'slow-2g' && connection.effectiveType !== '2g';
+}
 
 function hasAccountAction(): boolean {
   const params = new URLSearchParams(window.location.search);
@@ -111,16 +127,6 @@ export default function AppV14() {
   }, [boardAppearance]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void import('./LocalGame');
-      void import('./multiplayer/OnlineArena');
-      void import('./multiplayer/RandomMatchmaking');
-      void import('./fairPlay/FairPlayPrompt');
-    }, 420);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     if (!onboardingComplete || !multiplayerConfigured) return;
     let stopped = false;
     const ping = async () => {
@@ -155,6 +161,21 @@ export default function AppV14() {
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [displayOpen]);
+
+  const prefetchScreen = (next: Screen) => {
+    if (!canPrefetch()) return;
+    if (next === 'local') void loadLocalGame();
+    else if (next === 'online') void Promise.all([loadOnlineArena(), loadFairPlayPrompt(), loadFairPlayRoomTools()]);
+    else if (next === 'matchmaking') void Promise.all([loadRandomMatchmaking(), loadFairPlayPrompt()]);
+    else if (next === 'tournaments') void Promise.all([loadTournamentHub(), loadFairPlayPrompt()]);
+    else if (next === '3d') void loadPremium3DGate();
+    else if (next === 'account') void loadProfileHub();
+  };
+  const intent = (next: Screen) => ({
+    onPointerEnter: () => prefetchScreen(next),
+    onFocus: () => prefetchScreen(next),
+    onPointerDown: () => prefetchScreen(next),
+  });
 
   const closeMenus = () => { setDisplayOpen(false); setMenuOpen(false); };
   const goHome = () => {
@@ -239,20 +260,20 @@ export default function AppV14() {
 
         <nav className="desktop-chess-nav" aria-label="Primary navigation">
           <button onClick={goHome} className={screen === 'home' ? 'active' : ''}><span>♚</span> Home</button>
-          <button onClick={() => openScreen('tournaments')} className={screen === 'tournaments' ? 'active' : ''}><span>♛</span> Tournaments</button>
-          <button onClick={openFriends} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''}><span>♞</span> Friends</button>
-          <button onClick={() => openScreen('3d')} className={screen === '3d' ? 'active' : ''}><span>♜</span> 3D</button>
+          <button onClick={() => openScreen('tournaments')} {...intent('tournaments')} className={screen === 'tournaments' ? 'active' : ''}><span>♛</span> Tournaments</button>
+          <button onClick={openFriends} {...intent('online')} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''}><span>♞</span> Friends</button>
+          <button onClick={() => openScreen('3d')} {...intent('3d')} className={screen === '3d' ? 'active' : ''}><span>♜</span> 3D</button>
         </nav>
 
         <div className="qqurz-nav-end chess-nav-actions">
-          <button className="live-presence-pill" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /><span className="live-presence-copy">{onlineLabel}</span></button>
-          <button className="nav-account-button" onClick={() => openScreen('account')} aria-label="Open player account"><span aria-hidden="true">♙</span><span className="nav-control-label">Account</span></button>
+          <button className="live-presence-pill" onClick={openMatchmaking} {...intent('matchmaking')} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /><span className="live-presence-copy">{onlineLabel}</span></button>
+          <button className="nav-account-button" onClick={() => openScreen('account')} {...intent('account')} aria-label="Open player account"><span aria-hidden="true">♙</span><span className="nav-control-label">Account</span></button>
           <button className="display-toggle" onClick={() => setDisplayOpen(value => !value)} aria-expanded={displayOpen} aria-controls="qqurz-display-menu"><span aria-hidden="true">Aa</span><span className="nav-control-label">Display</span></button>
         </div>
 
         <div className="mobile-nav-actions" aria-label="Quick actions">
-          <IconButton className="mobile-presence-button" size="sm" onClick={openMatchmaking} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /></IconButton>
-          <IconButton className="mobile-account-button" size="sm" onClick={() => openScreen('account')} aria-label="Open player account">♙</IconButton>
+          <IconButton className="mobile-presence-button" size="sm" onClick={openMatchmaking} {...intent('matchmaking')} aria-label={`${onlineLabel}. Find a random opponent.`}><span className="presence-dot" /></IconButton>
+          <IconButton className="mobile-account-button" size="sm" onClick={() => openScreen('account')} {...intent('account')} aria-label="Open player account">♙</IconButton>
         </div>
       </header>
 
@@ -281,16 +302,16 @@ export default function AppV14() {
               <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
             </div>
             <nav className="drawer-links" aria-label="Chess menu">
-              <button onClick={() => openScreen('tournaments')}><span>♛</span><div><b>Play a tournament</b><small>QQURZ competitive events</small></div></button>
-              <button onClick={openFriends}><span>♘</span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
-              <button onClick={() => openLocal('human')}><span>♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
-              <button onClick={() => openScreen('3d')}><span>♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
-              <button onClick={() => openScreen('account')}><span>♙</span><div><b>Account</b><small>Identity, ratings and settings</small></div></button>
-              <button className="drawer-ai-choice" onClick={() => openLocal('ai')}><span>♞</span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
+              <button onClick={() => openScreen('tournaments')} {...intent('tournaments')}><span>♛</span><div><b>Play a tournament</b><small>QQURZ competitive events</small></div></button>
+              <button onClick={openFriends} {...intent('online')}><span>♘</span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
+              <button onClick={() => openLocal('human')} {...intent('local')}><span>♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
+              <button onClick={() => openScreen('3d')} {...intent('3d')}><span>♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
+              <button onClick={() => openScreen('account')} {...intent('account')}><span>♙</span><div><b>Account</b><small>Identity, ratings and settings</small></div></button>
+              <button className="drawer-ai-choice" onClick={() => openLocal('ai')} {...intent('local')}><span>♞</span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
             </nav>
             <div className="drawer-live-match">
               <div><span className="presence-dot"/><b>{onlineLabel}</b><small>Players seen on QQURZ recently</small></div>
-              <button onClick={openMatchmaking}>Find an opponent</button>
+              <button onClick={openMatchmaking} {...intent('matchmaking')}>Find an opponent</button>
             </div>
             <div className="drawer-settings" aria-label="Preferences and settings">
               <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}><span>◐</span><div><b>App theme</b><small>{theme === 'dark' ? 'Dark' : 'Light'}</small></div></button>
@@ -320,7 +341,7 @@ export default function AppV14() {
       {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
       {screen === 'online' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
       {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={handleRandomMatch} onBack={goHome}/></></Suspense>}
-      {screen === 'tournaments' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => setScreen('3d')}/></div></Suspense>}
+      {screen === 'tournaments' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { prefetchScreen('online'); setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => { prefetchScreen('3d'); setScreen('3d'); }}/></div></Suspense>}
       {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
       {screen === 'account' && <Suspense fallback={<LoadingView/>}><ProfileHub onBack={goHome}/></Suspense>}
     </main>
