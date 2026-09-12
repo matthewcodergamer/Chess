@@ -2,7 +2,7 @@ import type { Color, Key } from '@lichess-org/chessground/types';
 import type { Role } from 'chessops/types';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { cappedPixelRatio, createRenderScheduler, shadowMapSize, type RenderScheduler } from './threePerformance';
+import { cappedPixelRatio, createRenderScheduler, lowerPower3DDevice, shadowMapSize, webglPowerPreference, type RenderScheduler } from './threePerformance';
 import { MAX_LEGAL_DESTS, MAX_ROLE_INSTANCES, THREE_COLORS, THREE_ROLES, pieceGeometry, piecesFromFen, setInstanceMatrix, squarePosition } from './threeGeometry';
 
 export type ThreeSceneHandle = {
@@ -37,7 +37,11 @@ export function createThreeScene(element: HTMLDivElement): { handle: ThreeSceneH
   scene.background = new THREE.Color(0x4b3a2d);
   scene.fog = new THREE.Fog(0x4b3a2d, 29, 48);
   const camera = new THREE.PerspectiveCamera(30, 1, .1, 100);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: !lowerPower3DDevice(),
+    alpha: false,
+    powerPreference: webglPowerPreference(),
+  });
   renderer.setPixelRatio(cappedPixelRatio());
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
