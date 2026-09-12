@@ -2,9 +2,9 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { multiplayerConfigured } from '../multiplayer/client';
 import { celebratePurchase } from '../ui/purchaseCelebration';
 import { createCheckout, loadTournamentCatalog, verifyCheckout, type PaymentMode } from '../tournaments/client';
+import { PREMIUM_3D_ENTITLEMENT_KEY } from './access';
 
 const PremiumBoard3D = lazy(() => import('./PremiumBoard3D'));
-const ENTITLEMENT_KEY = 'qqurz:premium3d-session-v1';
 
 type Props = { onBack: () => void };
 type GateState = 'checking' | 'locked' | 'verified' | 'open';
@@ -40,7 +40,7 @@ export default function Premium3DGate({ onBack }: Props) {
     const checkout = params.get('checkout');
     const kind = params.get('kind');
     const returnedSession = checkout === 'success' && kind === 'premium3d' ? params.get('session_id') : null;
-    const storedSession = window.localStorage.getItem(ENTITLEMENT_KEY);
+    const storedSession = window.localStorage.getItem(PREMIUM_3D_ENTITLEMENT_KEY);
     const sessionId = returnedSession || storedSession;
 
     const cleanUrl = () => {
@@ -70,7 +70,7 @@ export default function Premium3DGate({ onBack }: Props) {
         if (!result.paid || result.kind !== 'premium3d' || result.itemId !== '3d-pass') {
           throw new Error('This checkout does not include the Premium 3D pass.');
         }
-        window.localStorage.setItem(ENTITLEMENT_KEY, sessionId);
+        window.localStorage.setItem(PREMIUM_3D_ENTITLEMENT_KEY, sessionId);
         window.localStorage.removeItem('qqurz:3d-pass');
         if (returnedSession) cleanUrl();
         setState('verified');
@@ -78,7 +78,7 @@ export default function Premium3DGate({ onBack }: Props) {
       })
       .catch(error => {
         if (!active) return;
-        window.localStorage.removeItem(ENTITLEMENT_KEY);
+        window.localStorage.removeItem(PREMIUM_3D_ENTITLEMENT_KEY);
         if (returnedSession) cleanUrl();
         setState('locked');
         setMessage(error instanceof Error ? error.message : 'Could not verify Premium 3D access.');
