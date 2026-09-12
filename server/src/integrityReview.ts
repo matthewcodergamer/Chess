@@ -65,12 +65,7 @@ export type IntegritySignalCode =
   | 'ultrafast_move_cluster'
   | 'client_timestamp_anomalies';
 
-export type IntegrityTriageSignal = {
-  code: IntegritySignalCode;
-  weight: number;
-  detail: string;
-};
-
+export type IntegrityTriageSignal = { code: IntegritySignalCode; weight: number; detail: string };
 export type IntegrityReviewStatus = 'queued' | 'in_review' | 'second_review' | 'cleared' | 'escalated' | 'action_required';
 
 export type IntegrityReviewCase = {
@@ -122,7 +117,7 @@ export type IntegrityRegistryEnv = {
 };
 
 export type IntegrityEnv = IntegrityRegistryEnv & {
-  INTEGRITY: DurableObjectNamespace<IntegrityReviewRegistry>;
+  INTEGRITY?: DurableObjectNamespace<IntegrityReviewRegistry>;
   INTEGRITY_SIGNAL_CAPTURE?: string;
   INTEGRITY_SIGNAL_SECRET?: string;
 };
@@ -162,42 +157,35 @@ function timingVariation(values: number[]): number {
 
 function triage(evidence: IntegrityGameEvidence, relationship: Relationship | null): { score: number; threshold: number; signals: IntegrityTriageSignal[] } {
   const signals: IntegrityTriageSignal[] = [];
-  const byColor = {
-    white: evidence.connections.filter(signal => signal.color === 'white'),
-    black: evidence.connections.filter(signal => signal.color === 'black'),
-  };
-  if (intersection(byColor.white.map(value => value.deviceSignalHash), byColor.black.map(value => value.deviceSignalHash)).length) {
+  const white = evidence.connections.filter(signal => signal.color === 'white');
+  const black = evidence.connections.filter(signal => signal.color === 'black');
+  if (intersection(white.map(value => value.deviceSignalHash), black.map(value => value.deviceSignalHash)).length) {
     signals.push({ code: 'shared_device_signal', weight: 70, detail: 'Opponents presented the same pseudonymous device/client signal. This is review evidence, not proof of cheating.' });
   }
-  if (intersection(byColor.white.map(value => value.networkSignalHash), byColor.black.map(value => value.networkSignalHash)).length) {
+  if (intersection(white.map(value => value.networkSignalHash), black.map(value => value.networkSignalHash)).length) {
     signals.push({ code: 'shared_network_signal', weight: evidence.money ? 30 : 15, detail: 'Opponents shared a pseudonymous network-prefix signal. Shared homes/networks are possible, so this requires context.' });
   }
-
   if (relationship && evidence.money && relationship.moneyGames >= 2) {
-    signals.push({ code: 'repeated_money_opponents', weight: 25, detail: `These accounts had ${relationship.moneyGames} prior funded games recorded before this game.` });
+    signals.push({ code: 'repeated_money_opponents', weight: 25, detail: `These accounts had ${relationship.moneyGames} prior funded games before this game.` });
   } else if (relationship && evidence.tournamentId && relationship.tournamentGames >= 4) {
-    signals.push({ code: 'repeated_tournament_opponents', weight: 10, detail: `These accounts had ${relationship.tournamentGames} prior tournament games recorded before this game.` });
+    signals.push({ code: 'repeated_tournament_opponents', weight: 10, detail: `These accounts had ${relationship.tournamentGames} prior tournament games before this game.` });
   }
 
   const nonOpening = evidence.moves.filter(move => move.ply > 12 && move.complexity.pieceCount >= 10);
   const ultrafast = nonOpening.filter(move => move.thinkTimeMs >= 0 && move.thinkTimeMs <= 250);
   if (ultrafast.length >= 6 && ultrafast.length / Math.max(1, nonOpening.length) >= 0.35) {
-    signals.push({ code: 'ultrafast_move_cluster', weight: 20, detail: `${ultrafast.length} non-opening moves were committed in 250 ms or less. Premoves, forced lines, and network behavior must be considered in review.` });
+    signals.push({ code: 'ultrafast_move_cluster', weight: 20, detail: `${ultrafast.length} non-opening moves were committed in 250 ms or less. Premoves, forced lines, and network behavior must be considered.` });
   }
-
-  const playerTimes = (color: 'white' | 'black') => evidence.moves.filter(move => move.color === color && move.ply > 12).map(move => move.thinkTimeMs).filter(value => value >= 100);
   for (const color of ['white', 'black'] as const) {
-    const values = playerTimes(color);
+    const values = evidence.moves.filter(move => move.color === color && move.ply > 12).map(move => move.thinkTimeMs).filter(value => value >= 100);
     if (values.length >= 12 && timingVariation(values) < 0.08) {
-      signals.push({ code: 'ultrafast_move_cluster', weight: 10, detail: `${color} showed unusually regular post-opening move timing. This is a weak behavioral signal only.` });
+      signals.push({ code: 'ultrafast_move_cluster', weight: 10, detail: `${color} showed unusually regular post-opening timing. This is a weak behavioral signal only.` });
     }
   }
-
   const timestampAnomalies = evidence.moves.filter(move => move.clientToServerMs !== null && (move.clientToServerMs < -10_000 || move.clientToServerMs > 86_400_000)).length;
   if (timestampAnomalies >= 3) {
     signals.push({ code: 'client_timestamp_anomalies', weight: 10, detail: `${timestampAnomalies} client timestamps were implausibly far from authoritative receive time. Client clocks are never trusted for adjudication.` });
   }
-
   const score = signals.reduce((sum, signal) => sum + signal.weight, 0);
   const threshold = evidence.money ? 40 : evidence.tournamentId ? 55 : 80;
   return { score, threshold, signals };
@@ -268,27 +256,23 @@ export class IntegrityReviewRegistry extends DurableObject<IntegrityRegistryEnv>
       };
     }
 
+    const { moves, connections, ...base } = evidence;
     const summary: GameSummary = {
-      ...evidence,
-      moves: undefined as never,
-      connections: undefined as never,
-      moveCount: evidence.moves.length,
-      connectionCount: evidence.connections.length,
+      ...base,
+      moveCount: moves.length,
+      connectionCount: connections.length,
       retentionClass: retentionClass(evidence),
       reviewCaseId: reviewCase?.id ?? null,
       triageScore: assessment.score,
     };
-    delete (summary as unknown as Record<string, unknown>).moves;
-    delete (summary as unknown as Record<string, unknown>).connections;
 
     const puts: Record<string, unknown> = {
       [gameKey]: summary,
-      [`${gameKey}:connections`]: evidence.connections.slice(0, 100),
+      [`${gameKey}:connections`]: connections.slice(0, 100),
     };
-    evidence.moves.forEach((_, index) => {
-      if (index % MOVE_CHUNK_SIZE !== 0) return;
-      puts[`${gameKey}:moves:${Math.floor(index / MOVE_CHUNK_SIZE)}`] = evidence.moves.slice(index, index + MOVE_CHUNK_SIZE);
-    });
+    for (let index = 0; index < moves.length; index += MOVE_CHUNK_SIZE) {
+      puts[`${gameKey}:moves:${Math.floor(index / MOVE_CHUNK_SIZE)}`] = moves.slice(index, index + MOVE_CHUNK_SIZE);
+    }
     if (reviewCase) {
       puts[`${CASE_PREFIX}${reviewCase.id}`] = reviewCase;
       const index = (await this.ctx.storage.get<string[]>(CASE_INDEX)) ?? [];
@@ -319,20 +303,24 @@ export class IntegrityReviewRegistry extends DurableObject<IntegrityRegistryEnv>
     if (!summary.reviewCaseId) return { gameId, disposition: 'allow', reviewCaseId: null, reason: null };
     const review = await this.ctx.storage.get<IntegrityReviewCase>(`${CASE_PREFIX}${summary.reviewCaseId}`);
     if (!review || review.status === 'cleared') return { gameId, disposition: 'allow', reviewCaseId: summary.reviewCaseId, reason: null };
-    return { gameId, disposition: summary.money ? 'manual_review' : 'allow', reviewCaseId: summary.reviewCaseId, reason: summary.money ? 'Funded settlement requires integrity review before money is released.' : null };
+    return {
+      gameId,
+      disposition: summary.money ? 'manual_review' : 'allow',
+      reviewCaseId: summary.reviewCaseId,
+      reason: summary.money ? 'Funded settlement requires integrity review before money is released.' : null,
+    };
   }
 
   private async tournamentStatus(tournamentId: string): Promise<Response> {
-    const caseIds = (await this.ctx.storage.get<string[]>(`integrity:tournament-cases:v1:${tournamentId}`)) ?? [];
-    const cases = (await Promise.all(caseIds.map(id => this.ctx.storage.get<IntegrityReviewCase>(`${CASE_PREFIX}${id}`)))).filter((value): value is IntegrityReviewCase => Boolean(value));
+    const ids = (await this.ctx.storage.get<string[]>(`integrity:tournament-cases:v1:${tournamentId}`)) ?? [];
+    const cases = (await Promise.all(ids.map(id => this.ctx.storage.get<IntegrityReviewCase>(`${CASE_PREFIX}${id}`)))).filter((value): value is IntegrityReviewCase => Boolean(value));
     const open = cases.filter(item => unresolved(item.status));
     return json({ tournamentId, disposition: open.length ? 'manual_review' : 'allow', openCases: open.map(item => ({ id: item.id, gameId: item.gameId, priority: item.priority, status: item.status, score: item.score })) });
   }
 
   private async adminList(request: Request): Promise<Response> {
     if (!this.adminAuthorized(request)) return json({ error: 'Unauthorized integrity review access.' }, 401);
-    const url = new URL(request.url);
-    const requested = clean(url.searchParams.get('status'), 32);
+    const requested = clean(new URL(request.url).searchParams.get('status'), 32);
     const ids = (await this.ctx.storage.get<string[]>(CASE_INDEX)) ?? [];
     const cases = (await Promise.all(ids.slice(0, 250).map(id => this.ctx.storage.get<IntegrityReviewCase>(`${CASE_PREFIX}${id}`)))).filter((value): value is IntegrityReviewCase => Boolean(value));
     return json({ cases: requested ? cases.filter(item => item.status === requested) : cases });
@@ -394,7 +382,8 @@ export class IntegrityReviewRegistry extends DurableObject<IntegrityRegistryEnv>
   }
 }
 
-function registry(env: IntegrityEnv): DurableObjectStub<IntegrityReviewRegistry> {
+function registry(env: IntegrityEnv): DurableObjectStub<IntegrityReviewRegistry> | null {
+  if (!env.INTEGRITY) return null;
   return env.INTEGRITY.get(env.INTEGRITY.idFromName('qqurz-integrity-review-registry-v1'));
 }
 
@@ -405,8 +394,11 @@ function internalHeaders(env: IntegrityEnv): Headers {
 }
 
 export async function submitIntegrityGame(env: IntegrityEnv, evidence: IntegrityGameEvidence): Promise<IntegritySettlementDisposition> {
-  if (!env.INTEGRITY_INTERNAL_SECRET) return { gameId: evidence.gameId, disposition: evidence.money ? 'manual_review' : 'allow', reviewCaseId: null, reason: 'Integrity service is not configured.' };
-  const response = await registry(env).fetch(new Request('https://integrity.internal/internal/game-complete', {
+  const target = registry(env);
+  if (!target || !env.INTEGRITY_INTERNAL_SECRET) {
+    return { gameId: evidence.gameId, disposition: evidence.money ? 'manual_review' : 'allow', reviewCaseId: null, reason: 'Integrity service is not configured.' };
+  }
+  const response = await target.fetch(new Request('https://integrity.internal/internal/game-complete', {
     method: 'POST', headers: internalHeaders(env), body: JSON.stringify(evidence),
   }));
   const body = await response.json().catch(() => ({})) as Partial<IntegritySettlementDisposition> & { error?: string };
@@ -415,8 +407,9 @@ export async function submitIntegrityGame(env: IntegrityEnv, evidence: Integrity
 }
 
 export async function tournamentIntegrityStatus(env: IntegrityEnv, tournamentId: string): Promise<{ disposition: 'allow' | 'manual_review'; openCases: unknown[]; error?: string }> {
-  if (!env.INTEGRITY_INTERNAL_SECRET) return { disposition: 'manual_review', openCases: [], error: 'Integrity service is not configured.' };
-  const response = await registry(env).fetch(new Request(`https://integrity.internal/internal/tournament-status/${encodeURIComponent(tournamentId)}`, { headers: internalHeaders(env) }));
+  const target = registry(env);
+  if (!target || !env.INTEGRITY_INTERNAL_SECRET) return { disposition: 'manual_review', openCases: [], error: 'Integrity service is not configured.' };
+  const response = await target.fetch(new Request(`https://integrity.internal/internal/tournament-status/${encodeURIComponent(tournamentId)}`, { headers: internalHeaders(env) }));
   const body = await response.json().catch(() => ({})) as { disposition?: string; openCases?: unknown[]; error?: string };
   if (!response.ok) return { disposition: 'manual_review', openCases: [], error: body.error ?? 'Tournament integrity status is unavailable.' };
   return { disposition: body.disposition === 'manual_review' ? 'manual_review' : 'allow', openCases: body.openCases ?? [] };
@@ -425,8 +418,14 @@ export async function tournamentIntegrityStatus(env: IntegrityEnv, tournamentId:
 export async function handleIntegrityAdminRequest(request: Request, env: IntegrityEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/integrity/admin/')) return null;
-  const target = url.pathname.replace('/integrity', '');
+  const target = registry(env);
+  if (!target) return json({ error: 'Integrity review service is not configured.' }, 503);
+  const path = url.pathname.replace('/integrity', '');
   const headers = new Headers(request.headers);
   headers.set('x-integrity-admin', request.headers.get('x-integrity-admin') ?? '');
-  return registry(env).fetch(new Request(`https://integrity.internal${target}${url.search}`, { method: request.method, headers, body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body }));
+  return target.fetch(new Request(`https://integrity.internal${path}${url.search}`, {
+    method: request.method,
+    headers,
+    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+  }));
 }
