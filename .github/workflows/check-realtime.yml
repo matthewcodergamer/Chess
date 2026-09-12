@@ -9,8 +9,13 @@ on:
       - 'src/multiplayer/**'
       - 'src/account/**'
       - 'src/profile/**'
+      - 'src/premium/**'
+      - 'src/game/**'
+      - 'src/LocalGame.tsx'
       - 'src/AppV14.tsx'
       - 'scripts/check-account-system.mjs'
+      - 'scripts/check-3d-presentation-boundary.mjs'
+      - 'package.json'
       - '.github/workflows/check-realtime.yml'
   pull_request:
     paths:
@@ -19,8 +24,13 @@ on:
       - 'src/multiplayer/**'
       - 'src/account/**'
       - 'src/profile/**'
+      - 'src/premium/**'
+      - 'src/game/**'
+      - 'src/LocalGame.tsx'
       - 'src/AppV14.tsx'
       - 'scripts/check-account-system.mjs'
+      - 'scripts/check-3d-presentation-boundary.mjs'
+      - 'package.json'
       - '.github/workflows/check-realtime.yml'
   workflow_dispatch:
 
