@@ -3,7 +3,6 @@ import { resolveAccountSession } from './accounts';
 import { IntegrityChessRoom } from './integrityRoom';
 import {
   IntegrityReviewRegistry,
-  type IntegrityConnectionSignal,
   type IntegrityEnv,
   type IntegrityGameEvidence,
   type IntegrityRegistryEnv,
@@ -141,16 +140,12 @@ function registry(env: IntegrityEnv): RegistryStub | null {
   if (!env.INTEGRITY) return null;
   return env.INTEGRITY.get(env.INTEGRITY.idFromName('qqurz-integrity-review-registry-v1')) as unknown as RegistryStub;
 }
-function internalHeaders(env: IntegrityEnv): Headers {
-  const headers = new Headers({ 'content-type': 'application/json' });
-  headers.set('x-integrity-internal', env.INTEGRITY_INTERNAL_SECRET ?? '');
-  return headers;
-}
 async function internalCall(env: IntegrityEnv, path: string, init: RequestInit = {}): Promise<Response | null> {
   const target = registry(env);
   if (!target || !env.INTEGRITY_INTERNAL_SECRET) return null;
   const headers = new Headers(init.headers);
-  for (const [key, value] of internalHeaders(env)) headers.set(key, value);
+  headers.set('content-type', 'application/json');
+  headers.set('x-integrity-internal', env.INTEGRITY_INTERNAL_SECRET);
   return target.fetch(new Request(`https://integrity.internal${path}`, { ...init, headers }));
 }
 
@@ -202,7 +197,7 @@ export async function handleFairPlayRequest(request: Request, env: FairPlayEnv):
 
   if (url.pathname === '/fair-play/policy' && request.method === 'GET') {
     const status = identity ? await fairPlayStatus(env, identity.id) : { configured: Boolean(env.INTEGRITY), accepted: false, version: FAIR_PLAY_POLICY_VERSION, acceptedAt: null };
-    return json({ version: FAIR_PLAY_POLICY_VERSION, rules: FAIR_PLAY_POLICY, identity: identity ? { id: identity.id, displayName: identity.displayName } : null, ...status });
+    return json({ rules: FAIR_PLAY_POLICY, identity: identity ? { id: identity.id, displayName: identity.displayName } : null, ...status });
   }
   if (url.pathname === '/fair-play/accept' && request.method === 'POST') {
     if (!identity) return json({ error: 'Sign in before accepting competitive fair-play rules.' }, 401);
@@ -240,11 +235,11 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
   private fpInternals(): { ctx: DurableObjectState; env: IntegrityRegistryEnv } {
     return this as unknown as { ctx: DurableObjectState; env: IntegrityRegistryEnv };
   }
-  private internalAuthorized(request: Request): boolean {
+  private fairPlayInternalAuthorized(request: Request): boolean {
     const secret = this.fpInternals().env.INTEGRITY_INTERNAL_SECRET ?? '';
     return Boolean(secret) && request.headers.get('x-integrity-internal') === secret;
   }
-  private adminAuthorized(request: Request): boolean {
+  private fairPlayAdminAuthorized(request: Request): boolean {
     const secret = this.fpInternals().env.INTEGRITY_ADMIN_SECRET ?? '';
     return secret.length >= 24 && request.headers.get('x-integrity-admin') === secret;
   }
@@ -374,7 +369,7 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
   }
   private async fairPlayDisposition(gameId: string, base: IntegritySettlementDisposition): Promise<IntegritySettlementDisposition> {
     const ids = (await this.fpInternals().ctx.storage.get<string[]>(`${GAME_CASE_PREFIX}${gameId}`)) ?? [];
-    const cases = (await Promise.all(ids.map(id => this.fpInternals().ctx.storage.get<FairPlayCase>(`${CASE_PREFIX}${id}`)))).filter((item): item is FairPlayCase => Boolean(item));
+    const cases = (await Promise.all(ids.map(id => this.fpInternals().ctx.storage.get<FairPlayCase>(`${CASE_PREFIX}${id}`)))).filter((item): item is FairPlayCase => item !== undefined);
     const open = cases.find(item => item.money && item.status !== 'cleared');
     if (open) return { gameId, disposition: 'manual_review', reviewCaseId: open.id, reason: 'Funded settlement is paused for fair-play review.' };
     return base;
@@ -402,7 +397,7 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
     await this.appendIndex(playerReportsKey, id, 250);
     const reportIds = (await this.fpInternals().ctx.storage.get<string[]>(playerReportsKey)) ?? [];
     const recentReports = (await Promise.all(reportIds.slice(0, 20).map(value => this.fpInternals().ctx.storage.get<FairPlayReport>(`${REPORT_PREFIX}${value}`))))
-      .filter((item): item is FairPlayReport => Boolean(item) && Date.now() - item.createdAt < 30 * 24 * 60 * 60_000);
+      .filter((item): item is FairPlayReport => item !== undefined && Date.now() - item.createdAt < 30 * 24 * 60 * 60_000);
     const distinctReporters = new Set(recentReports.map(item => item.reporterAccountId));
     const review = await this.openCaseForSignal(targetAccountId, 'player_report', `${distinctReporters.size} distinct player(s) submitted recent fair-play reports. Reports require evidence review and are not findings by themselves.`, { gameId, tournamentId, money: report.money });
     if (!review.sourceReportIds.includes(id)) {
@@ -413,7 +408,7 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
     return json({ ok: true, reportId: id, reviewCaseId: review.id }, 201);
   }
   private async moderatorList(request: Request, kind: 'reports' | 'cases'): Promise<Response> {
-    if (!this.adminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
+    if (!this.fairPlayAdminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
     const url = new URL(request.url);
     const status = clean(url.searchParams.get('status'), 40);
     const indexKey = kind === 'reports' ? REPORT_INDEX : CASE_INDEX;
@@ -423,7 +418,7 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
     return json({ [kind]: status ? items.filter(item => item.status === status) : items });
   }
   private async moderatorPlayer(request: Request, accountId: string): Promise<Response> {
-    if (!this.adminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
+    if (!this.fairPlayAdminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
     const stats = (await this.fpInternals().ctx.storage.get<PlayerBehaviorStats>(`${STATS_PREFIX}${accountId}`)) ?? null;
     const caseIds = (await this.fpInternals().ctx.storage.get<string[]>(`${PLAYER_CASE_PREFIX}${accountId}`)) ?? [];
     const reportIds = (await this.fpInternals().ctx.storage.get<string[]>(`fair-play:reports-for:v1:${accountId}`)) ?? [];
@@ -432,7 +427,7 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
     return json({ accountId, stats, cases, reports });
   }
   private async moderatorCaseDecision(request: Request, caseId: string): Promise<Response> {
-    if (!this.adminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
+    if (!this.fairPlayAdminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const reviewerId = clean(body.reviewerId, 80);
     const note = clean(body.note, 800);
@@ -453,8 +448,8 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
   }
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname.startsWith('/internal/fair-play/') && !this.internalAuthorized(request)) return json({ error: 'Unauthorized fair-play service call.' }, 401);
-    if (url.pathname.startsWith('/admin/fair-play/') && !this.adminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
+    if (url.pathname.startsWith('/internal/fair-play/') && !this.fairPlayInternalAuthorized(request)) return json({ error: 'Unauthorized fair-play service call.' }, 401);
+    if (url.pathname.startsWith('/admin/fair-play/') && !this.fairPlayAdminAuthorized(request)) return json({ error: 'Unauthorized moderator access.' }, 401);
 
     const statusMatch = /^\/internal\/fair-play\/status\/(.+)$/.exec(url.pathname);
     if (statusMatch && request.method === 'GET') {
@@ -491,7 +486,10 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
       return json({ ok: true, blocked: body.blocked !== false });
     }
     if (url.pathname === '/internal/fair-play/report' && request.method === 'POST') return this.report(request);
-    if (url.pathname === '/internal/fair-play/behavior' && request.method === 'POST') return this.behavior(await request.json().then(body => new Request(request.url, { method: 'POST', headers: request.headers, body: JSON.stringify(body) })));
+    if (url.pathname === '/internal/fair-play/behavior' && request.method === 'POST') {
+      const event = await request.json().catch(() => null) as BehaviorEvent | null;
+      return event ? this.behavior(event) : json({ error: 'Invalid behavior event.' }, 400);
+    }
 
     if (url.pathname === '/internal/game-complete' && request.method === 'POST') {
       const evidence = await request.clone().json().catch(() => null) as IntegrityGameEvidence | null;
@@ -499,8 +497,9 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
       if (evidence?.schema === 'qqurz-integrity-game-v1') {
         await this.fpInternals().ctx.storage.put(`${GAME_INDEX_PREFIX}${evidence.roomCode}`, evidence.gameId);
         const linkedCases = await this.linkSignals(evidence);
-        if (evidence.money && linkedCases.some(item => item.status !== 'cleared')) {
-          return json({ gameId: evidence.gameId, disposition: 'manual_review', reviewCaseId: linkedCases[0]?.id ?? null, reason: 'Funded settlement is paused for fair-play review.' });
+        const linkedOpen = linkedCases.find(item => item.status !== 'cleared');
+        if (evidence.money && linkedOpen) {
+          return json({ gameId: evidence.gameId, disposition: 'manual_review', reviewCaseId: linkedOpen.id, reason: 'Funded settlement is paused for fair-play review.' });
         }
       }
       return response;
@@ -517,7 +516,7 @@ export class FairPlayIntegrityRegistry extends IntegrityReviewRegistry {
       const body = await base.clone().json().catch(() => ({})) as { tournamentId?: string; disposition?: string; openCases?: unknown[] };
       const id = decodeURIComponent(tournamentStatus[1]);
       const ids = (await this.fpInternals().ctx.storage.get<string[]>(`${TOURNAMENT_CASE_PREFIX}${id}`)) ?? [];
-      const cases = (await Promise.all(ids.map(caseId => this.fpInternals().ctx.storage.get<FairPlayCase>(`${CASE_PREFIX}${caseId}`)))).filter((item): item is FairPlayCase => Boolean(item) && item.status !== 'cleared');
+      const cases = (await Promise.all(ids.map(caseId => this.fpInternals().ctx.storage.get<FairPlayCase>(`${CASE_PREFIX}${caseId}`)))).filter((item): item is FairPlayCase => item !== undefined && item.status !== 'cleared');
       return json({ ...body, tournamentId: id, disposition: cases.length ? 'manual_review' : body.disposition, fairPlayCases: cases.map(item => ({ id: item.id, accountId: item.accountId, status: item.status, priority: item.priority })) });
     }
 
@@ -676,7 +675,8 @@ export class FairPlayChessRoom extends IntegrityChessRoom {
       if (accountId) {
         const denied = await this.ensureAccepted(accountId);
         if (denied) return denied;
-        if (internalJoin && this.fpRoom().room?.players.white.accountId && await areCompetitivelyBlocked(this.fpRoom().env, accountId, this.fpRoom().room.players.white.accountId)) {
+        const creatorAccountId = this.fpRoom().room?.players.white.accountId ?? null;
+        if (internalJoin && creatorAccountId && await areCompetitivelyBlocked(this.fpRoom().env, accountId, creatorAccountId)) {
           return json({ error: 'This competitive pairing is blocked by one of the players.', code: 'PLAYER_BLOCKED' }, 403);
         }
       }
