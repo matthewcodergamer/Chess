@@ -19,6 +19,8 @@ const RandomMatchmaking = lazy(() => import('./multiplayer/RandomMatchmaking'));
 const TournamentHub = lazy(() => import('./tournaments/TournamentHub'));
 const Premium3DGate = lazy(() => import('./premium/Premium3DGate'));
 const ProfileHub = lazy(() => import('./profile/ProfileHub'));
+const FairPlayPrompt = lazy(() => import('./fairPlay/FairPlayPrompt'));
+const FairPlayRoomTools = lazy(() => import('./fairPlay/FairPlayRoomTools'));
 
 type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'account';
 type LocalMode = 'human' | 'ai';
@@ -113,6 +115,7 @@ export default function AppV14() {
       void import('./LocalGame');
       void import('./multiplayer/OnlineArena');
       void import('./multiplayer/RandomMatchmaking');
+      void import('./fairPlay/FairPlayPrompt');
     }, 420);
     return () => window.clearTimeout(timer);
   }, []);
@@ -315,9 +318,9 @@ export default function AppV14() {
       )}
 
       {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
-      {screen === 'online' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><OnlineArena onClose={goHome} variant={onlineVariant}/></div></Suspense>}
-      {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={handleRandomMatch} onBack={goHome}/></Suspense>}
-      {screen === 'tournaments' && <Suspense fallback={<LoadingView/>}><TournamentHub onBack={goHome} onPlayOnline={() => { setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => setScreen('3d')}/></Suspense>}
+      {screen === 'online' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
+      {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={handleRandomMatch} onBack={goHome}/></></Suspense>}
+      {screen === 'tournaments' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => setScreen('3d')}/></div></Suspense>}
       {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
       {screen === 'account' && <Suspense fallback={<LoadingView/>}><ProfileHub onBack={goHome}/></Suspense>}
     </main>
