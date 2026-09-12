@@ -1,5 +1,7 @@
 import { ACCOUNT_API, accountToken } from '../account/client';
 
+export type FairPlayReportReason = 'engine_assistance' | 'stalling' | 'abuse' | 'sandbagging' | 'multi_account' | 'disconnect_abuse' | 'other';
+
 export type FairPlayPolicy = {
   configured: boolean;
   accepted: boolean;
@@ -27,4 +29,18 @@ export async function loadFairPlayPolicy(): Promise<FairPlayPolicy> {
 
 export async function acceptFairPlayPolicy(): Promise<{ accepted: boolean; version: string; acceptedAt: number }> {
   return requestJson('/fair-play/accept', { method: 'POST', body: '{}' });
+}
+
+export async function reportRoomPlayer(roomCode: string, reason: FairPlayReportReason, details = ''): Promise<{ reportId: string; targetName: string }> {
+  return requestJson('/fair-play/report-room', {
+    method: 'POST',
+    body: JSON.stringify({ roomCode: roomCode.toUpperCase(), reason, details }),
+  });
+}
+
+export async function blockRoomPlayer(roomCode: string, blocked = true): Promise<{ blocked: boolean; targetName: string }> {
+  return requestJson('/fair-play/block-room', {
+    method: 'POST',
+    body: JSON.stringify({ roomCode: roomCode.toUpperCase(), blocked }),
+  });
 }
