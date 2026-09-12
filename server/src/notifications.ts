@@ -394,7 +394,7 @@ export class NotifyingTournamentRegistry extends MoneyTournamentRegistry {
   private notificationTournamentInternals(): { ctx: DurableObjectState; env: NotificationRuntimeEnv } {
     return this as unknown as { ctx: DurableObjectState; env: NotificationRuntimeEnv };
   }
-  private async tournament(id: string): Promise<EngineTournament | null> {
+  private async notificationTournament(id: string): Promise<EngineTournament | null> {
     return (await this.notificationTournamentInternals().ctx.storage.get<EngineTournament>(`${TOURNAMENT_KEY}${id}`)) ?? null;
   }
   private async roundNotice(tournament: EngineTournament, participant: Participant, pairing: EnginePairing, color: 'white' | 'black'): Promise<void> {
@@ -412,7 +412,7 @@ export class NotifyingTournamentRegistry extends MoneyTournamentRegistry {
     }).catch(() => undefined);
   }
   private async syncTournament(id: string): Promise<void> {
-    const tournament = await this.tournament(id);
+    const tournament = await this.notificationTournament(id);
     const env = this.notificationTournamentInternals().env;
     if (!tournament || !env.NOTIFICATIONS) return;
     const participants = Object.values(tournament.participants).filter(player => player.status !== 'withdrawn');
@@ -440,19 +440,23 @@ export class NotifyingTournamentRegistry extends MoneyTournamentRegistry {
       if (black) await this.roundNotice(tournament, black, pairing, 'black');
     }
   }
-  private async syncFromRequest(request: Request): Promise<void> {
-    const url = new URL(request.url);
+  private async syncFromRequest(urlValue: string, method: string, bodyText: string): Promise<void> {
+    const url = new URL(urlValue);
     let id = clean(url.searchParams.get('id') ?? url.searchParams.get('tournamentId'), 80);
-    if (!id && request.method === 'POST') {
-      const body = await request.clone().json().catch(() => ({})) as Record<string, unknown>;
-      id = clean(body.id ?? body.tournamentId, 80);
+    if (!id && method === 'POST' && bodyText) {
+      try {
+        const body = JSON.parse(bodyText) as Record<string, unknown>;
+        id = clean(body.id ?? body.tournamentId, 80);
+      } catch { /* malformed bodies are handled by the tournament engine */ }
     }
     if (id) await this.syncTournament(id);
   }
   override async fetch(request: Request): Promise<Response> {
-    const copy = request.clone();
+    const requestUrl = request.url;
+    const requestMethod = request.method;
+    const bodyText = requestMethod === 'POST' ? await request.clone().text() : '';
     const response = await super.fetch(request);
-    if (response.ok) await this.syncFromRequest(copy);
+    if (response.ok) await this.syncFromRequest(requestUrl, requestMethod, bodyText);
     return response;
   }
   override async alarm(): Promise<void> {
