@@ -11,6 +11,7 @@ export type ThreePerformanceSnapshot = {
 
 export type RenderScheduler = {
   render: () => void;
+  setViewportVisible: (visible: boolean) => void;
   dispose: () => void;
   snapshot: () => ThreePerformanceSnapshot;
 };
@@ -38,8 +39,8 @@ export function cappedPixelRatio(): number {
 
 export function shadowMapSize(): number {
   const cores = navigator.hardwareConcurrency || 4;
-  if (isIOS() && cores <= 6) return 512;
-  return isIOS() ? 768 : 1024;
+  if (isIOS() && cores <= 6) return 384;
+  return isIOS() ? 640 : 1024;
 }
 
 export function createRenderScheduler(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, controls: OrbitControls): RenderScheduler {
@@ -48,7 +49,16 @@ export function createRenderScheduler(renderer: THREE.WebGLRenderer, scene: THRE
   let qualityScale = 1;
   let slowFrameCount = 0;
   let recentFps = 60;
+  let viewportVisible = true;
   const baseDpr = cappedPixelRatio();
+
+  const isActive = () => viewportVisible && document.visibilityState !== 'hidden';
+  const cancelFrame = () => {
+    if (!frame) return;
+    cancelAnimationFrame(frame);
+    frame = 0;
+    lastFrameAt = 0;
+  };
 
   const applyQuality = (next: number) => {
     if (next >= qualityScale) return;
@@ -70,9 +80,10 @@ export function createRenderScheduler(renderer: THREE.WebGLRenderer, scene: THRE
   window.__QQURZ_3D_PERFORMANCE__ = snapshot;
 
   const render = () => {
-    if (document.visibilityState === 'hidden' || frame) return;
+    if (!isActive() || frame) return;
     frame = requestAnimationFrame(now => {
       frame = 0;
+      if (!isActive()) return;
       if (lastFrameAt > 0) {
         const delta = Math.max(1, now - lastFrameAt);
         if (delta <= 100) {
@@ -94,24 +105,27 @@ export function createRenderScheduler(renderer: THREE.WebGLRenderer, scene: THRE
     });
   };
 
-  const visibility = () => {
-    const visible = document.visibilityState !== 'hidden';
-    controls.enabled = visible;
-    if (!visible && frame) {
-      cancelAnimationFrame(frame);
-      frame = 0;
-      lastFrameAt = 0;
-    } else if (visible) render();
+  const syncVisibility = () => {
+    controls.enabled = isActive();
+    if (!isActive()) cancelFrame();
+    else render();
   };
+  const visibility = () => syncVisibility();
+  const setViewportVisible = (visible: boolean) => {
+    viewportVisible = visible;
+    syncVisibility();
+  };
+
   controls.addEventListener('change', render);
   document.addEventListener('visibilitychange', visibility);
   return {
     render,
+    setViewportVisible,
     snapshot,
     dispose: () => {
       controls.removeEventListener('change', render);
       document.removeEventListener('visibilitychange', visibility);
-      if (frame) cancelAnimationFrame(frame);
+      cancelFrame();
       if (window.__QQURZ_3D_PERFORMANCE__ === snapshot) delete window.__QQURZ_3D_PERFORMANCE__;
     },
   };

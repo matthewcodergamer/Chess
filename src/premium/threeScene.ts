@@ -1,9 +1,10 @@
-import type { Color, Key } from '@lichess-org/chessground/types';
+import type { Key } from '@lichess-org/chessground/types';
 import type { Role } from 'chessops/types';
+import type { ChessBoardViewState } from '../game/boardViewState';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { cappedPixelRatio, createRenderScheduler, lowerPower3DDevice, shadowMapSize, webglPowerPreference, type RenderScheduler } from './threePerformance';
-import { MAX_LEGAL_DESTS, MAX_ROLE_INSTANCES, THREE_COLORS, THREE_ROLES, pieceGeometry, piecesFromFen, setInstanceMatrix, squarePosition } from './threeGeometry';
+import { MAX_LEGAL_DESTS, MAX_ROLE_INSTANCES, THREE_ROLES, pieceGeometry, piecesFromFen, setInstanceMatrix, squarePosition } from './threeGeometry';
 
 export type ThreeSceneHandle = {
   scene: THREE.Scene;
@@ -11,34 +12,40 @@ export type ThreeSceneHandle = {
   renderer: THREE.WebGLRenderer;
   controls: OrbitControls;
   board: THREE.Group;
-  pieceMeshes: Map<string, THREE.InstancedMesh>;
+  pieceMeshes: Map<Role, THREE.InstancedMesh>;
   selectedRing: THREE.Mesh;
   legalDots: THREE.InstancedMesh;
+  lastMoveTiles: THREE.InstancedMesh;
   scheduler: RenderScheduler;
   resetCamera: () => void;
 };
+
+const WHITE_PIECE = new THREE.Color(0xf2eee5);
+const BLACK_PIECE = new THREE.Color(0x171513);
+const LIGHT_SQUARE = new THREE.Color(0xb98a5e);
+const DARK_SQUARE = new THREE.Color(0x6f452a);
 
 function materialSet() {
   return {
     shell: new THREE.MeshStandardMaterial({ color: 0x3b2416, roughness: .68, metalness: .05 }),
     inset: new THREE.MeshStandardMaterial({ color: 0x6b452c, roughness: .74, metalness: .03 }),
-    light: new THREE.MeshStandardMaterial({ color: 0xb98a5e, roughness: .78, metalness: .01 }),
-    dark: new THREE.MeshStandardMaterial({ color: 0x6f452a, roughness: .82, metalness: .01 }),
-    white: new THREE.MeshStandardMaterial({ color: 0xf2eee5, roughness: .35, metalness: .08 }),
-    black: new THREE.MeshStandardMaterial({ color: 0x171513, roughness: .32, metalness: .12 }),
-    selected: new THREE.MeshStandardMaterial({ color: 0x6adbb1, emissive: 0x173d31, transparent: true, opacity: .92, side: THREE.DoubleSide }),
-    legal: new THREE.MeshStandardMaterial({ color: 0x58d38f, emissive: 0x143b2a, transparent: true, opacity: .88, side: THREE.DoubleSide }),
+    square: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: .80, metalness: .01 }),
+    piece: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: .34, metalness: .10 }),
+    selected: new THREE.MeshBasicMaterial({ color: 0x6adbb1, transparent: true, opacity: .88, side: THREE.DoubleSide, depthWrite: false }),
+    legal: new THREE.MeshBasicMaterial({ color: 0x58d38f, transparent: true, opacity: .82, side: THREE.DoubleSide, depthWrite: false }),
+    lastMove: new THREE.MeshBasicMaterial({ color: 0xe7b45b, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false }),
     table: new THREE.MeshStandardMaterial({ color: 0x31251d, roughness: .94 }),
   };
 }
 
 export function createThreeScene(element: HTMLDivElement): { handle: ThreeSceneHandle; cleanup: () => void } {
+  const lowPower = lowerPower3DDevice();
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x4b3a2d);
   scene.fog = new THREE.Fog(0x4b3a2d, 29, 48);
   const camera = new THREE.PerspectiveCamera(30, 1, .1, 100);
   const renderer = new THREE.WebGLRenderer({
-    antialias: !lowerPower3DDevice(),
+    antialias: !lowPower,
     alpha: false,
     powerPreference: webglPowerPreference(),
   });
@@ -46,7 +53,9 @@ export function createThreeScene(element: HTMLDivElement): { handle: ThreeSceneH
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.22;
-  renderer.shadowMap.enabled = true;
+  // Older iPhones start on the cooler path. Faster devices can keep shadows
+  // until the adaptive scheduler decides that frame time is too expensive.
+  renderer.shadowMap.enabled = !lowPower;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   element.replaceChildren(renderer.domElement);
 
@@ -76,78 +85,95 @@ export function createThreeScene(element: HTMLDivElement): { handle: ThreeSceneH
   const board = new THREE.Group();
   scene.add(board);
 
+  // Four frame rails share one cube geometry + material and render as one draw.
   const railGeometry = new THREE.BoxGeometry(1, 1, 1);
   const rails = new THREE.InstancedMesh(railGeometry, mats.shell, 4);
   setInstanceMatrix(rails, 0, 0, -.12, -4.45, 0, 9.35, .48, .45);
   setInstanceMatrix(rails, 1, 0, -.12, 4.45, 0, 9.35, .48, .45);
   setInstanceMatrix(rails, 2, -4.45, -.12, 0, 0, .45, .48, 8.45);
   setInstanceMatrix(rails, 3, 4.45, -.12, 0, 0, .45, .48, 8.45);
-  rails.receiveShadow = true;
+  rails.receiveShadow = renderer.shadowMap.enabled;
   board.add(rails);
 
   const insetGeometry = new THREE.PlaneGeometry(8.8, 8.8);
   insetGeometry.rotateX(-Math.PI / 2);
   const inset = new THREE.Mesh(insetGeometry, mats.inset);
   inset.position.y = -.005;
-  inset.receiveShadow = true;
+  inset.receiveShadow = renderer.shadowMap.enabled;
   board.add(inset);
 
+  // One instanced mesh for all 64 top surfaces; per-instance color preserves
+  // the light/dark board while cutting square draw calls from two to one.
   const squareGeometry = new THREE.PlaneGeometry(.995, .995);
   squareGeometry.rotateX(-Math.PI / 2);
-  const lightSquares = new THREE.InstancedMesh(squareGeometry, mats.light, 32);
-  const darkSquares = new THREE.InstancedMesh(squareGeometry, mats.dark, 32);
-  let lightIndex = 0;
-  let darkIndex = 0;
+  const squares = new THREE.InstancedMesh(squareGeometry, mats.square, 64);
+  let squareIndex = 0;
   for (let rank = 1; rank <= 8; rank += 1) for (let file = 0; file < 8; file += 1) {
     const square = `${String.fromCharCode(97 + file)}${rank}` as Key;
     const point = squarePosition(square);
-    const target = (file + rank) % 2 === 0 ? darkSquares : lightSquares;
-    setInstanceMatrix(target, target === darkSquares ? darkIndex++ : lightIndex++, point.x, .055, point.z);
+    setInstanceMatrix(squares, squareIndex, point.x, .055, point.z);
+    squares.setColorAt(squareIndex, (file + rank) % 2 === 0 ? DARK_SQUARE : LIGHT_SQUARE);
+    squareIndex += 1;
   }
-  lightSquares.receiveShadow = true;
-  darkSquares.receiveShadow = true;
-  board.add(lightSquares, darkSquares);
+  squares.instanceColor!.needsUpdate = true;
+  squares.receiveShadow = renderer.shadowMap.enabled;
+  board.add(squares);
 
-  const roleGeometry = new Map<Role, THREE.BufferGeometry>();
-  const pieceMeshes = new Map<string, THREE.InstancedMesh>();
-  for (const role of THREE_ROLES) roleGeometry.set(role, pieceGeometry(role));
-  for (const color of THREE_COLORS) for (const role of THREE_ROLES) {
-    const instances = new THREE.InstancedMesh(roleGeometry.get(role)!, color === 'white' ? mats.white : mats.black, MAX_ROLE_INSTANCES);
+  // One instanced mesh per role, not per role+color. Instance colors distinguish
+  // sides, halving worst-case piece draw calls from twelve to six.
+  const pieceMeshes = new Map<Role, THREE.InstancedMesh>();
+  for (const role of THREE_ROLES) {
+    const geometry = pieceGeometry(role, lowPower ? 9 : 12);
+    const instances = new THREE.InstancedMesh(geometry, mats.piece, MAX_ROLE_INSTANCES);
     instances.count = 0;
-    instances.castShadow = true;
-    instances.receiveShadow = true;
-    pieceMeshes.set(`${color}:${role}`, instances);
+    instances.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    instances.castShadow = renderer.shadowMap.enabled;
+    instances.receiveShadow = false;
+    pieceMeshes.set(role, instances);
     board.add(instances);
   }
 
-  const ringGeometry = new THREE.RingGeometry(.28, .39, 20);
+  const ringGeometry = new THREE.RingGeometry(.28, .39, lowPower ? 12 : 18);
   ringGeometry.rotateX(-Math.PI / 2);
   const selectedRing = new THREE.Mesh(ringGeometry, mats.selected);
-  selectedRing.position.y = .075;
+  selectedRing.position.y = .078;
   selectedRing.visible = false;
   board.add(selectedRing);
 
-  const dotGeometry = new THREE.CircleGeometry(.105, 14);
+  const dotGeometry = new THREE.CircleGeometry(.105, lowPower ? 8 : 12);
   dotGeometry.rotateX(-Math.PI / 2);
   const legalDots = new THREE.InstancedMesh(dotGeometry, mats.legal, MAX_LEGAL_DESTS);
   legalDots.count = 0;
+  legalDots.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   board.add(legalDots);
 
-  const table = new THREE.Mesh(new THREE.CylinderGeometry(12.2, 12.7, .14, 32), mats.table);
-  table.position.y = -.47;
-  table.receiveShadow = true;
+  const lastMoveTiles = new THREE.InstancedMesh(squareGeometry, mats.lastMove, 2);
+  lastMoveTiles.count = 0;
+  lastMoveTiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  board.add(lastMoveTiles);
+
+  // The play camera never sees the underside of the table, so render only its
+  // top surface instead of a closed cylinder.
+  const tableGeometry = new THREE.CircleGeometry(12.2, lowPower ? 24 : 32);
+  tableGeometry.rotateX(-Math.PI / 2);
+  const table = new THREE.Mesh(tableGeometry, mats.table);
+  table.position.y = -.42;
+  table.receiveShadow = renderer.shadowMap.enabled;
   scene.add(table);
+
   scene.add(new THREE.HemisphereLight(0xfff7ed, 0x6f5847, 1.9));
   const key = new THREE.DirectionalLight(0xffffff, 3);
   key.position.set(5.5, 11, 8.5);
-  key.castShadow = true;
-  key.shadow.mapSize.set(shadowMapSize(), shadowMapSize());
-  key.shadow.camera.left = -9;
-  key.shadow.camera.right = 9;
-  key.shadow.camera.top = 9;
-  key.shadow.camera.bottom = -9;
-  key.shadow.bias = -.00006;
-  key.shadow.normalBias = .014;
+  key.castShadow = renderer.shadowMap.enabled;
+  if (renderer.shadowMap.enabled) {
+    key.shadow.mapSize.set(shadowMapSize(), shadowMapSize());
+    key.shadow.camera.left = -9;
+    key.shadow.camera.right = 9;
+    key.shadow.camera.top = 9;
+    key.shadow.camera.bottom = -9;
+    key.shadow.bias = -.00006;
+    key.shadow.normalBias = .014;
+  }
   scene.add(key, key.target);
   key.target.position.set(0, .25, 1.2);
 
@@ -160,13 +186,19 @@ export function createThreeScene(element: HTMLDivElement): { handle: ThreeSceneH
     camera.updateProjectionMatrix();
     scheduler.render();
   };
-  const observer = new ResizeObserver(resize);
-  observer.observe(element);
+  const resizeObserver = new ResizeObserver(resize);
+  resizeObserver.observe(element);
+
+  const intersectionObserver = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(entries => scheduler.setViewportVisible(Boolean(entries[0]?.isIntersecting)), { rootMargin: '80px' })
+    : null;
+  intersectionObserver?.observe(element);
   resize();
 
-  const handle = { scene, camera, renderer, controls, board, pieceMeshes, selectedRing, legalDots, scheduler, resetCamera };
+  const handle = { scene, camera, renderer, controls, board, pieceMeshes, selectedRing, legalDots, lastMoveTiles, scheduler, resetCamera };
   const cleanup = () => {
-    observer.disconnect();
+    resizeObserver.disconnect();
+    intersectionObserver?.disconnect();
     scheduler.dispose();
     controls.dispose();
     const geometries = new Set<THREE.BufferGeometry>();
@@ -185,25 +217,39 @@ export function createThreeScene(element: HTMLDivElement): { handle: ThreeSceneH
   return { handle, cleanup };
 }
 
-export function syncThreePieces(handle: ThreeSceneHandle, fen: string, orientation: Color) {
-  handle.board.rotation.y = orientation === 'black' ? Math.PI : 0;
-  const grouped = new Map<string, ReturnType<typeof piecesFromFen>>();
-  for (const color of THREE_COLORS) for (const role of THREE_ROLES) grouped.set(`${color}:${role}`, []);
-  for (const piece of piecesFromFen(fen)) grouped.get(`${piece.color}:${piece.role}`)!.push(piece);
-  for (const [key, mesh] of handle.pieceMeshes) {
-    const items = grouped.get(key) ?? [];
+export function syncThreePieces(handle: ThreeSceneHandle, state: ChessBoardViewState) {
+  handle.board.rotation.y = state.orientation === 'black' ? Math.PI : 0;
+  const grouped = new Map<Role, ReturnType<typeof piecesFromFen>>();
+  for (const role of THREE_ROLES) grouped.set(role, []);
+  for (const piece of piecesFromFen(state.fen)) grouped.get(piece.role)!.push(piece);
+
+  for (const [role, mesh] of handle.pieceMeshes) {
+    const items = grouped.get(role) ?? [];
     mesh.count = Math.min(items.length, MAX_ROLE_INSTANCES);
     items.slice(0, MAX_ROLE_INSTANCES).forEach((piece, index) => {
       const point = squarePosition(piece.square);
-      setInstanceMatrix(mesh, index, point.x, .08, point.z, piece.color === 'black' ? Math.PI : 0);
+      setInstanceMatrix(mesh, index, point.x, .08, point.z);
+      mesh.setColorAt(index, piece.color === 'white' ? WHITE_PIECE : BLACK_PIECE);
     });
     mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+
+  if (state.lastMove) {
+    handle.lastMoveTiles.count = 2;
+    state.lastMove.forEach((square, index) => {
+      const point = squarePosition(square);
+      setInstanceMatrix(handle.lastMoveTiles, index, point.x, .071, point.z, 0, .94, 1, .94);
+    });
+    handle.lastMoveTiles.instanceMatrix.needsUpdate = true;
+  } else {
+    handle.lastMoveTiles.count = 0;
   }
   handle.scheduler.render();
 }
 
-export function syncThreeSelection(handle: ThreeSceneHandle, selected: Key | null, legalDests: Map<string, string[]>, movableColor?: Color) {
-  if (!selected || !movableColor) {
+export function syncThreeSelection(handle: ThreeSceneHandle, selected: Key | null, state: ChessBoardViewState) {
+  if (!selected || !state.movableColor) {
     handle.selectedRing.visible = false;
     handle.legalDots.count = 0;
     handle.legalDots.instanceMatrix.needsUpdate = true;
@@ -212,12 +258,12 @@ export function syncThreeSelection(handle: ThreeSceneHandle, selected: Key | nul
   }
   const point = squarePosition(selected);
   handle.selectedRing.visible = true;
-  handle.selectedRing.position.set(point.x, .075, point.z);
-  const destinations = (legalDests.get(selected) ?? []).slice(0, MAX_LEGAL_DESTS);
+  handle.selectedRing.position.set(point.x, .078, point.z);
+  const destinations = [...(state.legalDests.get(selected) ?? [])].slice(0, MAX_LEGAL_DESTS);
   handle.legalDots.count = destinations.length;
   destinations.forEach((destination, index) => {
-    const dest = squarePosition(destination as Key);
-    setInstanceMatrix(handle.legalDots, index, dest.x, .08, dest.z);
+    const dest = squarePosition(destination);
+    setInstanceMatrix(handle.legalDots, index, dest.x, .081, dest.z);
   });
   handle.legalDots.instanceMatrix.needsUpdate = true;
   handle.scheduler.render();
