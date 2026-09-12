@@ -1,6 +1,6 @@
 .qqurz-notification-center{
   position:fixed;
-  top:calc(env(safe-area-inset-top) + var(--q-space-12));
+  top:calc(var(--q-header-h) + var(--q-space-12));
   right:max(var(--q-space-16),env(safe-area-inset-right));
   z-index:1300;
   font-family:var(--chess-ui);
@@ -42,7 +42,7 @@
   top:calc(var(--q-control-sm) + var(--q-space-8));
   right:0;
   width:min(420px,calc(100vw - var(--q-space-24)));
-  max-height:calc(100dvh - var(--q-header-h) - var(--q-space-24));
+  max-height:calc(100dvh - var(--q-header-h) - var(--q-control-sm) - var(--q-space-32));
   overflow:auto;
   overscroll-behavior:contain;
   border:1px solid var(--q-line-strong);
