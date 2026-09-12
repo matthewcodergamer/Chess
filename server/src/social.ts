@@ -121,7 +121,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     }
     if (accounts.length) await this.socialStorage().put(rows);
   }
-  private actor(url: URL): Promise<SocialAccount | null> {
+  private socialActor(url: URL): Promise<SocialAccount | null> {
     return this.account(clean(url.searchParams.get('actorId'), 80));
   }
   private async target(body: Record<string, unknown>): Promise<SocialAccount | null> {
@@ -145,7 +145,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     return result;
   }
   private async overview(url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const recent: Array<SocialPlayer & { lastGame: Record<string, unknown> }> = [];
     const seen = new Set<string>();
@@ -169,7 +169,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     });
   }
   private async search(url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const query = clean(url.searchParams.get('q'), 40).toLowerCase();
     if (query.length < 2) return json({ players: [] });
@@ -189,7 +189,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     return json({ players: matches.slice(0, MAX_SEARCH).map(item => item.player) });
   }
   private async lookup(request: Request, url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const body = await request.json().catch(() => ({})) as { accountIds?: unknown };
     const players: SocialPlayer[] = [];
@@ -202,7 +202,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     return json({ players });
   }
   private async follow(request: Request, url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const target = await this.target(body);
@@ -213,7 +213,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     return json({ player: view(actor, target, 'connection') });
   }
   private async requestFriend(request: Request, url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const target = await this.target(body);
@@ -235,7 +235,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     return json({ player: view(actor, target, 'connection'), requested: true }, 201);
   }
   private async respondFriend(request: Request, url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const target = await this.target(body);
@@ -250,7 +250,7 @@ export class SocialAccountRegistry extends NotificationAccountRegistry {
     return json({ player: view(actor, target, 'connection'), accepted: body.action === 'accept' });
   }
   private async removeFriend(request: Request, url: URL): Promise<Response> {
-    const actor = await this.actor(url);
+    const actor = await this.socialActor(url);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     if (!actor) return json({ error: 'Player account not found.' }, 404);
     const target = await this.target(body);
