@@ -7,7 +7,10 @@ import './styles/index.css';
 import AppV14 from './AppV14';
 import NotificationCenter from './notifications/NotificationCenter';
 import SocialCenter from './social/SocialCenter';
+import { startPerformanceMonitoring } from './performance/performanceMonitor';
 import { motionTokenMs } from './ui/motion';
+
+startPerformanceMonitoring();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
