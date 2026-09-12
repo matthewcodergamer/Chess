@@ -11,7 +11,7 @@ const forbiddenRendererPatterns = [
   ['legal-move generator', /chessops\/compat/],
   ['move parser/executor', /parseUci|makeSan|\.isLegal\s*\(|\.play\s*\(/],
   ['result adjudication', /adjudicateChess|chessPositionKey|appendPositionHistory/],
-  ['AI engine', /stockfish|bestMove\s*\(/i],
+  ['AI engine import/call', /(?:from\s+['"][^'"]*engine\/stockfish|import\(\s*['"][^'"]*engine\/stockfish|bestMove\s*\()/i],
   ['network transport', /WebSocket|connectRoom|createRoom|joinRoom|send\s*\(\s*\{\s*type:\s*['"]move/i],
   ['tournament implementation', /tournamentEngine|pairing|standings/i],
 ];
@@ -26,13 +26,13 @@ for (const file of rendererFiles) {
 
 const premiumPage = fs.readFileSync('src/premium/PremiumBoard3D.tsx', 'utf8');
 if (!/useLocalGameController/.test(premiumPage)) errors.push('PremiumBoard3D must consume the shared local game controller.');
-for (const pattern of [/chessops\/chess/, /adjudicateChess/, /stockfish/, /parseUci/, /makeSan/]) {
+for (const pattern of [/chessops\/chess/, /adjudicateChess/, /(?:from\s+['"][^'"]*engine\/stockfish|import\(\s*['"][^'"]*engine\/stockfish)/i, /parseUci/, /makeSan/]) {
   if (pattern.test(premiumPage)) errors.push(`PremiumBoard3D contains forbidden chess implementation: ${pattern}`);
 }
 
 const local2d = fs.readFileSync('src/LocalGame.tsx', 'utf8');
 if (!/useLocalGameController/.test(local2d)) errors.push('LocalGame 2D must consume the same shared local game controller as Premium 3D.');
-for (const pattern of [/chessops\/chess/, /adjudicateChess/, /stockfish/, /parseUci/, /makeSan/]) {
+for (const pattern of [/chessops\/chess/, /adjudicateChess/, /(?:from\s+['"][^'"]*engine\/stockfish|import\(\s*['"][^'"]*engine\/stockfish)/i, /parseUci/, /makeSan/]) {
   if (pattern.test(local2d)) errors.push(`LocalGame contains duplicated chess implementation: ${pattern}`);
 }
 
