@@ -38,7 +38,8 @@
     "REAL_MONEY_PROVIDER": "disabled",
     "REAL_MONEY_JURISDICTIONS_JSON": "{}",
     "NUVEI_ENV": "test",
-    "INTEGRITY_SIGNAL_CAPTURE": "disabled"
+    "INTEGRITY_SIGNAL_CAPTURE": "disabled",
+    "WEB_PUSH_VAPID_SUBJECT": "https://qqurzchess.com"
   },
   "observability": { "enabled": true }
 }

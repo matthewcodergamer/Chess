@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { accountToken } from '../account/client';
 import {
+  disableWebPush,
+  enableWebPush,
+  inspectWebPush,
   loadNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   sendFriendChallenge,
+  syncExistingWebPushSubscription,
   type InAppNotification,
   type LocalNotification,
   type NotificationKind,
+  type WebPushState,
 } from './client';
 
 type Toast = { id: string; title: string; body: string; priority: 'normal' | 'important' | 'security' };
@@ -45,6 +50,22 @@ function actionLabel(notification: InAppNotification): string | null {
   return null;
 }
 
+function pushLabel(state: WebPushState | null): string {
+  if (!state) return 'Checking…';
+  if (!state.supported) return 'Unavailable';
+  if (!state.configured) return 'Unavailable';
+  if (state.ios && !state.standalone) return 'Home Screen required';
+  if (state.permission === 'denied') return 'Blocked';
+  return state.subscribed ? 'On' : 'Off';
+}
+
+function pushDescription(state: WebPushState | null): string {
+  if (!state) return 'Checking browser support.';
+  if (state.reason) return state.reason;
+  if (state.subscribed) return 'QQURZ can alert this device when the app is closed.';
+  return 'Get tournament, challenge, payout and security alerts when QQURZ is closed.';
+}
+
 export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<InAppNotification[]>([]);
@@ -55,6 +76,9 @@ export default function NotificationCenter() {
   const [challengeName, setChallengeName] = useState('');
   const [challengeMessage, setChallengeMessage] = useState('');
   const [challengeBusy, setChallengeBusy] = useState(false);
+  const [pushState, setPushState] = useState<WebPushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState('');
   const firstLoad = useRef(true);
   const knownIds = useRef(new Set<string>());
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -65,12 +89,23 @@ export default function NotificationCenter() {
     window.setTimeout(() => setToasts(current => current.filter(item => item.id !== toast.id)), toast.priority === 'security' ? 8000 : 5200);
   }, []);
 
+  const refreshPush = useCallback(async (sync = false) => {
+    if (!accountToken()) { setPushState(null); return; }
+    try {
+      setPushState(sync ? await syncExistingWebPushSubscription() : await inspectWebPush());
+    } catch (reason) {
+      setPushMessage(reason instanceof Error ? reason.message : 'Could not check Web Push.');
+      try { setPushState(await inspectWebPush()); } catch { setPushState(null); }
+    }
+  }, []);
+
   const refresh = useCallback(async (toastNew = true) => {
     const token = accountToken();
     setSignedIn(Boolean(token));
     if (!token) {
       setItems([]);
       setUnread(0);
+      setPushState(null);
       knownIds.current.clear();
       firstLoad.current = true;
       return;
@@ -93,9 +128,15 @@ export default function NotificationCenter() {
 
   useEffect(() => {
     void refresh(false);
+    if (accountToken()) void refreshPush(true);
     const timer = window.setInterval(() => void refresh(true), 15_000);
-    const onAccount = () => void refresh(false);
-    const onVisibility = () => { if (document.visibilityState === 'visible') void refresh(true); };
+    const onAccount = () => { void refresh(false); void refreshPush(true); };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh(true);
+        if (accountToken()) void refreshPush(true);
+      }
+    };
     window.addEventListener('qqurz:account-changed', onAccount);
     window.addEventListener('storage', onAccount);
     document.addEventListener('visibilitychange', onVisibility);
@@ -105,7 +146,7 @@ export default function NotificationCenter() {
       window.removeEventListener('storage', onAccount);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [refresh]);
+  }, [refresh, refreshPush]);
 
   useEffect(() => {
     const onLocal = (event: Event) => {
@@ -169,6 +210,28 @@ export default function NotificationCenter() {
     }
   };
 
+  const togglePush = async () => {
+    if (pushBusy || !pushState) return;
+    setPushBusy(true);
+    setPushMessage('');
+    try {
+      if (pushState.subscribed) {
+        setPushState(await disableWebPush());
+        setPushMessage('Web Push is off on this device. In-app notifications still work.');
+      } else {
+        setPushState(await enableWebPush());
+        setPushMessage('Web Push is on for this device.');
+      }
+    } catch (reason) {
+      setPushMessage(reason instanceof Error ? reason.message : 'Could not update Web Push.');
+      await refreshPush(false);
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const pushActionAvailable = Boolean(pushState?.supported && pushState.configured && !(pushState.ios && !pushState.standalone) && pushState.permission !== 'denied');
+
   return (
     <div className="qqurz-notification-center" ref={shellRef}>
       {signedIn && (
@@ -177,7 +240,7 @@ export default function NotificationCenter() {
           type="button"
           aria-label={unread ? `${unread} unread notifications` : 'Notifications'}
           aria-expanded={open}
-          onClick={() => { setOpen(value => !value); if (!open) void refresh(false); }}
+          onClick={() => { setOpen(value => !value); if (!open) { void refresh(false); void refreshPush(false); } }}
         >
           <span aria-hidden="true">♢</span>
           {unread > 0 && <b>{unread > 99 ? '99+' : unread}</b>}
@@ -189,6 +252,16 @@ export default function NotificationCenter() {
           <div className="notification-panel-head">
             <div><span className="eyebrow">INBOX</span><h2>Notifications</h2></div>
             <button type="button" onClick={() => void readAll()} disabled={!unread}>Mark all read</button>
+          </div>
+
+          <div className="notification-push-box">
+            <div className="notification-push-copy">
+              <span aria-hidden="true">⌁</span>
+              <div><b>Web Push</b><small>{pushDescription(pushState)}</small></div>
+              <strong>{pushLabel(pushState)}</strong>
+            </div>
+            {pushActionAvailable && <button type="button" onClick={() => void togglePush()} disabled={pushBusy}>{pushBusy ? 'Updating…' : pushState?.subscribed ? 'Turn off' : 'Enable on this device'}</button>}
+            {pushMessage && <small className="notification-push-message" role="status">{pushMessage}</small>}
           </div>
 
           {roomCode && (

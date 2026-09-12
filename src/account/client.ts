@@ -153,6 +153,17 @@ async function requestJson<T>(path: string, options: RequestOptions = {}): Promi
   return payload;
 }
 
+async function disableDevicePushBeforeAccountExit(): Promise<void> {
+  if (!accountToken()) return;
+  try {
+    const { disableWebPush } = await import('../notifications/client');
+    await disableWebPush();
+  } catch {
+    // Account exit must still work if push cleanup is offline. Browser unsubscribe
+    // is best effort and stale server endpoints are removed after 404/410 delivery.
+  }
+}
+
 export async function registerAccount(input: { email: string; password: string; username: string; displayName: string; countryCode?: string; avatar?: string; avatarImage?: string | null }): Promise<{ account: Account; verificationSent: boolean }> {
   const payload = await requestJson<{ account: Account; token: string; verificationSent: boolean }>('/account/register', { method: 'POST', auth: false, body: JSON.stringify(input) });
   saveAccountToken(payload.token);
@@ -168,6 +179,7 @@ export async function loginAccount(identifier: string, password: string): Promis
 }
 
 export async function logoutAccount(): Promise<void> {
+  await disableDevicePushBeforeAccountExit();
   try { await requestJson('/account/logout', { method: 'POST' }); } finally { saveAccountToken(''); }
 }
 
@@ -204,6 +216,7 @@ export async function forgotPassword(email: string): Promise<string> {
 }
 
 export async function resetPassword(token: string, password: string): Promise<void> {
+  await disableDevicePushBeforeAccountExit();
   await requestJson('/account/reset-password', { method: 'POST', auth: false, body: JSON.stringify({ token, password }) });
   saveAccountToken('');
 }
@@ -243,6 +256,7 @@ export async function unblockPlayer(username: string): Promise<void> {
 }
 
 export async function deleteAccount(password: string): Promise<void> {
+  await disableDevicePushBeforeAccountExit();
   await requestJson('/account/delete', { method: 'POST', body: JSON.stringify({ password, confirmation: 'DELETE' }) });
   saveAccountToken('');
 }
