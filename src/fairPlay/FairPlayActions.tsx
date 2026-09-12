@@ -4,8 +4,8 @@ import type { FairPlayReportReason } from './client';
 type Props = {
   opponentName: string;
   disabled?: boolean;
-  onReport: (reason: FairPlayReportReason, details: string) => void;
-  onBlock: () => void;
+  onReport: (reason: FairPlayReportReason, details: string) => Promise<boolean>;
+  onBlock: () => Promise<boolean>;
 };
 
 const REASONS: Array<{ value: FairPlayReportReason; label: string }> = [
@@ -24,11 +24,22 @@ export default function FairPlayActions({ opponentName, disabled, onReport, onBl
   const [details, setDetails] = useState('');
   const [reported, setReported] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [busy, setBusy] = useState<'report' | 'block' | ''>('');
 
-  const submit = () => {
-    onReport(reason, details.trim());
+  const submit = async () => {
+    setBusy('report');
+    const ok = await onReport(reason, details.trim()).catch(() => false);
+    setBusy('');
+    if (!ok) return;
     setReported(true);
     setOpen(false);
+  };
+
+  const block = async () => {
+    setBusy('block');
+    const ok = await onBlock().catch(() => false);
+    setBusy('');
+    if (ok) setBlocked(true);
   };
 
   return (
@@ -36,25 +47,25 @@ export default function FairPlayActions({ opponentName, disabled, onReport, onBl
       <div className="fair-play-actions-head">
         <div><span className="eyebrow">FAIR PLAY</span><b>{opponentName}</b></div>
         <div className="fair-play-action-buttons">
-          <button type="button" onClick={() => setOpen(value => !value)} disabled={disabled || reported}>{reported ? 'Reported' : 'Report player'}</button>
-          <button type="button" onClick={() => { onBlock(); setBlocked(true); }} disabled={disabled || blocked}>{blocked ? 'Blocked' : 'Block player'}</button>
+          <button type="button" onClick={() => setOpen(value => !value)} disabled={disabled || reported || Boolean(busy)}>{reported ? 'Reported' : busy === 'report' ? 'Sending…' : 'Report player'}</button>
+          <button type="button" onClick={() => void block()} disabled={disabled || blocked || Boolean(busy)}>{blocked ? 'Blocked' : busy === 'block' ? 'Blocking…' : 'Block player'}</button>
         </div>
       </div>
       {open && (
         <div className="fair-play-report-form">
           <label>
             <span>Reason</span>
-            <select value={reason} onChange={event => setReason(event.target.value as FairPlayReportReason)}>
+            <select value={reason} onChange={event => setReason(event.target.value as FairPlayReportReason)} disabled={Boolean(busy)}>
               {REASONS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
           <label>
             <span>What happened? <small>Optional</small></span>
-            <textarea value={details} maxLength={800} rows={3} onChange={event => setDetails(event.target.value)} placeholder="Add useful context for the moderator. Avoid guesses presented as facts." />
+            <textarea value={details} maxLength={800} rows={3} onChange={event => setDetails(event.target.value)} placeholder="Add useful context for the moderator. Avoid guesses presented as facts." disabled={Boolean(busy)} />
           </label>
           <div className="fair-play-report-submit">
             <small>Reports are reviewed with game evidence. A report does not automatically penalize the other player.</small>
-            <button type="button" onClick={submit}>Send report</button>
+            <button type="button" onClick={() => void submit()} disabled={Boolean(busy)}>{busy === 'report' ? 'Sending…' : 'Send report'}</button>
           </div>
         </div>
       )}
