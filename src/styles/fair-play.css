@@ -1,0 +1,104 @@
+.fair-play-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--q-color-bg, #111) 76%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.fair-play-modal-shell {
+  width: min(680px, 100%);
+  max-height: min(820px, calc(100dvh - 32px));
+  overflow: auto;
+}
+
+.fair-play-policy-card,
+.fair-play-actions {
+  border: 1px solid var(--q-color-border, rgba(255,255,255,.12));
+  border-radius: 18px;
+  background: var(--q-color-surface, #1b1b1b);
+  box-shadow: 0 18px 60px rgba(0,0,0,.28);
+}
+
+.fair-play-policy-card { padding: clamp(20px, 4vw, 34px); }
+.fair-play-policy-head h2 { margin: 6px 0 8px; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.1; }
+.fair-play-policy-head p { margin: 0; opacity: .76; }
+
+.fair-play-rules {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0;
+  padding-left: 22px;
+}
+.fair-play-rules li { padding-left: 6px; line-height: 1.45; }
+
+.fair-play-policy-actions {
+  display: grid;
+  gap: 10px;
+}
+.fair-play-policy-actions small,
+.fair-play-report-submit small { opacity: .68; line-height: 1.4; }
+.fair-play-warning,
+.fair-play-error,
+.fair-play-inline-note {
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--q-color-surface-2, #252525) 82%, transparent);
+}
+.fair-play-error { font-weight: 700; }
+
+.fair-play-actions { margin-top: 16px; padding: 16px; }
+.fair-play-actions-head,
+.fair-play-report-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fair-play-actions-head > div:first-child { display: grid; gap: 3px; }
+.fair-play-action-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.fair-play-action-buttons button,
+.fair-play-report-submit button {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--q-color-border, rgba(255,255,255,.12));
+  background: var(--q-color-surface-2, #252525);
+  color: inherit;
+  padding: 0 13px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.fair-play-report-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--q-color-border, rgba(255,255,255,.12));
+}
+.fair-play-report-form label { display: grid; gap: 6px; }
+.fair-play-report-form select,
+.fair-play-report-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--q-color-border, rgba(255,255,255,.12));
+  background: var(--q-color-input, var(--q-color-surface-2, #252525));
+  color: inherit;
+  padding: 10px 12px;
+  font: inherit;
+}
+.fair-play-report-form textarea { resize: vertical; min-height: 86px; }
+
+@media (max-width: 640px) {
+  .fair-play-modal-backdrop { align-items: end; padding: 0; }
+  .fair-play-modal-shell { width: 100%; max-height: 92dvh; }
+  .fair-play-policy-card { border-radius: 20px 20px 0 0; }
+  .fair-play-actions-head,
+  .fair-play-report-submit { align-items: stretch; flex-direction: column; }
+  .fair-play-action-buttons { justify-content: stretch; }
+  .fair-play-action-buttons button { flex: 1; }
+}
