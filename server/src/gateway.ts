@@ -1,13 +1,11 @@
 import baseHandler from './index';
-import { AccountRegistry, handleAccountRequest, type AccountEnv } from './accounts';
+import { handleAccountRequest, type AccountEnv } from './accounts';
 import { handleMatchmakerRequest, Matchmaker, type MatchmakerEnv } from './matchmaker';
 import { handleTournamentRequest, type TournamentEnv } from './tournaments';
 import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRoom';
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
-import { MoneyTournamentRegistry as TournamentRegistry } from './moneyTournamentRegistry';
 import { handleMoneyRoomRequest } from './moneyRoomApi';
-import { CompetitionPaymentLedger as PaymentLedger } from './competitionPaymentLedger';
 import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
 import { handleIntegrityAdminRequest, type IntegrityEnv } from './integrityReview';
@@ -17,11 +15,20 @@ import {
   handleFairPlayRequest,
   requireFairPlayForCompetitiveRequest,
 } from './fairPlay';
-import { FairPlayActionChessRoom as ChessRoom, handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
+import { handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
+import {
+  NotificationAccountRegistry as AccountRegistry,
+  NotificationRegistry,
+  NotifyingChessRoom as ChessRoom,
+  NotifyingPaymentLedger as PaymentLedger,
+  NotifyingTournamentRegistry as TournamentRegistry,
+  handleNotificationRequest,
+  type NotificationEnv,
+} from './notifications';
 
-export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, PaymentLedger, TournamentRegistry };
+export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, NotificationRegistry, PaymentLedger, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & {
+type Env = MatchmakerEnv & AccountEnv & NotificationEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   PAYMENTS: DurableObjectNamespace<PaymentLedger>;
@@ -60,6 +67,9 @@ export default {
 
     const fairPlayRoomActionResponse = await handleFairPlayRoomActionRequest(request, env);
     if (fairPlayRoomActionResponse) return withCors(request, fairPlayRoomActionResponse, env);
+
+    const notificationResponse = await handleNotificationRequest(request, env);
+    if (notificationResponse) return withCors(request, notificationResponse, env);
 
     const complianceResponse = await handlePaymentComplianceWebhook(request, env);
     if (complianceResponse) return withCors(request, complianceResponse, env);
