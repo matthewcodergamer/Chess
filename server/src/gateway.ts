@@ -17,7 +17,6 @@ import {
 } from './fairPlay';
 import { handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
 import {
-  NotificationAccountRegistry as AccountRegistry,
   NotifyingChessRoom as ChessRoom,
   NotifyingPaymentLedger as PaymentLedger,
   NotifyingTournamentRegistry as TournamentRegistry,
@@ -29,6 +28,7 @@ import {
   handleWebPushRequest,
   type WebPushEnv,
 } from './webPush';
+import { SocialAccountRegistry as AccountRegistry, handleSocialRequest } from './social';
 
 export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, NotificationRegistry, PaymentLedger, TournamentRegistry };
 
@@ -77,6 +77,9 @@ export default {
 
     const notificationResponse = await handleNotificationRequest(request, env);
     if (notificationResponse) return withCors(request, notificationResponse, env);
+
+    const socialResponse = await handleSocialRequest(request, env);
+    if (socialResponse) return withCors(request, socialResponse, env);
 
     const complianceResponse = await handlePaymentComplianceWebhook(request, env);
     if (complianceResponse) return withCors(request, complianceResponse, env);
