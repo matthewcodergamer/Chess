@@ -75,10 +75,15 @@ export function createRenderScheduler(renderer: THREE.WebGLRenderer, scene: THRE
       frame = 0;
       if (lastFrameAt > 0) {
         const delta = Math.max(1, now - lastFrameAt);
-        const instantFps = Math.min(60, 1000 / delta);
-        recentFps = recentFps * .82 + instantFps * .18;
-        if (delta > 20) slowFrameCount += 1;
-        else slowFrameCount = Math.max(0, slowFrameCount - 1);
+        if (delta <= 100) {
+          const instantFps = Math.min(60, 1000 / delta);
+          recentFps = recentFps * .82 + instantFps * .18;
+          if (delta > 20) slowFrameCount += 1;
+          else slowFrameCount = Math.max(0, slowFrameCount - 1);
+        } else {
+          recentFps = 60;
+          slowFrameCount = Math.max(0, slowFrameCount - 2);
+        }
         if (slowFrameCount >= 16) applyQuality(.68);
         else if (slowFrameCount >= 8) applyQuality(.82);
       }
