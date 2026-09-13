@@ -88,7 +88,9 @@ export default function AppNavigation({
 
   useEffect(() => {
     if (!displayOpen) return;
-    return () => requestAnimationFrame(() => displayButtonRef.current?.focus());
+    return () => {
+      requestAnimationFrame(() => displayButtonRef.current?.focus());
+    };
   }, [displayOpen]);
 
   const run = (action: () => void) => {
