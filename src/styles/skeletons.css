@@ -1,0 +1,18 @@
+/* Structural loading states mirror the real content geometry instead of centering generic loading copy. */
+.qqurz-structural-skeleton{width:100%}
+.qqurz-skeleton-block{display:block;background:color-mix(in srgb,var(--q-surface-3) 78%,var(--q-surface-2));border-radius:var(--q-radius-xs);animation:qqurz-skeleton-pulse var(--q-motion-spin) var(--q-ease-standard) infinite alternate;pointer-events:none}
+.qqurz-skeleton-line{height:.72rem;max-width:100%}.qqurz-skeleton-title{height:1.35rem;max-width:100%}.qqurz-skeleton-page-title{height:2.65rem;max-width:100%}
+.qqurz-skeleton-line+.qqurz-skeleton-line,.qqurz-skeleton-line+.qqurz-skeleton-title,.qqurz-skeleton-title+.qqurz-skeleton-line,.qqurz-skeleton-page-title+.qqurz-skeleton-line{margin-top:var(--q-space-8)}
+.qqurz-skeleton-block.w-20{width:20%}.qqurz-skeleton-block.w-30{width:30%}.qqurz-skeleton-block.w-40{width:40%}.qqurz-skeleton-block.w-55{width:55%}.qqurz-skeleton-block.w-70{width:70%}.qqurz-skeleton-block.w-85{width:85%}
+.qqurz-skeleton-avatar{width:var(--q-control-sm);height:var(--q-control-sm);border-radius:var(--q-radius-pill);flex:0 0 auto}.qqurz-skeleton-avatar.large{width:var(--q-control-lg);height:var(--q-control-lg)}
+.qqurz-skeleton-control{width:7rem;height:var(--q-control-sm);border-radius:var(--q-radius-sm)}.qqurz-skeleton-control.short{width:5rem}.qqurz-skeleton-button{width:100%;height:var(--q-control-md);border-radius:var(--q-radius-sm)}.qqurz-skeleton-button.short{width:55%}
+.qqurz-skeleton-pill{width:7rem;height:1.65rem;border-radius:var(--q-radius-pill)}.qqurz-skeleton-tab{width:7rem;height:var(--q-control-sm);border-radius:var(--q-radius-sm)}.qqurz-skeleton-filter{width:5rem;height:var(--q-control-md);border-radius:var(--q-radius-sm)}
+.qqurz-skeleton-field{height:var(--q-control-md);width:100%;border-radius:var(--q-radius-sm)}.qqurz-skeleton-meter{height:.45rem;width:100%;border-radius:var(--q-radius-pill)}.qqurz-skeleton-result{width:var(--q-space-32);height:var(--q-space-32);border-radius:var(--q-radius-xs)}.qqurz-skeleton-score{width:3.5rem;height:1.4rem}
+.qqurz-skeleton-player-list{display:grid}.qqurz-skeleton-player-list .social-player-row{pointer-events:none}.qqurz-skeleton-player-list .social-actions{min-width:10rem}
+.qqurz-skeleton-rating-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--q-space-12);margin-top:var(--q-space-16)}.qqurz-skeleton-rating-grid>div{padding:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-md)}
+.qqurz-skeleton-facts{margin:0}.qqurz-skeleton-facts dd{margin:var(--q-space-8) 0 0}.qqurz-skeleton-facts .qqurz-skeleton-line{width:100%}
+.qqurz-skeleton-event-list-row{display:grid;gap:var(--q-space-8);padding:var(--q-space-16);border-bottom:1px solid var(--q-line)}
+.qqurz-skeleton-table .qqurz-skeleton-line{min-width:2.5rem}.qqurz-skeleton-table td:nth-child(2) .qqurz-skeleton-line{min-width:7rem}
+.tournament-master-grid .qqurz-structural-skeleton{display:contents}
+.master-event-card>.qqurz-structural-skeleton{display:block}
+.master-event-card>.qqurz-structural-skeleton .master-event-facts{width:100%}

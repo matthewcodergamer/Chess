@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DestructiveButton, PrimaryButton, SecondaryButton, SegmentedControl } from '../ui/controls';
+import { ProfilePageSkeleton } from '../ui/Skeletons';
 import RatingIdentity from './RatingIdentity';
 import {
   accountToken,
@@ -194,9 +195,7 @@ export default function ProfileHub({ onBack }: Props) {
     catch (value) { setFailure(value); } finally { setBusy(false); }
   };
 
-  if (loading) {
-    return <div className="account-page qqurz-content-page"><div className="qqurz-loading" role="status"><span className="qqurz-button-spinner" /><span className="qqurz-button-sr">Loading account</span></div></div>;
-  }
+  if (loading) return <ProfilePageSkeleton/>;
 
   if (!account) {
     return (
@@ -261,7 +260,6 @@ export default function ProfileHub({ onBack }: Props) {
       </div>
     );
   }
-
 
   return (
     <div className="account-page qqurz-content-page">

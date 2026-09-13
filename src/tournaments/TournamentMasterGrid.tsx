@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { accountToken } from '../account/client';
+import { TournamentGridSkeleton } from '../ui/Skeletons';
 import {
   checkInEngineTournament,
   listEngineTournaments,
@@ -58,6 +59,7 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
   const [events, setEvents] = useState<EngineTournamentSummary[]>([]);
   const [details, setDetails] = useState<Record<string, EngineTournamentDetail>>({});
   const [mine, setMine] = useState<Record<string, EngineTournamentMe | null>>({});
+  const [listLoading, setListLoading] = useState(true);
   const [capacityFilter, setCapacityFilter] = useState<CapacityFilter>('all');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [busyId, setBusyId] = useState('');
@@ -73,6 +75,8 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
       setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not load tournament availability.');
+    } finally {
+      setListLoading(false);
     }
   }, []);
 
@@ -217,6 +221,8 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
 
   const otherCount = events.filter(event => !POWER_CAPACITIES.includes(event.capacity as (typeof POWER_CAPACITIES)[number])).length;
 
+  if (listLoading) return <TournamentGridSkeleton/>;
+
   return (
     <section className="tournament-master-grid" aria-label="Tournament availability">
       <header className="master-grid-head">
@@ -235,6 +241,7 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
           {visibleEvents.map(event => {
             const detail = details[event.id];
             const me = mine[event.id];
+            const playerStatusResolved = !signedIn || event.id in mine;
             const filled = Math.max(0, Math.min(event.capacity, event.registered));
             const fill = event.capacity ? Math.round((filled / event.capacity) * 100) : 0;
             const prizePool = detail?.payout.mode && detail.payout.mode !== 'none' ? detail.payout.poolCents : null;
@@ -244,12 +251,12 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
                 <h3>{event.title}</h3>
                 <div className="master-seat-meter"><div><span>Seats filled</span><b>{filled.toLocaleString()} / {event.capacity.toLocaleString()}</b></div><div className="master-seat-track"><i style={{ width: `${fill}%` }} /></div></div>
                 <dl className="master-event-facts">
-                  <div><dt>Entry</dt><dd>{detail ? `${detail.entryRules.mode === 'invite' ? 'Invite · ' : ''}Free` : 'Loading…'}</dd></div>
+                  <div><dt>Entry</dt><dd>{detail ? `${detail.entryRules.mode === 'invite' ? 'Invite · ' : ''}Free` : <span className="qqurz-skeleton-block qqurz-skeleton-line w-70" aria-label="Loading entry rules"/>}</dd></div>
                   <div><dt>Starts</dt><dd>{startLabel(event.startTime)}</dd></div>
                   <div><dt>Format</dt><dd>{formatName(event.format)}</dd></div>
-                  <div><dt>Prize pool</dt><dd>{prizePool === null ? '—' : money(prizePool)}</dd></div>
+                  <div><dt>Prize pool</dt><dd>{detail ? (prizePool === null ? '—' : money(prizePool)) : <span className="qqurz-skeleton-block qqurz-skeleton-line w-55" aria-label="Loading prize pool"/>}</dd></div>
                 </dl>
-                <div className="master-player-status"><span>Your status</span><b>{signedIn ? playerStatus(event, me) : 'Sign in required'}</b></div>
+                <div className="master-player-status"><span>Your status</span><b>{playerStatusResolved ? (signedIn ? playerStatus(event, me) : 'Sign in required') : <span className="qqurz-skeleton-block qqurz-skeleton-line w-55" aria-label="Loading your tournament status"/>}</b></div>
                 {inviteEventId === event.id && !me?.participant && <input className="master-invite-input" aria-label={`Invite code for ${event.title}`} placeholder="Invite code" value={inviteCodes[event.id] ?? ''} onChange={input => setInviteCodes(current => ({ ...current, [event.id]: input.target.value }))} />}
                 <button className={me?.seat || (!me?.participant && event.registered < event.capacity) ? 'primary-black master-event-action' : 'master-event-action'} disabled={!actionEnabled(event)} onClick={() => void act(event)}>{actionLabel(event)}</button>
               </article>

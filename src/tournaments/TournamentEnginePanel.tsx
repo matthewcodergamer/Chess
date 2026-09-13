@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatBasisPoints, formatUsdCents, usdDecimalToCents } from '../../shared/money';
 import { accountToken } from '../account/client';
+import { TournamentDetailSkeleton, TournamentEventListSkeleton } from '../ui/Skeletons';
 import TournamentLivePanel from './TournamentLivePanel';
 import {
   advanceEngineTournament,
@@ -68,8 +69,10 @@ function percentInputOkay(value: string): boolean {
 
 export default function TournamentEnginePanel({ onOpenGame }: Props) {
   const [events, setEvents] = useState<EngineTournamentSummary[]>([]);
+  const [listLoading, setListLoading] = useState(true);
   const [selectedId, setSelectedId] = useState('');
   const [detail, setDetail] = useState<EngineTournamentDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [me, setMe] = useState<EngineTournamentMe | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
@@ -118,11 +121,18 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
       setSelectedId(current => current || value.tournaments[0]?.id || '');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not load tournament engine.');
+    } finally {
+      setListLoading(false);
     }
   }, []);
 
-  const refreshSelected = useCallback(async () => {
-    if (!selectedId) { setDetail(null); setMe(null); return; }
+  const refreshSelected = useCallback(async (showSkeleton = false) => {
+    if (!selectedId) { setDetail(null); setMe(null); setDetailLoading(false); return; }
+    if (showSkeleton) {
+      setDetailLoading(true);
+      setDetail(null);
+      setMe(null);
+    }
     try {
       const next = await loadEngineTournament(selectedId);
       setDetail(next);
@@ -132,14 +142,16 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
       } else setMe(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not load tournament.');
+    } finally {
+      if (showSkeleton) setDetailLoading(false);
     }
   }, [selectedId, signedIn]);
 
   useEffect(() => { void refreshList(); }, [refreshList]);
   useEffect(() => {
-    void refreshSelected();
+    void refreshSelected(true);
     if (!selectedId) return;
-    const timer = window.setInterval(() => { void refreshSelected(); void refreshList(); }, 3500);
+    const timer = window.setInterval(() => { void refreshSelected(false); void refreshList(); }, 3500);
     return () => window.clearInterval(timer);
   }, [refreshList, refreshSelected, selectedId]);
 
@@ -209,7 +221,7 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
 
   const runAction = async (name: string, action: () => Promise<EngineTournamentDetail>) => {
     setBusy(name); setMessage('');
-    try { setDetail(await action()); await refreshList(); await refreshSelected(); }
+    try { setDetail(await action()); await refreshList(); await refreshSelected(false); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Tournament action failed.'); }
     finally { setBusy(''); }
   };
@@ -282,11 +294,11 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
 
       <div className="engine-event-layout">
         <aside className="engine-event-list" aria-label="Engine tournaments">
-          {events.length ? events.map(event => <button key={event.id} className={selectedId === event.id ? 'selected' : ''} onClick={() => setSelectedId(event.id)}><span>{statusLabel(event.status)} · {formatName(event.format)}</span><b>{event.title}</b><small>{event.entryFeeCents ? `${formatUsdCents(event.entryFeeCents)} entry · ` : 'Free · '}{event.registered}/{event.capacity} registered · {event.currentRound ? `Round ${event.currentRound}/${event.roundCount}` : `${event.roundCount} rounds`}</small></button>) : <div className="engine-empty"><b>No engine tournaments yet.</b><span>Create the first event above.</span></div>}
+          {listLoading ? <TournamentEventListSkeleton/> : events.length ? events.map(event => <button key={event.id} className={selectedId === event.id ? 'selected' : ''} onClick={() => setSelectedId(event.id)}><span>{statusLabel(event.status)} · {formatName(event.format)}</span><b>{event.title}</b><small>{event.entryFeeCents ? `${formatUsdCents(event.entryFeeCents)} entry · ` : 'Free · '}{event.registered}/{event.capacity} registered · {event.currentRound ? `Round ${event.currentRound}/${event.roundCount}` : `${event.roundCount} rounds`}</small></button>) : <div className="engine-empty"><b>No engine tournaments yet.</b><span>Create the first event above.</span></div>}
         </aside>
 
         <section className="engine-event-detail">
-          {detail ? <>
+          {detailLoading || (listLoading && !detail) ? <TournamentDetailSkeleton/> : detail ? <>
             <header><div><span className={`engine-status ${detail.status}`}>{statusLabel(detail.status)}</span><h3>{detail.title}</h3><p>{formatName(detail.format)} · {detail.timeControl.label} · {detail.capacity} seats · {detail.roundCount} rounds · {detail.entryFeeCents ? `${formatUsdCents(detail.entryFeeCents)} entry` : 'free entry'}</p></div><div className="engine-event-actions">{canRegister && <button onClick={register} disabled={Boolean(busy)}>{busy === 'register' ? 'Funding entry…' : detail.entryFeeCents ? `Fund & register · ${formatUsdCents(detail.entryFeeCents)}` : 'Register'}</button>}{detail.entryRules.mode === 'invite' && canRegister && <input aria-label="Tournament invite code" placeholder="Invite code" value={inviteCode} onChange={event => setInviteCode(event.target.value)} />}{canCheckIn && <button onClick={checkIn} disabled={Boolean(busy)}>{busy === 'checkin' ? 'Checking in…' : 'Check in'}</button>}{me?.seat && <button className="primary-black" onClick={openGame}>Open assigned game</button>}</div></header>
 
             <div className="engine-meta-grid"><div><span>Start</span><b>{new Date(detail.startTime).toLocaleString()}</b></div><div><span>Check-in</span><b>{detail.checkInRules.required ? `${detail.checkedIn}/${detail.registered}` : 'Not required'}</b></div><div><span>Entry</span><b>{detail.entryFeeCents ? formatUsdCents(detail.entryFeeCents) : 'Free'}</b></div><div><span>Chess960</span><b>{detail.positionPolicy.mode === 'fixed' ? `Fixed #${detail.positionPolicy.positionId}` : detail.positionPolicy.mode === 'per_round' ? 'New each round' : 'New each game'}</b></div><div><span>Organizer</span><b>{detail.organizerName}</b></div><div><span>Tie-breaks</span><b>{detail.tieBreakRules.join(' → ').replaceAll('_', ' ')}</b></div><div><span>Payout</span><b>{detail.entryFeeCents ? `${payoutSplit(detail)} after ${detail.platformFeeBps ? formatBasisPoints(detail.platformFeeBps) : 'server-policy'} platform fee · ${detail.moneyStatus?.replaceAll('_', ' ') ?? 'registration'}` : detail.payout.mode === 'none' ? 'None' : `${formatUsdCents(detail.payout.poolCents)} · ${detail.payoutStatus.replaceAll('_', ' ')}`}</b></div></div>

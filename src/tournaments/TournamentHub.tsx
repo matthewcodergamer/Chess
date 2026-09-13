@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import TournamentEnginePanel from './TournamentEnginePanel';
+import { lazy, Suspense, useState } from 'react';
 import TournamentMasterGrid from './TournamentMasterGrid';
 import LegacyTournamentHub from './LegacyTournamentHub';
+import { TournamentEngineSkeleton } from '../ui/Skeletons';
+
+const TournamentEnginePanel = lazy(() => import('./TournamentEnginePanel'));
 
 type Props = {
   onBack: () => void;
@@ -13,6 +15,7 @@ type TournamentSurface = 'engine' | 'catalog';
 
 export default function TournamentHub(props: Props) {
   const [surface, setSurface] = useState<TournamentSurface>('engine');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   if (surface === 'catalog') {
     return (
@@ -41,9 +44,9 @@ export default function TournamentHub(props: Props) {
 
       <TournamentMasterGrid onOpenGame={props.onPlayOnline} />
 
-      <details className="tournament-engine-advanced">
+      <details className="tournament-engine-advanced" open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
         <summary>Event details, standings & organizer tools</summary>
-        <TournamentEnginePanel onOpenGame={props.onPlayOnline} />
+        {advancedOpen && <Suspense fallback={<TournamentEngineSkeleton/>}><TournamentEnginePanel onOpenGame={props.onPlayOnline} /></Suspense>}
       </details>
     </div>
   );
