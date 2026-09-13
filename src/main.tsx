@@ -7,9 +7,11 @@ import './styles/index.css';
 import AppV14 from './AppV14';
 import NotificationCenter from './notifications/NotificationCenter';
 import SocialCenter from './social/SocialCenter';
+import { applyAccessibilityPreferences, loadAccessibilityPreferences } from './accessibility/preferences';
 import { startPerformanceMonitoring } from './performance/performanceMonitor';
-import { motionTokenMs } from './ui/motion';
+import { motionTokenMs, reducedMotionPreferred } from './ui/motion';
 
+applyAccessibilityPreferences(loadAccessibilityPreferences());
 startPerformanceMonitoring();
 
 createRoot(document.getElementById('root')!).render(
@@ -27,7 +29,6 @@ requestAnimationFrame(() => {
     const boot = document.getElementById('qqurz-boot');
     if (!boot) return;
     boot.classList.add('is-hidden');
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    window.setTimeout(() => boot.remove(), reduced ? 0 : motionTokenMs('--q-motion-route', 180));
+    window.setTimeout(() => boot.remove(), reducedMotionPreferred() ? 0 : motionTokenMs('--q-motion-route', 180));
   });
 });
