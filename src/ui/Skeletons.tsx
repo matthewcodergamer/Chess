@@ -21,7 +21,7 @@ export function StandingsSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function TournamentFactsSkeleton() {
-  return <SkeletonStatus label="Loading tournament details"><dl className="master-event-facts qqurz-skeleton-facts">{Array.from({ length: 4 }, (_, index) => <div key={index} aria-hidden="true"><dt><Block className="qqurz-skeleton-line w-40"/></dt><dd><Block className="qqurz-skeleton-line w-70"/></dd></div>)}</dl></SkeletonStatus>;
+  return <dl className="master-event-facts qqurz-skeleton-facts" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <div key={index}><dt><Block className="qqurz-skeleton-line w-40"/></dt><dd><Block className="qqurz-skeleton-line w-70"/></dd></div>)}</dl>;
 }
 
 function TournamentCardSkeleton({ index }: { index: number }) {
@@ -32,8 +32,16 @@ export function TournamentGridSkeleton({ cards = 6 }: { cards?: number }) {
   return <SkeletonStatus label="Loading tournaments"><section className="tournament-master-grid"><header className="master-grid-head"><div><Block className="qqurz-skeleton-line w-20"/><Block className="qqurz-skeleton-title w-55"/><Block className="qqurz-skeleton-line w-85"/></div><Block className="qqurz-skeleton-pill"/></header><div className="master-capacity-filter" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <Block className="qqurz-skeleton-filter" key={index}/>)}</div><div className="master-event-cards">{Array.from({ length: cards }, (_, index) => <TournamentCardSkeleton index={index} key={index}/>)}</div></section></SkeletonStatus>;
 }
 
+export function TournamentEventListSkeleton({ rows = 4 }: { rows?: number }) {
+  return <SkeletonStatus label="Loading tournament list"><div aria-hidden="true">{Array.from({ length: rows }, (_, index) => <div className="qqurz-skeleton-event-list-row" key={index}><Block className="qqurz-skeleton-line w-40"/><Block className="qqurz-skeleton-line w-70"/><Block className="qqurz-skeleton-line w-85"/></div>)}</div></SkeletonStatus>;
+}
+
+export function TournamentDetailSkeleton() {
+  return <SkeletonStatus label="Loading tournament field and standings"><div><header aria-hidden="true"><div><Block className="qqurz-skeleton-pill"/><Block className="qqurz-skeleton-title w-55"/><Block className="qqurz-skeleton-line w-70"/></div><Block className="qqurz-skeleton-control"/></header><div className="engine-meta-grid" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <div key={index}><Block className="qqurz-skeleton-line w-40"/><Block className="qqurz-skeleton-line w-70"/></div>)}</div><section className="engine-standings"><div className="engine-section-head" aria-hidden="true"><div><Block className="qqurz-skeleton-line w-30"/><Block className="qqurz-skeleton-line w-55"/></div><Block className="qqurz-skeleton-line w-30"/></div><StandingsSkeleton/></section></div></SkeletonStatus>;
+}
+
 export function TournamentEngineSkeleton() {
-  return <SkeletonStatus label="Loading tournament field and standings"><div className="engine-event-layout"><aside className="engine-event-list" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <div className="qqurz-skeleton-event-list-row" key={index}><Block className="qqurz-skeleton-line w-40"/><Block className="qqurz-skeleton-line w-70"/><Block className="qqurz-skeleton-line w-85"/></div>)}</aside><section className="engine-event-detail"><header aria-hidden="true"><div><Block className="qqurz-skeleton-pill"/><Block className="qqurz-skeleton-title w-55"/><Block className="qqurz-skeleton-line w-70"/></div><Block className="qqurz-skeleton-control"/></header><div className="engine-meta-grid" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <div key={index}><Block className="qqurz-skeleton-line w-40"/><Block className="qqurz-skeleton-line w-70"/></div>)}</div><section className="engine-standings"><div className="engine-section-head" aria-hidden="true"><div><Block className="qqurz-skeleton-line w-30"/><Block className="qqurz-skeleton-line w-55"/></div><Block className="qqurz-skeleton-line w-30"/></div><StandingsSkeleton/></section></section></div></SkeletonStatus>;
+  return <SkeletonStatus label="Loading tournament engine"><div className="engine-event-layout"><aside className="engine-event-list"><TournamentEventListSkeleton/></aside><section className="engine-event-detail"><TournamentDetailSkeleton/></section></div></SkeletonStatus>;
 }
 
 export function ProfilePageSkeleton() {
