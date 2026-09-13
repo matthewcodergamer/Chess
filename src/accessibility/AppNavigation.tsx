@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
 import { IconButton } from '../ui/controls';
 import { boardAppearanceLabel, type BoardAppearance } from '../onboarding/preferences';
 import { useAccessibilityPreferences } from './preferences';
 import AccessibilityPanel from './AccessibilityPanel';
 
 type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'account';
+type IntentHandlers = Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'onPointerEnter' | 'onFocus' | 'onPointerDown'>;
 
 type Props = {
   screen: Screen;
@@ -24,7 +25,7 @@ type Props = {
   onMatchmaking: () => void;
   onPremium3D: () => void;
   onAccount: () => void;
-  intent: (screen: Screen) => Record<string, () => void>;
+  intent: (screen: Screen) => IntentHandlers;
 };
 
 function moveFocus(event: KeyboardEvent<HTMLElement>): void {
@@ -70,7 +71,6 @@ export default function AppNavigation({
   const [menuOpen, setMenuOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [preferences, updatePreferences] = useAccessibilityPreferences();
-  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const displayButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const closeNavigation = () => {
@@ -83,10 +83,7 @@ export default function AppNavigation({
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.drawer-close')?.focus());
     const close = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
     window.addEventListener('keydown', close);
-    return () => {
-      window.removeEventListener('keydown', close);
-      requestAnimationFrame(() => menuButtonRef.current?.focus());
-    };
+    return () => window.removeEventListener('keydown', close);
   }, [menuOpen]);
 
   useEffect(() => {
@@ -106,7 +103,7 @@ export default function AppNavigation({
   return <>
     <a className="qqurz-skip-link" href="#qqurz-main-content">Skip to main content</a>
     <header className="qqurz-nav chess-topbar">
-      <IconButton ref={menuButtonRef as never} className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
+      <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
 
       <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="QQURZ Chess home">
         <span className="wordmark-piece" aria-hidden="true">♞</span>
