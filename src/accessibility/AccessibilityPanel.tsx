@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SegmentedControl } from '../ui/controls';
 import { hapticsEnabled, hapticsSupported, setHapticsEnabled, setSoundEnabled, soundEnabled } from '../ui/sound';
 import { useAccessibilityPreferences, type BoardCoordinates, type FontScale } from './preferences';
@@ -23,14 +23,15 @@ export default function AccessibilityPanel({
   onSoundChange,
 }: Props) {
   const [preferences, updatePreferences] = useAccessibilityPreferences();
-  const [soundOn, setSoundOn] = useRef(soundEnabled()).current ? [true, () => undefined] : [false, () => undefined];
+  const [soundOn, setSoundOn] = useState(soundEnabled);
+  const [hapticsOn, setHapticsOn] = useState(hapticsEnabled);
   const panelRef = useRef<HTMLElement | null>(null);
-  const currentSound = soundEnabled();
-  const currentHaptics = hapticsEnabled();
   const vibrationAvailable = hapticsSupported();
 
   useEffect(() => {
     if (!open) return;
+    setSoundOn(soundEnabled());
+    setHapticsOn(hapticsEnabled());
     const panel = panelRef.current;
     requestAnimationFrame(() => panel?.querySelector<HTMLButtonElement>('.display-popover-heading button')?.focus());
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -44,8 +45,13 @@ export default function AccessibilityPanel({
 
   const setSound = (enabled: boolean) => {
     setSoundEnabled(enabled);
+    setSoundOn(enabled);
     onSoundChange?.(enabled);
-    void setSoundOn;
+  };
+
+  const setHaptics = (enabled: boolean) => {
+    setHapticsEnabled(enabled);
+    setHapticsOn(enabled);
   };
 
   return (
@@ -114,18 +120,18 @@ export default function AccessibilityPanel({
 
       <div className="display-setting-row">
         <span>Game sounds</span>
-        <button type="button" aria-pressed={currentSound} onClick={() => setSound(!currentSound)}>{currentSound ? 'On' : 'Off'}</button>
+        <button type="button" aria-pressed={soundOn} onClick={() => setSound(!soundOn)}>{soundOn ? 'On' : 'Off'}</button>
       </div>
 
       <div className="display-setting-row">
         <span>Haptics</span>
         <button
           type="button"
-          aria-pressed={vibrationAvailable ? currentHaptics : undefined}
+          aria-pressed={vibrationAvailable ? hapticsOn : undefined}
           disabled={!vibrationAvailable}
-          onClick={() => setHapticsEnabled(!currentHaptics)}
+          onClick={() => setHaptics(!hapticsOn)}
         >
-          {vibrationAvailable ? currentHaptics ? 'On' : 'Off' : 'Unavailable'}
+          {vibrationAvailable ? hapticsOn ? 'On' : 'Off' : 'Unavailable'}
         </button>
         {!vibrationAvailable && <small className="display-setting-help">This browser does not expose vibration feedback.</small>}
       </div>
