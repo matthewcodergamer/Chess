@@ -13,6 +13,7 @@ export type AccessibilityPreferences = {
 const STORAGE_KEY = 'qqurz:accessibility-v1';
 const LEGACY_FONT_SCALE_KEY = 'qqurz:font-scale';
 const CHANGE_EVENT = 'qqurz:accessibility-changed';
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const DEFAULTS: AccessibilityPreferences = {
   fontScale: 'default',
@@ -27,6 +28,12 @@ function validFontScale(value: unknown): value is FontScale {
 
 function validCoordinates(value: unknown): value is BoardCoordinates {
   return value === 'inside' || value === 'edges' || value === 'off';
+}
+
+function deviceReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(REDUCED_MOTION_QUERY).matches
+    : false;
 }
 
 export function loadAccessibilityPreferences(): AccessibilityPreferences {
@@ -54,7 +61,7 @@ export function applyAccessibilityPreferences(preferences: AccessibilityPreferen
   const root = document.documentElement;
   root.dataset.fontScale = preferences.fontScale;
   root.dataset.contrast = preferences.highContrast ? 'high' : 'default';
-  root.dataset.reducedMotion = preferences.reducedMotion ? 'true' : 'false';
+  root.dataset.reducedMotion = preferences.reducedMotion || deviceReducedMotion() ? 'true' : 'false';
   root.dataset.boardCoordinates = preferences.boardCoordinates;
 }
 
@@ -83,11 +90,19 @@ export function subscribeAccessibilityPreferences(listener: (preferences: Access
   const onStorage = (event: StorageEvent) => {
     if (!event.key || event.key === STORAGE_KEY || event.key === LEGACY_FONT_SCALE_KEY) listener(loadAccessibilityPreferences());
   };
+  const media = typeof window.matchMedia === 'function' ? window.matchMedia(REDUCED_MOTION_QUERY) : null;
+  const onDeviceMotion = () => {
+    const preferences = loadAccessibilityPreferences();
+    applyAccessibilityPreferences(preferences);
+    listener(preferences);
+  };
   window.addEventListener(CHANGE_EVENT, onChange);
   window.addEventListener('storage', onStorage);
+  media?.addEventListener?.('change', onDeviceMotion);
   return () => {
     window.removeEventListener(CHANGE_EVENT, onChange);
     window.removeEventListener('storage', onStorage);
+    media?.removeEventListener?.('change', onDeviceMotion);
   };
 }
 
