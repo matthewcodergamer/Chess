@@ -1,6 +1,7 @@
 export type ChessSound = 'move' | 'capture' | 'slap' | 'coin' | 'start' | 'win' | 'error';
 
 const SOUND_KEY = 'qqurz:sound-enabled';
+const HAPTICS_KEY = 'qqurz:haptics-enabled';
 // CC0 real recorded click by qubodup/OpenGameArt. This is deliberately a
 // physical recorded impact, not an oscillator pretending to be a clock.
 const CLOCK_PRESS_SAMPLE = 'https://opengameart.org/sites/default/files/click.wav';
@@ -49,8 +50,30 @@ export function setSoundEnabled(value: boolean): void {
   if (value) getClockSample();
 }
 
-function haptic(ms: number): void {
-  try { navigator.vibrate?.(ms); } catch { /* unsupported */ }
+export function hapticsSupported(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+}
+
+export function hapticsEnabled(): boolean {
+  try { return window.localStorage.getItem(HAPTICS_KEY) !== 'off'; } catch { return true; }
+}
+
+export function setHapticsEnabled(value: boolean): void {
+  try { window.localStorage.setItem(HAPTICS_KEY, value ? 'on' : 'off'); } catch { /* optional */ }
+}
+
+function haptic(pattern: VibratePattern): void {
+  if (!hapticsEnabled() || !hapticsSupported()) return;
+  try { navigator.vibrate(pattern); } catch { /* unsupported */ }
+}
+
+function playChessHaptic(kind: ChessSound): void {
+  if (kind === 'capture') haptic(15);
+  else if (kind === 'slap') haptic(20);
+  else if (kind === 'coin') haptic(10);
+  else if (kind === 'start') haptic(8);
+  else if (kind === 'win') haptic([16, 36, 16]);
+  else if (kind === 'error') haptic([12, 28, 12]);
 }
 
 function tone(ctx: AudioContext, frequency: number, duration: number, volume: number, type: OscillatorType = 'sine', delay = 0, endFrequency?: number): void {
@@ -120,7 +143,7 @@ function playPieceMove(ctx: AudioContext, capture: boolean): void {
   tone(ctx, bodyFrequency, .044, .011 * level, 'triangle', .004, bodyFrequency * .82);
   noise(ctx, capture ? .046 : .031, .036 * level * gain, cutoff + (capture ? 520 : 330), settleDelay, 110);
   tone(ctx, bodyFrequency * (capture ? .66 : .73), capture ? .072 : .052, .023 * level * gain, 'sine', settleDelay + .003, bodyFrequency * .48);
-  if (capture) { noise(ctx, .064, .026 * level, 1020, settleDelay + .014, 70); haptic(15); }
+  if (capture) noise(ctx, .064, .026 * level, 1020, settleDelay + .014, 70);
 }
 
 function fallbackClockSlap(ctx: AudioContext): void {
@@ -134,7 +157,6 @@ function playRecordedClockSlap(): void {
   const prototype = getClockSample();
   if (!prototype) {
     if (ctx) fallbackClockSlap(ctx);
-    haptic(20);
     return;
   }
   try {
@@ -146,7 +168,6 @@ function playRecordedClockSlap(): void {
   } catch {
     if (ctx) fallbackClockSlap(ctx);
   }
-  haptic(20);
 }
 
 function playCoin(ctx: AudioContext): void {
@@ -155,10 +176,11 @@ function playCoin(ctx: AudioContext): void {
     tone(ctx, 3150 * pitch, .070, .024 * level, 'sine', delay, 2450 * pitch);
     tone(ctx, 5150 * pitch, .042, .011 * level, 'sine', delay + .003, 4300 * pitch);
   };
-  strike(0, 1, 1); strike(.09, .55, .93); strike(.155, .31, 1.07); strike(.205, .17, .97); haptic(10);
+  strike(0, 1, 1); strike(.09, .55, .93); strike(.155, .31, 1.07); strike(.205, .17, .97);
 }
 
 export function playChessSound(kind: ChessSound): void {
+  playChessHaptic(kind);
   if (!soundEnabled()) return;
   if (kind === 'slap') { playRecordedClockSlap(); return; }
   const ctx = getAudioContext();
