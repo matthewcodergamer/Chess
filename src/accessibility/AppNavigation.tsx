@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
 import { IconButton } from '../ui/controls';
 import { boardAppearanceLabel, type BoardAppearance } from '../onboarding/preferences';
 import { useAccessibilityPreferences } from './preferences';
@@ -72,6 +72,7 @@ export default function AppNavigation({
   const [displayOpen, setDisplayOpen] = useState(false);
   const [preferences, updatePreferences] = useAccessibilityPreferences();
   const displayButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeDisplay = useCallback(() => setDisplayOpen(false), []);
 
   const closeNavigation = () => {
     setMenuOpen(false);
@@ -133,7 +134,7 @@ export default function AppNavigation({
 
     <AccessibilityPanel
       open={displayOpen}
-      onClose={() => setDisplayOpen(false)}
+      onClose={closeDisplay}
       theme={theme}
       onToggleTheme={onToggleTheme}
       boardAppearance={boardAppearanceLabel(boardAppearance)}
