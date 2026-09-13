@@ -15,6 +15,25 @@ export type QQurzPerformanceSnapshot = {
   memorySource: 'performance.memory' | 'measureUserAgentSpecificMemory' | 'unavailable';
 };
 
+export type QQurzRuntimeBudgetTargets = Readonly<{
+  firstContentfulPaintMs: number;
+  largestContentfulPaintMs: number;
+  cumulativeLayoutShift: number;
+  longTaskMaxMs: number;
+  maxInputDelayMs: number;
+  maxInteractionDurationMs: number;
+  jsHeapUsedBytes: number;
+}>;
+
+export type QQurzRuntimeBudgetReport = Readonly<{
+  profile: 'standard-2d' | 'premium-3d';
+  targets: QQurzRuntimeBudgetTargets;
+  withinBudget: boolean;
+  attention: readonly string[];
+  unavailable: readonly string[];
+  snapshot: Readonly<QQurzPerformanceSnapshot>;
+}>;
+
 type LayoutShiftEntry = PerformanceEntry & { value?: number; hadRecentInput?: boolean };
 type EventTimingEntry = PerformanceEntry & { processingStart?: number; duration?: number };
 type MemoryPerformance = Performance & {
@@ -23,8 +42,36 @@ type MemoryPerformance = Performance & {
 };
 
 declare global {
-  interface Window { __QQURZ_PERFORMANCE__?: () => Readonly<QQurzPerformanceSnapshot>; }
+  interface Window {
+    __QQURZ_PERFORMANCE__?: () => Readonly<QQurzPerformanceSnapshot>;
+    __QQURZ_PERFORMANCE_BUDGETS__?: () => QQurzRuntimeBudgetReport;
+  }
 }
+
+const MiB = 1024 * 1024;
+
+// These are product targets for an iPhone 11-class experience, not synthetic
+// CI gates. Network/device conditions can vary, so runtime budgets report
+// attention items while build-time byte/lazy-boundary budgets remain hard CI.
+export const STANDARD_2D_RUNTIME_TARGETS: QQurzRuntimeBudgetTargets = Object.freeze({
+  firstContentfulPaintMs: 1200,
+  largestContentfulPaintMs: 2200,
+  cumulativeLayoutShift: 0.05,
+  longTaskMaxMs: 100,
+  maxInputDelayMs: 100,
+  maxInteractionDurationMs: 200,
+  jsHeapUsedBytes: 96 * MiB,
+});
+
+export const PREMIUM_3D_RUNTIME_TARGETS: QQurzRuntimeBudgetTargets = Object.freeze({
+  firstContentfulPaintMs: 1600,
+  largestContentfulPaintMs: 2800,
+  cumulativeLayoutShift: 0.08,
+  longTaskMaxMs: 150,
+  maxInputDelayMs: 150,
+  maxInteractionDurationMs: 250,
+  jsHeapUsedBytes: 192 * MiB,
+});
 
 const state: QQurzPerformanceSnapshot = {
   startedAt: performance.now(),
@@ -52,6 +99,49 @@ function observe(type: string, callback: (entries: PerformanceEntry[]) => void) 
   } catch {
     return null;
   }
+}
+
+function runtimeProfile(): 'standard-2d' | 'premium-3d' {
+  return document.querySelector('[data-performance-profile="premium-3d"]') ? 'premium-3d' : 'standard-2d';
+}
+
+function runtimeTargets(profile: 'standard-2d' | 'premium-3d'): QQurzRuntimeBudgetTargets {
+  return profile === 'premium-3d' ? PREMIUM_3D_RUNTIME_TARGETS : STANDARD_2D_RUNTIME_TARGETS;
+}
+
+function budgetReport(): QQurzRuntimeBudgetReport {
+  const profile = runtimeProfile();
+  const targets = runtimeTargets(profile);
+  const snapshot = Object.freeze({ ...state });
+  const attention: string[] = [];
+  const unavailable: string[] = [];
+
+  const over = (label: string, value: number | null, max: number, unavailableLabel?: string) => {
+    if (value === null) {
+      if (unavailableLabel) unavailable.push(unavailableLabel);
+      return;
+    }
+    if (value > max) attention.push(`${label}: ${Math.round(value)} > ${Math.round(max)}`);
+  };
+
+  over('FCP ms', snapshot.firstContentfulPaintMs, targets.firstContentfulPaintMs, 'FCP');
+  over('LCP ms', snapshot.largestContentfulPaintMs, targets.largestContentfulPaintMs, 'LCP');
+  if (snapshot.cumulativeLayoutShift > targets.cumulativeLayoutShift) {
+    attention.push(`CLS: ${snapshot.cumulativeLayoutShift.toFixed(3)} > ${targets.cumulativeLayoutShift.toFixed(3)}`);
+  }
+  over('Longest task ms', snapshot.longTaskMaxMs, targets.longTaskMaxMs);
+  over('Max input delay ms', snapshot.maxInputDelayMs, targets.maxInputDelayMs);
+  over('Max interaction duration ms', snapshot.maxInteractionDurationMs, targets.maxInteractionDurationMs);
+  over('JS heap bytes', snapshot.jsHeapUsedBytes, targets.jsHeapUsedBytes, 'JS heap memory');
+
+  return Object.freeze({
+    profile,
+    targets,
+    withinBudget: attention.length === 0,
+    attention: Object.freeze(attention),
+    unavailable: Object.freeze(unavailable),
+    snapshot,
+  });
 }
 
 async function sampleMemory() {
@@ -136,18 +226,25 @@ export function startPerformanceMonitoring(): () => void {
   inputEvents.forEach(type => window.addEventListener(type, onInput, { capture: true, passive: true }));
 
   window.__QQURZ_PERFORMANCE__ = () => Object.freeze({ ...state });
+  window.__QQURZ_PERFORMANCE_BUDGETS__ = budgetReport;
+
   const idle = window.requestIdleCallback?.(() => void sampleMemory(), { timeout: 3000 })
     ?? window.setTimeout(() => void sampleMemory(), 1800);
+  const memoryTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible') void sampleMemory();
+  }, 15_000);
   const onVisibility = () => { if (document.visibilityState === 'hidden') void sampleMemory(); };
   document.addEventListener('visibilitychange', onVisibility);
 
   return () => {
     observers.forEach(observer => observer.disconnect());
     window.clearInterval(driftTimer);
+    window.clearInterval(memoryTimer);
     inputEvents.forEach(type => window.removeEventListener(type, onInput, { capture: true }));
     if (window.cancelIdleCallback && typeof idle === 'number') window.cancelIdleCallback(idle);
     else window.clearTimeout(idle);
     document.removeEventListener('visibilitychange', onVisibility);
     delete window.__QQURZ_PERFORMANCE__;
+    delete window.__QQURZ_PERFORMANCE_BUDGETS__;
   };
 }

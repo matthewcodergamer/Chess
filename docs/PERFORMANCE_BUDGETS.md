@@ -20,37 +20,47 @@ These budgets protect the iPhone 11-class experience first. They are architectur
 
 The check also fails if account, tournament or Premium 3D gate code becomes part of the initial static closure, or if Stockfish, the Premium 3D board, or the Three.js physical clock becomes a static dependency of normal LocalGame 2D.
 
-## iPhone 11 interaction targets
+## Standard 2D runtime budget
 
-These are on-device goals rather than deterministic CI gates because they depend on network, battery state, thermal state and Safari scheduling.
+Runtime targets are on-device product goals rather than deterministic CI gates because network, battery state, thermal state and Safari scheduling vary. The budget reporter flags attention items without pretending those environmental differences are build failures.
 
-- Existing-user shell should show useful UI in about 1 second on a healthy connection and remain usable while lazy routes download.
-- First Contentful Paint target: <= 1.0 s on a warm/normal mobile connection; investigate > 1.5 s.
-- Largest Contentful Paint target: <= 1.8 s; investigate > 2.5 s.
-- Cumulative Layout Shift target: <= 0.05; hard ceiling 0.10.
-- Interaction input delay target: <= 50 ms; investigate any sustained or repeated > 100 ms interaction delay.
-- Long tasks: zero during ordinary board interaction where practical; any task >= 50 ms is recorded and should be investigated if repeated.
-- Chessground must become interactive without waiting for Stockfish, Premium 3D, or the Three.js physical-clock renderer.
+| Metric | iPhone 11-class standard 2D target |
+| --- | ---: |
+| First Contentful Paint | <= 1200 ms |
+| Largest Contentful Paint | <= 2200 ms |
+| Cumulative Layout Shift | <= 0.05 |
+| Longest observed task | <= 100 ms |
+| Maximum observed input delay | <= 100 ms |
+| Maximum observed interaction duration | <= 200 ms |
+| JS heap, where measurable | <= 96 MiB |
 
-## Premium 3D targets
+The UI should normally feel faster than these ceilings. In particular, board taps and navigation should aim for roughly one frame of scheduling delay where practical. Chessground must become interactive without waiting for Stockfish, Premium 3D, the Three.js physical-clock renderer, account, or tournament code.
 
-- Target 60 FPS while the camera is moving where practical.
-- Never trade sustained heat for resolution. On repeated missed frame budgets, render scale steps down to 0.82 and then 0.68; shadows are disabled at the lowest quality tier.
-- Lower-power iOS devices use a low-power WebGL preference and skip multisample antialiasing.
-- iPhone-class DPR remains capped; hidden tabs stop scheduled rendering and controls until visible again.
-- Quality only degrades during a session; it does not oscillate upward and repeatedly heat the device.
+## Premium 3D runtime budget
+
+Premium 3D intentionally has a separate profile because Three.js, WebGL resources and richer geometry have a higher cost. Its soft runtime ceilings are FCP <= 1600 ms, LCP <= 2800 ms, CLS <= 0.08, longest task <= 150 ms, max input delay <= 150 ms, max interaction duration <= 250 ms and JS heap <= 192 MiB where measurable.
+
+The renderer targets 60 FPS during active interaction, with 55 FPS as the practical lower edge of the target band. If repeated frames miss the budget, quality degrades instead of sustaining heat: render scale drops to 0.82 and then 0.68, and shadows switch off at the lowest tier. Lower-power iPhones use capped DPR, reduced geometry/shadows and a low-power WebGL preference. Rendering pauses when the page is hidden or the board is off-screen.
 
 ## Runtime measurement
 
-The app installs a lightweight, local-only `PerformanceObserver` collector. It does not upload telemetry.
+The app installs a lightweight local-only collector. Nothing is uploaded.
 
-In the browser console:
+Raw measurements:
 
 ```js
 window.__QQURZ_PERFORMANCE__?.()
 ```
 
-returns FCP, LCP, CLS, long-task count/total/max, maximum observed event input delay, maximum interaction duration, and JS heap usage when the browser exposes a supported memory API.
+Runtime budget evaluation:
+
+```js
+window.__QQURZ_PERFORMANCE_BUDGETS__?.()
+```
+
+The budget report identifies the active `standard-2d` or `premium-3d` profile, returns the applicable targets, marks whether observed metrics are within budget, lists attention items, and explicitly lists unavailable metrics.
+
+The collector uses native PerformanceObserver entries for paint, layout shift, Long Tasks and Event Timing where supported. Safari fallbacks are labeled rather than presented as native measurements. JS heap is sampled periodically only when a supported browser API exists; on iPhone Safari it can legitimately remain `unavailable`.
 
 Premium 3D additionally exposes:
 
@@ -58,9 +68,7 @@ Premium 3D additionally exposes:
 window.__QQURZ_3D_PERFORMANCE__?.()
 ```
 
-which returns target FPS, recent measured FPS, current quality scale, shadow state and slow-frame count.
-
-Safari on iPhone does not expose a dependable JS heap API in all versions. In that case memory is reported as `unavailable`; do not substitute a guessed value.
+which returns the 60 FPS target, 55 FPS practical threshold, recent measured FPS, active pixel ratio, quality scale, shadow state, slow-frame count and whether the renderer is still on the target tier or has degraded quality.
 
 ## Prefetch policy
 

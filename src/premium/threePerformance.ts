@@ -3,10 +3,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export type ThreePerformanceSnapshot = {
   targetFps: 60;
+  minimumPracticalFps: 55;
   recentFps: number;
   qualityScale: number;
+  pixelRatio: number;
   shadowsEnabled: boolean;
   slowFrameCount: number;
+  budgetStatus: 'target' | 'degraded';
 };
 
 export type RenderScheduler = {
@@ -72,10 +75,13 @@ export function createRenderScheduler(renderer: THREE.WebGLRenderer, scene: THRE
 
   const snapshot = (): ThreePerformanceSnapshot => ({
     targetFps: 60,
+    minimumPracticalFps: 55,
     recentFps: Math.round(recentFps),
     qualityScale,
+    pixelRatio: renderer.getPixelRatio(),
     shadowsEnabled: renderer.shadowMap.enabled,
     slowFrameCount,
+    budgetStatus: recentFps >= 55 && qualityScale === 1 ? 'target' : 'degraded',
   });
   window.__QQURZ_3D_PERFORMANCE__ = snapshot;
 
