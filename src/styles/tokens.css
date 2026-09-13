@@ -42,7 +42,7 @@
   --q-tracking-ui:-.012em;
   --q-tracking-label:.08em;
 
-  /* Controls: only three standard interactive heights. */
+  /* Controls: all standard interactive controls exceed the 44px touch target minimum. */
   --q-control-sm:48px;
   --q-control-md:56px;
   --q-control-lg:64px;
@@ -188,6 +188,62 @@
   --q-elevation-2:0 18px 50px rgba(42,37,30,.10);
   --q-elevation-3:0 24px 70px rgba(42,37,30,.13);
   --q-elevation-board:0 18px 50px rgba(61,43,29,.20);
+}
+
+/* Explicit high-contrast modes preserve the current theme while raising text,
+ * borders, focus and semantic state separation. */
+:root[data-contrast='high']{
+  --q-surface-canvas:#000000;
+  --q-surface-1:#0c0c0c;
+  --q-surface-2:#171717;
+  --q-surface-3:#242424;
+  --q-text:#ffffff;
+  --q-muted:#eeeeee;
+  --q-subtle:#d2d2d2;
+  --q-line:rgba(255,255,255,.28);
+  --q-line-strong:rgba(255,255,255,.56);
+  --q-action:#b6ed72;
+  --q-action-hover:#c9f793;
+  --q-action-active:#9bd85a;
+  --q-action-strong:#d3ffa1;
+  --q-action-ink:#071000;
+  --q-action-soft:rgba(182,237,114,.24);
+  --q-focus-ring:#ffe36e;
+  --q-success:#7ee89c;
+  --q-success-strong:#afffc1;
+  --q-success-soft:rgba(126,232,156,.24);
+  --q-danger:#ff847b;
+  --q-danger-strong:#ffb0a9;
+  --q-danger-soft:rgba(255,132,123,.22);
+  --q-warning:#ffd166;
+  --q-warning-soft:rgba(255,209,102,.22);
+}
+
+:root[data-theme='light'][data-contrast='high']{
+  --q-surface-canvas:#ffffff;
+  --q-surface-1:#ffffff;
+  --q-surface-2:#f1f1f1;
+  --q-surface-3:#e1e1e1;
+  --q-text:#000000;
+  --q-muted:#242424;
+  --q-subtle:#3d3d3d;
+  --q-line:rgba(0,0,0,.30);
+  --q-line-strong:rgba(0,0,0,.62);
+  --q-action:#2f6f16;
+  --q-action-hover:#255b11;
+  --q-action-active:#1e4a0d;
+  --q-action-strong:#1e4a0d;
+  --q-action-ink:#ffffff;
+  --q-action-soft:rgba(47,111,22,.16);
+  --q-focus-ring:#005fcc;
+  --q-success:#166b36;
+  --q-success-strong:#0b5127;
+  --q-success-soft:rgba(22,107,54,.15);
+  --q-danger:#9e1f18;
+  --q-danger-strong:#77130e;
+  --q-danger-soft:rgba(158,31,24,.13);
+  --q-warning:#765000;
+  --q-warning-soft:rgba(118,80,0,.13);
 }
 
 :root[data-board-theme='walnut']{
