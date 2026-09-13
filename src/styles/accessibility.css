@@ -1,0 +1,39 @@
+/* Cross-cutting accessibility guarantees. Viewport media rules stay in responsive.css. */
+.qqurz-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+
+button:focus-visible,a[href]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--q-focus-ring);outline-offset:3px}
+button{min-height:var(--q-control-sm)}
+
+.qqurz-board-accessible-shell{position:relative;width:100%;height:100%;min-width:0;outline:none;isolation:isolate}
+.qqurz-board-accessible-shell>.board-mount{width:100%;height:100%}
+.qqurz-board-accessible-shell:focus-visible{outline:3px solid var(--q-focus-ring);outline-offset:var(--q-space-4)}
+.qqurz-board-accessible-shell:focus-visible::after{content:'Keyboard board';position:absolute;z-index:20;left:var(--q-space-8);top:var(--q-space-8);min-height:var(--q-control-sm);padding:0 var(--q-space-12);display:flex;align-items:center;border:1px solid var(--q-focus-ring);border-radius:var(--q-radius-sm);background:var(--q-overlay-card);color:var(--q-text-inverse);font-size:var(--q-type-caption);font-weight:900;pointer-events:none}
+.qqurz-board-keyboard-cursor{position:absolute;z-index:18;width:12.5%;height:12.5%;pointer-events:none;border:3px solid var(--q-focus-ring);box-shadow:inset 0 0 0 2px var(--q-ink-inverse),0 0 0 2px var(--q-text-inverse)}
+
+.match-player-bar.active{outline:2px solid var(--q-action-strong);outline-offset:-2px}
+.match-turn-indicator{min-height:var(--q-space-24);display:inline-flex;align-items:center;gap:var(--q-space-4);padding:0 var(--q-space-8);border:1px solid var(--q-action-strong);border-radius:var(--q-radius-pill);background:var(--q-action-soft);color:var(--q-action-strong);font-size:var(--q-type-caption);font-weight:900;white-space:nowrap}
+.match-turn-indicator>span{font-size:var(--q-type-caption)}
+.match-turn-note{border:1px solid transparent;border-radius:var(--q-radius-sm)}
+.match-turn-note.active{border-color:var(--q-action-strong);background:var(--q-action-soft)}
+
+:root[data-contrast='high'] .desktop-chess-nav button.active,
+:root[data-contrast='high'] .match-player-bar.active,
+:root[data-contrast='high'] .match-turn-note.active,
+:root[data-contrast='high'] .match-turn-indicator{box-shadow:inset 0 0 0 2px var(--q-text)}
+:root[data-contrast='high'] .qqurz-chessboard coordinate{font-weight:900;text-shadow:none}
+
+:root[data-font-scale='large'] .account-tabs,
+:root[data-font-scale='extra'] .account-tabs{flex-wrap:wrap;overflow-x:hidden}
+:root[data-font-scale='large'] .account-tabs button,
+:root[data-font-scale='extra'] .account-tabs button{flex:1 1 auto;white-space:normal}
+:root[data-font-scale='large'] .tournament-center-switch,
+:root[data-font-scale='extra'] .tournament-center-switch{flex-wrap:wrap;overflow-x:hidden}
+:root[data-font-scale='large'] .social-tabs,
+:root[data-font-scale='extra'] .social-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[data-font-scale='large'] .detail-tabs-v22,
+:root[data-font-scale='extra'] .detail-tabs-v22{grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));overflow-x:hidden}
+
+:root[data-reduced-motion='true']{scroll-behavior:auto}
+:root[data-reduced-motion='true'] .qqurz-product-system *,
+:root[data-reduced-motion='true'] .qqurz-social-center *,
+:root[data-reduced-motion='true'] .notification-center *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
