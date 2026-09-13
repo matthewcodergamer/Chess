@@ -4,17 +4,19 @@ import '@lichess-org/chessground/assets/chessground.base.css';
 import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles/index.css';
-import AppV14 from './AppV14';
+import AppShell from './AppShell';
 import NotificationCenter from './notifications/NotificationCenter';
 import SocialCenter from './social/SocialCenter';
+import { applyAccessibilityPreferences, loadAccessibilityPreferences } from './accessibility/preferences';
 import { startPerformanceMonitoring } from './performance/performanceMonitor';
-import { motionTokenMs } from './ui/motion';
+import { motionTokenMs, reducedMotionPreferred } from './ui/motion';
 
+applyAccessibilityPreferences(loadAccessibilityPreferences());
 startPerformanceMonitoring();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppV14 />
+    <AppShell />
     <NotificationCenter />
     <SocialCenter />
   </StrictMode>,
@@ -27,7 +29,6 @@ requestAnimationFrame(() => {
     const boot = document.getElementById('qqurz-boot');
     if (!boot) return;
     boot.classList.add('is-hidden');
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    window.setTimeout(() => boot.remove(), reduced ? 0 : motionTokenMs('--q-motion-route', 180));
+    window.setTimeout(() => boot.remove(), reducedMotionPreferred() ? 0 : motionTokenMs('--q-motion-route', 180));
   });
 });

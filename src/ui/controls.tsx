@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react';
 
 type ButtonSize = 'sm' | 'md' | 'lg';
 type ButtonVariant = 'primary' | 'secondary' | 'destructive';
@@ -119,9 +119,28 @@ export function IconButton({
 }
 
 export function SegmentedControl<T extends string>({ value, options, onChange, ariaLabel, size = 'sm', className }: SegmentedControlProps<T>) {
+  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const enabled = options.map((option, optionIndex) => ({ option, optionIndex })).filter(item => !item.option.disabled);
+    if (!enabled.length) return;
+    const currentEnabledIndex = Math.max(0, enabled.findIndex(item => item.optionIndex === index));
+    let nextEnabledIndex = currentEnabledIndex;
+    if (event.key === 'Home') nextEnabledIndex = 0;
+    else if (event.key === 'End') nextEnabledIndex = enabled.length - 1;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextEnabledIndex = (currentEnabledIndex - 1 + enabled.length) % enabled.length;
+    else nextEnabledIndex = (currentEnabledIndex + 1) % enabled.length;
+    const next = enabled[nextEnabledIndex];
+    onChange(next.option.value);
+    const group = event.currentTarget.parentElement;
+    const buttons = group ? Array.from(group.querySelectorAll<HTMLButtonElement>('.qqurz-segmented-option')) : [];
+    buttons[next.optionIndex]?.focus();
+  };
+
   return (
     <div className={cx('qqurz-segmented', `qqurz-segmented--${size}`, className)} role="radiogroup" aria-label={ariaLabel}>
-      {options.map(option => {
+      {options.map((option, index) => {
         const selected = option.value === value;
         return (
           <button
@@ -131,7 +150,9 @@ export function SegmentedControl<T extends string>({ value, options, onChange, a
             aria-checked={selected}
             aria-label={option.ariaLabel}
             disabled={option.disabled}
+            tabIndex={selected ? 0 : -1}
             className={cx('qqurz-segmented-option', selected && 'selected')}
+            onKeyDown={event => move(event, index)}
             onClick={() => onChange(option.value)}
           >
             {option.label}
