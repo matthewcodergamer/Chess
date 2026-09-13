@@ -4,7 +4,7 @@ import '@lichess-org/chessground/assets/chessground.base.css';
 import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles/index.css';
-import AppV14 from './AppV14';
+import AppShell from './AppShell';
 import NotificationCenter from './notifications/NotificationCenter';
 import SocialCenter from './social/SocialCenter';
 import { applyAccessibilityPreferences, loadAccessibilityPreferences } from './accessibility/preferences';
@@ -16,7 +16,7 @@ startPerformanceMonitoring();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppV14 />
+    <AppShell />
     <NotificationCenter />
     <SocialCenter />
   </StrictMode>,
