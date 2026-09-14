@@ -1,11 +1,12 @@
 import { DATA_SCHEMA_SQL, DATA_SCHEMA_VERSION, REQUIRED_DATA_TABLES } from './schema';
 
-export const LATEST_DATA_SCHEMA_VERSION = 2;
+export const LATEST_DATA_SCHEMA_VERSION = 3;
 
 export const REQUIRED_PRODUCTION_DATA_TABLES = [
   ...REQUIRED_DATA_TABLES,
   'follows',
   'compliance_attestations',
+  'provider_webhook_events',
 ] as const;
 
 function currentVersion(storage: DurableObjectStorage): number {
@@ -82,6 +83,27 @@ function migrateV1ToV2(storage: DurableObjectStorage): void {
   `);
 }
 
+function migrateV2ToV3(storage: DurableObjectStorage): void {
+  storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS provider_webhook_events (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      event_id TEXT,
+      status TEXT NOT NULL CHECK (status IN ('received','processed','rejected','failed')),
+      http_status INTEGER NOT NULL DEFAULT 0 CHECK (http_status BETWEEN 0 AND 599),
+      error TEXT,
+      received_at INTEGER NOT NULL,
+      processed_at INTEGER,
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS ix_provider_webhook_status
+      ON provider_webhook_events(status,received_at DESC);
+    CREATE INDEX IF NOT EXISTS ix_provider_webhook_event
+      ON provider_webhook_events(provider,event_id);
+  `);
+}
+
 export function ensureProductionDataSchema(storage: DurableObjectStorage): number {
   // The v1 schema is the bootstrap migration. Every later change must be an
   // ordered migration so deployed data is never rebuilt destructively.
@@ -95,9 +117,15 @@ export function ensureProductionDataSchema(storage: DurableObjectStorage): numbe
     version = 2;
     setVersion(storage, version);
   } else {
-    // Idempotently ensure v2 objects/triggers exist for fresh/bootstrap stores.
     migrateV1ToV2(storage);
-    setVersion(storage, version);
   }
+  if (version < 3) {
+    storage.transactionSync(() => migrateV2ToV3(storage));
+    version = 3;
+    setVersion(storage, version);
+  } else {
+    migrateV2ToV3(storage);
+  }
+  setVersion(storage, version);
   return version;
 }
