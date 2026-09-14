@@ -5,6 +5,7 @@ import { sendFriendChallenge } from '../notifications/client';
 import { createCustomTimeControl, timeControlFromPreset } from '../../shared/timeControl';
 import { listEngineTournaments, loadEngineTournament, type EngineTournamentDetail, type EngineTournamentSummary } from '../tournaments/engineClient';
 import { PlayerListSkeleton } from '../ui/Skeletons';
+import StateNotice from '../ui/StateNotice';
 import {
   loadSocialOverview,
   lookupPlayers,
@@ -60,6 +61,7 @@ export default function SocialCenter() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [messageIsError, setMessageIsError] = useState(false);
   const [events, setEvents] = useState<EngineTournamentSummary[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventId, setEventId] = useState('');
@@ -68,8 +70,11 @@ export default function SocialCenter() {
   const [participantProfiles, setParticipantProfiles] = useState<Record<string, SocialPlayer>>({});
   const shellRef = useRef<HTMLDivElement | null>(null);
 
-  const signedIn = Boolean(accountToken() && account);
+  const signedIn = Boolean(accountToken());
   const incoming = overview.incomingRequests.length;
+  const status = (text: string) => { setMessageIsError(false); setMessage(text); };
+  const failure = (text: string) => { setMessageIsError(true); setMessage(text); };
+  const clearMessage = () => { setMessage(''); setMessageIsError(false); };
 
   const refresh = useCallback(async () => {
     if (!accountToken()) { setAccount(null); setOverview(EMPTY); return; }
@@ -78,8 +83,7 @@ export default function SocialCenter() {
       setAccount(nextAccount);
       setOverview(nextOverview);
     } catch {
-      setAccount(null);
-      setOverview(EMPTY);
+      failure('Player connections could not refresh. Your chess account and any last confirmed relationships are unchanged.');
     }
   }, []);
 
@@ -119,8 +123,8 @@ export default function SocialCenter() {
     setSearchLoading(true);
     const timer = window.setTimeout(() => {
       void searchPlayers(query)
-        .then(setSearch)
-        .catch(error => setMessage(error instanceof Error ? error.message : 'Could not search players.'))
+        .then(value => { setSearch(value); if (messageIsError) clearMessage(); })
+        .catch(() => failure('Player search is temporarily unavailable. Your friends and recent-opponent lists are unchanged.'))
         .finally(() => setSearchLoading(false));
     }, 260);
     return () => window.clearTimeout(timer);
@@ -132,7 +136,8 @@ export default function SocialCenter() {
     void listEngineTournaments().then(result => {
       setEvents(result.tournaments);
       setEventId(current => current || result.tournaments[0]?.id || '');
-    }).catch(error => setMessage(error instanceof Error ? error.message : 'Could not load tournaments.'))
+      if (messageIsError) clearMessage();
+    }).catch(() => failure('Tournament participant browsing is temporarily unavailable. No participant data is being guessed.'))
       .finally(() => setEventsLoading(false));
   }, [open, tab]);
 
@@ -146,24 +151,25 @@ export default function SocialCenter() {
       const accountIds = detail.participants.map(player => player.id.startsWith('p_') ? player.id.slice(2) : '').filter(Boolean);
       const profiles = await lookupPlayers(accountIds);
       setParticipantProfiles(Object.fromEntries(profiles.map(player => [player.id, player])));
-    }).catch(error => setMessage(error instanceof Error ? error.message : 'Could not load tournament players.'))
+      if (messageIsError) clearMessage();
+    }).catch(() => failure('Tournament participants could not be loaded. Retry the event list; no private profiles were exposed as a fallback.'))
       .finally(() => setParticipantsLoading(false));
   }, [eventId, open, tab]);
 
   const mutate = async (key: string, action: () => Promise<unknown>, success = '') => {
-    setBusy(key); setMessage('');
+    setBusy(key); clearMessage();
     try {
       await action();
       await refresh();
-      if (success) setMessage(success);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Player action failed.');
+      if (success) status(success);
+    } catch {
+      failure('That player action could not be confirmed. Do not assume the relationship changed; refresh and retry.');
     } finally { setBusy(''); }
   };
 
   const invite = async (player: SocialPlayer, previous?: RecentOpponent['lastGame']) => {
     if (!account || !player.canChallenge) return;
-    setBusy(`invite:${player.id}`); setMessage('');
+    setBusy(`invite:${player.id}`); clearMessage();
     try {
       const existing = previous ? '' : roomCodeFromUrl();
       let code = existing;
@@ -177,17 +183,17 @@ export default function SocialCenter() {
       }
       const result = await sendFriendChallenge(player.username, code);
       if (result.delivered === false) {
-        setMessage(result.reason || `${player.displayName} is not accepting game-invite notifications.`);
+        failure(result.reason || `${player.displayName} is not accepting game-invite notifications.`);
         return;
       }
-      setMessage(previous ? `Rematch invite sent to ${player.displayName}.` : `Game invite sent to ${player.displayName}.`);
+      status(previous ? `Rematch invite sent to ${player.displayName}.` : `Game invite sent to ${player.displayName}.`);
       if (!existing) {
         const url = new URL(window.location.href);
         url.searchParams.set('room', code);
         window.location.assign(url.toString());
       }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not create the game invite.');
+    } catch {
+      failure('The game invite could not be confirmed. No challenge should be assumed delivered; retry when live services are available.');
     } finally { setBusy(''); }
   };
 
@@ -236,10 +242,10 @@ export default function SocialCenter() {
           <button type="button" onClick={() => setOpen(false)} aria-label="Close players">×</button>
         </header>
         <nav className="social-tabs" aria-label="Player discovery sections">
-          {([['friends', `Friends${incoming ? ` · ${incoming}` : ''}`], ['recent', 'Recent'], ['discover', 'Find'], ['tournaments', 'Tournaments']] as Array<[SocialTab, string]>).map(([value, label]) => <button type="button" key={value} className={tab === value ? 'active' : ''} onClick={() => { setTab(value); setMessage(''); }}>{label}</button>)}
+          {([['friends', `Friends${incoming ? ` · ${incoming}` : ''}`], ['recent', 'Recent'], ['discover', 'Find'], ['tournaments', 'Tournaments']] as Array<[SocialTab, string]>).map(([value, label]) => <button type="button" key={value} className={tab === value ? 'active' : ''} onClick={() => { setTab(value); clearMessage(); }}>{label}</button>)}
         </nav>
 
-        {message && <div className="social-message" role="status">{message}</div>}
+        {message && (messageIsError ? <StateNotice className="compact" tone="warning" icon="↻" title="Players couldn’t update" body={<p>{message}</p>} actions={[{ label: 'Retry players', onClick: () => void refresh(), primary: true }]} /> : <div className="social-message" role="status">{message}</div>)}
 
         {tab === 'friends' && <div className="social-section-stack">
           {overview.incomingRequests.length > 0 && <section><div className="social-section-title"><b>Friend requests</b><small>{overview.incomingRequests.length}</small></div>{overview.incomingRequests.map(player => playerRow(player))}</section>}
@@ -249,12 +255,12 @@ export default function SocialCenter() {
 
         {tab === 'recent' && <div className="social-section-stack"><section><div className="social-section-title"><b>Recent opponents</b><small>{overview.recentOpponents.length}</small></div>{overview.recentOpponents.length ? overview.recentOpponents.map(player => playerRow(player, player.lastGame)) : <div className="social-empty"><b>No recent opponents.</b><small>Completed signed-in online games will appear here for quick rematches.</small></div>}</section></div>}
 
-        {tab === 'discover' && <div className="social-discover"><label><span>Find a player</span><input value={query} onChange={event => setQuery(event.target.value.slice(0, 40))} placeholder="Username or display name" autoComplete="off" /></label><small>Search starts after 2 characters. Private profiles and blocked players are excluded.</small>{query.trim().length >= 2 && <div className="social-section-stack"><section>{searchLoading ? <PlayerListSkeleton rows={3}/> : search.length ? search.map(player => playerRow(player)) : <div className="social-empty"><b>No visible players found.</b><small>Try a username or a more specific name.</small></div>}</section></div>}</div>}
+        {tab === 'discover' && <div className="social-discover"><label><span>Find a player</span><input value={query} onChange={event => setQuery(event.target.value.slice(0, 40))} placeholder="Username or display name" autoComplete="off" /></label><small>Search starts after 2 characters. Private profiles and blocked players are excluded.</small>{query.trim().length >= 2 && <div className="social-section-stack"><section>{searchLoading ? <PlayerListSkeleton rows={3}/> : !messageIsError && search.length ? search.map(player => playerRow(player)) : !messageIsError ? <div className="social-empty"><b>No visible players found.</b><small>Try a username or a more specific name.</small></div> : null}</section></div>}</div>}
 
         {tab === 'tournaments' && <div className="social-tournament-browser">
-          {eventsLoading ? <span className="qqurz-skeleton-block qqurz-skeleton-field" role="status" aria-label="Loading tournaments"/> : <label><span>Tournament</span><select value={eventId} onChange={event => setEventId(event.target.value)}><option value="">Choose an event</option>{events.map(event => <option key={event.id} value={event.id}>{event.title} · {event.registered} players</option>)}</select></label>}
+          {eventsLoading ? <span className="qqurz-skeleton-block qqurz-skeleton-field" role="status" aria-label="Loading tournaments"/> : events.length ? <label><span>Tournament</span><select value={eventId} onChange={event => setEventId(event.target.value)}><option value="">Choose an event</option>{events.map(event => <option key={event.id} value={event.id}>{event.title} · {event.registered} players</option>)}</select></label> : !messageIsError ? <div className="social-empty"><b>No tournament rosters are available.</b><small>When the server publishes an event, its participant list will appear here.</small></div> : null}
           {selectedEvent && <small>{selectedEvent.registered}/{selectedEvent.capacity} registered · {selectedEvent.status.replaceAll('_', ' ')}</small>}
-          {participantsLoading ? <PlayerListSkeleton rows={4}/> : eventDetail && <div className="social-tournament-list">{eventDetail.participants.map(participant => {
+          {participantsLoading ? <PlayerListSkeleton rows={4}/> : !messageIsError && eventDetail && <div className="social-tournament-list">{eventDetail.participants.map(participant => {
             const accountId = participant.id.startsWith('p_') ? participant.id.slice(2) : '';
             const player = participantProfiles[accountId];
             return <article key={participant.id} className="social-tournament-row"><div><b>{participant.name}</b><small>{participant.rating} rating · {participant.status.replaceAll('_', ' ')}</small></div>{player ? actions(player) : <small>Profile private or unavailable</small>}</article>;

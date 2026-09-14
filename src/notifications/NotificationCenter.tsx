@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { accountToken } from '../account/client';
+import StateNotice from '../ui/StateNotice';
 import {
   disableWebPush,
   enableWebPush,
@@ -93,8 +94,9 @@ export default function NotificationCenter() {
     if (!accountToken()) { setPushState(null); return; }
     try {
       setPushState(sync ? await syncExistingWebPushSubscription() : await inspectWebPush());
-    } catch (reason) {
-      setPushMessage(reason instanceof Error ? reason.message : 'Could not check Web Push.');
+      setPushMessage('');
+    } catch {
+      setPushMessage('Web Push status could not be refreshed. In-app notifications still work normally.');
       try { setPushState(await inspectWebPush()); } catch { setPushState(null); }
     }
   }, []);
@@ -121,8 +123,8 @@ export default function NotificationCenter() {
       }
       knownIds.current = new Set(inbox.notifications.map(item => item.id));
       firstLoad.current = false;
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Notifications are temporarily unavailable.');
+    } catch {
+      setError('Notifications could not be refreshed. Any notifications already shown below are the last successfully loaded copy.');
     }
   }, [showToast]);
 
@@ -198,13 +200,13 @@ export default function NotificationCenter() {
     setChallengeMessage('');
     try {
       const result = await sendFriendChallenge(challengeName.trim(), roomCode);
-      if (result.delivered === false) setChallengeMessage(result.reason || 'That player has invite notifications turned off.');
+      if (result.delivered === false) setChallengeMessage(result.reason || 'That player is not accepting game-invite notifications.');
       else {
         setChallengeMessage(`Challenge sent to ${result.target?.displayName || challengeName.trim()}.`);
         setChallengeName('');
       }
-    } catch (reason) {
-      setChallengeMessage(reason instanceof Error ? reason.message : 'Could not send the challenge.');
+    } catch {
+      setChallengeMessage('Challenge could not be sent. No invite was delivered; check the username or retry in a moment.');
     } finally {
       setChallengeBusy(false);
     }
@@ -222,8 +224,8 @@ export default function NotificationCenter() {
         setPushState(await enableWebPush());
         setPushMessage('Web Push is on for this device.');
       }
-    } catch (reason) {
-      setPushMessage(reason instanceof Error ? reason.message : 'Could not update Web Push.');
+    } catch {
+      setPushMessage('Web Push could not be updated. In-app notifications still work and your browser permission was not assumed to have changed.');
       await refreshPush(false);
     } finally {
       setPushBusy(false);
@@ -275,7 +277,7 @@ export default function NotificationCenter() {
             </div>
           )}
 
-          {error && <p className="notification-error">{error}</p>}
+          {error && <StateNotice className="compact" tone="warning" icon="↻" title="Inbox couldn’t refresh" body={<p>{error}</p>} actions={[{ label: 'Retry inbox', onClick: () => void refresh(false), primary: true }]} />}
           {!items.length && !error && <div className="notification-empty"><span>♞</span><b>You’re caught up.</b><small>Tournament rounds, challenges, payouts and security alerts will appear here.</small></div>}
 
           <div className="notification-list">

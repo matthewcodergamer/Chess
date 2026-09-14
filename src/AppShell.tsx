@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import AppNavigation from './accessibility/AppNavigation';
 import { getPresenceId, multiplayerConfigured, pingPresence } from './multiplayer/client';
 import type { RoomSeat } from './multiplayer/types';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
 import { ProfilePageSkeleton, TournamentPageSkeleton } from './ui/Skeletons';
 import HomeDashboard from './ui/HomeDashboard';
+import StateNotice from './ui/StateNotice';
 import FirstRunOnboarding from './onboarding/FirstRunOnboarding';
 import {
   hasCompletedOnboarding,
@@ -55,6 +56,7 @@ function initialScreen(): Screen {
   const checkoutState = params.get('checkout');
   if ((checkoutState === 'success' || checkoutState === 'cancel') && (checkoutKind === 'position_bid' || checkoutKind === 'color_bid')) return 'online';
   if ((checkoutState === 'success' || checkoutState === 'cancel') && checkoutKind === 'premium3d') return '3d';
+  if ((checkoutState === 'success' || checkoutState === 'cancel') && checkoutKind === 'tournament') return 'tournaments';
   if (checkoutState === 'success') return 'tournaments';
   return 'home';
 }
@@ -95,6 +97,7 @@ export default function AppShell() {
   const [onlineVariant, setOnlineVariant] = useState<'friends' | 'tournament'>('friends');
   const [onlinePlayers, setOnlinePlayers] = useState<number | null>(null);
   const [presenceId] = useState(getPresenceId);
+  const [serverUnavailable, setServerUnavailable] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -106,27 +109,28 @@ export default function AppShell() {
     saveBoardAppearance(boardAppearance);
   }, [boardAppearance]);
 
+  const retryPresence = useCallback(async () => {
+    if (!onboardingComplete || !multiplayerConfigured) return;
+    try {
+      const presence = await pingPresence(profileName(), presenceId);
+      setOnlinePlayers(presence.onlinePlayers);
+      setServerUnavailable(false);
+    } catch {
+      setServerUnavailable(true);
+    }
+  }, [onboardingComplete, presenceId]);
+
   useEffect(() => {
     if (!onboardingComplete || !multiplayerConfigured) return;
-    let stopped = false;
-    const ping = async () => {
-      try {
-        const presence = await pingPresence(profileName(), presenceId);
-        if (!stopped) setOnlinePlayers(presence.onlinePlayers);
-      } catch {
-        // Presence is informational; a temporary network failure should not block the app.
-      }
-    };
-    const onVisibility = () => { if (document.visibilityState === 'visible') void ping(); };
-    void ping();
-    const timer = window.setInterval(() => void ping(), 20_000);
+    const onVisibility = () => { if (document.visibilityState === 'visible') void retryPresence(); };
+    void retryPresence();
+    const timer = window.setInterval(() => void retryPresence(), 20_000);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      stopped = true;
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [onboardingComplete, presenceId]);
+  }, [onboardingComplete, retryPresence]);
 
   const prefetchScreen = (next: Screen) => {
     if (!canPrefetch()) return;
@@ -181,6 +185,16 @@ export default function AppShell() {
   }
 
   const onlineLabel = onlinePlayers === null ? 'Connecting…' : `${onlinePlayers.toLocaleString()} online`;
+  const roomParam = new URLSearchParams(window.location.search).get('room')?.trim() ?? '';
+  const invalidInvite = Boolean(roomParam && !/^[A-Z0-9]{6}$/i.test(roomParam));
+  const serverScreen = screen === 'online' || screen === 'matchmaking' || screen === 'tournaments';
+  const createFreshRoom = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.replaceState({}, '', url);
+    setOnlineVariant('friends');
+    setScreen('online');
+  };
 
   return (
     <main className="qqurz-app-v14 qqurz-app-v22 qqurz-app-v24 qqurz-product-system">
@@ -206,6 +220,22 @@ export default function AppShell() {
       />
 
       <div id="qqurz-main-content" className="qqurz-main-content" tabIndex={-1}>
+        {serverUnavailable && serverScreen && !invalidInvite && (
+          <div className="qqurz-content-page">
+            <StateNotice
+              tone="warning"
+              icon="↻"
+              eyebrow="LIVE SERVICES"
+              title="The QQURZ server isn’t responding"
+              body={<p>Your local chess modes still work. No move, registration, or payment action was accepted by the live server while it was unreachable.</p>}
+              actions={[
+                { label: 'Retry server', onClick: () => void retryPresence(), primary: true },
+                { label: 'Play local instead', onClick: () => openLocal('human') },
+              ]}
+            />
+          </div>
+        )}
+
         {screen === 'home' && (
           <HomeDashboard
             onlineLabel={onlineLabel}
@@ -220,7 +250,8 @@ export default function AppShell() {
         )}
 
         {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
-        {screen === 'online' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
+        {screen === 'online' && invalidInvite && <div className="qqurz-content-page"><StateNotice tone="warning" icon="↗" eyebrow="ROOM INVITE" title="This invite link isn’t valid" body={<p>QQURZ room codes contain exactly six letters or numbers. This link may be incomplete, expired from sharing, or edited.</p>} detail="You can create a fresh private room and send its new invite instead." actions={[{ label: 'Create a room', onClick: createFreshRoom, primary: true }, { label: 'Back home', onClick: goHome }]} /></div>}
+        {screen === 'online' && !invalidInvite && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
         {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={(_seat: RoomSeat) => { setOnlineVariant('friends'); setScreen('online'); }} onBack={goHome}/></></Suspense>}
         {screen === 'tournaments' && <Suspense fallback={<TournamentPageSkeleton/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { prefetchScreen('online'); setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => { prefetchScreen('3d'); setScreen('3d'); }}/></div></Suspense>}
         {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
