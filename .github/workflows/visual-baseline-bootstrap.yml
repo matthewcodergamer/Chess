@@ -1,0 +1,55 @@
+name: Bootstrap QQURZ visual baselines
+
+on:
+  push:
+    branches: [visual-regression-suite]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baselines:
+    name: Generate canonical screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate visual baselines
+        run: npm run test:visual:update
+
+      - name: Upload canonical screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqurz-visual-baselines
+          path: tests/e2e/__screenshots__/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload visual report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-bootstrap-report
+          path: |
+            playwright-report/
+            test-results/visual/
+          if-no-files-found: ignore
+          retention-days: 14
