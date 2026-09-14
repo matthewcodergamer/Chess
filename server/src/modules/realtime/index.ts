@@ -1,4 +1,5 @@
-import { DataRegistry, type DataModelEnv } from '../../data/registry';
+import { OperationalDataRegistry as DataRegistry } from '../../data/operations';
+import type { DataModelEnv } from '../../data/registry';
 import { AccountRegistry, handleIdentityRequest, handlePlayerDiscoveryRequest, type AuthModuleEnv } from '../auth';
 import { ChessRoom, handleAuthoritativeGameFallback, handleGameRequest, type GameModuleEnv } from '../game';
 import { Matchmaker, handleMatchmakingRequest, type MatchmakingModuleEnv } from '../matchmaking';
