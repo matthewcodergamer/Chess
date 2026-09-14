@@ -29,7 +29,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
-  workers: process.env.CI ? 1 : undefined,
+  // One worker per canonical viewport keeps each project internally ordered while
+  // allowing the five device classes to finish in parallel in CI.
+  workers: process.env.CI ? 5 : undefined,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
   expect: {
