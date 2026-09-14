@@ -33,14 +33,15 @@ if (!errors.length) {
     if (source.includes('ChessClock3DView')) errors.push(`${label} must not render ChessClock3DView directly.`);
     if (source.includes('ChessClock2D')) errors.push(`${label} must not use the legacy ChessClock2D wrapper.`);
     if (source.includes('createChessClock3D')) errors.push(`${label} must not instantiate the physical 3D clock model directly.`);
-    if (source.includes("playChessSound('slap')")) errors.push(`${label} must not play clock slap sound directly; authoritative transfer owns sound.`);
+    if (source.includes("playChessSound('clock')") || source.includes("playChessSound('slap')")) errors.push(`${label} must not play the clock sound directly; PhysicalChessClock owns acknowledged transfer audio.`);
     if (/\.clock\.slap\s*\(/.test(source)) errors.push(`${label} must not drive rocker animation directly.`);
   }
 
   if (!view.includes('createChessClock3D')) errors.push('ChessClock3DView must be the single renderer that instantiates the clock model.');
   if (!view.includes('slapColor') || !view.includes('slapNonce')) errors.push('ChessClock3DView must receive explicit authoritative slap events.');
-  if (!physical.includes("playChessSound('slap')")) errors.push('PhysicalChessClock must own the physical slap sound.');
-  if (!physical.includes('previous && !pendingSlap && activeColor && activeColor !== previous')) errors.push('PhysicalChessClock must gate slap feedback on an acknowledged clock transfer.');
+  if (!physical.includes("playChessSound('clock')")) errors.push('PhysicalChessClock must own the recorded physical clock sound.');
+  if (!physical.includes('previous && !pendingSlap && activeColor && activeColor !== previous')) errors.push('PhysicalChessClock must gate audible clock feedback on an acknowledged clock transfer.');
+  if (!physical.includes("{ haptic: true, sound: false }")) errors.push('PhysicalChessClock must keep local press haptics separate from authoritative transfer audio.');
 
   const sharedDualSlap = localController.includes('session.pendingClockPress === aiColor ? 220 : 120') || localController.includes('pendingSlap === aiColor ? 220 : 120');
   if (!sharedDualSlap) errors.push('Shared local game controller must auto-ack both human and Stockfish physical clock presses.');
@@ -86,10 +87,10 @@ if (!errors.length) {
   walk(srcRoot);
 
   const directSoundOwners = sourceFiles
-    .filter(file => fs.readFileSync(file, 'utf8').includes("playChessSound('slap')"))
+    .filter(file => fs.readFileSync(file, 'utf8').includes("playChessSound('clock')"))
     .map(file => path.relative(root, file).replaceAll('\\', '/'));
   if (directSoundOwners.length !== 1 || directSoundOwners[0] !== physicalPath) {
-    errors.push(`Clock slap sound must have one owner (${physicalPath}); found: ${directSoundOwners.join(', ') || 'none'}.`);
+    errors.push(`Recorded clock sound must have one owner (${physicalPath}); found: ${directSoundOwners.join(', ') || 'none'}.`);
   }
 
   const modelImporters = sourceFiles
@@ -106,4 +107,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ physical clock OK: one renderer/component, shared local controller, authoritative online timing, mobile-optimized geometry.');
+console.log('QQURZ physical clock OK: one renderer/component, one recorded clock-audio owner, shared local controller, authoritative online timing.');
