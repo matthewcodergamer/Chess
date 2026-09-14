@@ -20,6 +20,43 @@ const summary = () => ({
 
 let phase: 'registration' | 'game' = 'registration';
 
+const mockAccount = {
+  id: 'test',
+  email: 'test@example.invalid',
+  emailVerifiedAt: now,
+  username: 'test-player',
+  displayName: 'Test Player',
+  countryCode: 'JM',
+  avatar: '♞',
+  avatarImage: null,
+  ratingModel: 'glicko2',
+  chess960Ratings: {},
+  rating: 1500,
+  chess960Rating: 1500,
+  gamesPlayed: 0,
+  wins: 0,
+  draws: 0,
+  losses: 0,
+  createdAt: now - 86_400_000,
+  updatedAt: now,
+  privacy: { profileVisibility: 'public', showCountry: true, showHistory: true, allowChallenges: true },
+  notifications: { gameInvites: true, tournamentUpdates: true, results: true, productUpdates: false },
+  settings: { language: 'en', timezone: 'America/Jamaica' },
+  blockedPlayerIds: [],
+  gameHistory: [],
+  tournamentHistory: [],
+  trophies: [],
+  sessionCount: 1,
+};
+
+const emptySocial = {
+  friends: [],
+  following: [],
+  incomingRequests: [],
+  outgoingRequests: [],
+  recentOpponents: [],
+};
+
 function detail() {
   return {
     ...summary(),
@@ -73,12 +110,19 @@ async function installApi(page: Page) {
       phase = 'game';
       return json(route, { tournament: detail() });
     }
+
+    // The signed-in app mounts account, social and notification surfaces in the
+    // background. Keep those payloads valid so this E2E flow tests the tournament
+    // path instead of crashing on intentionally unrelated service calls.
+    if (path === '/account/me') return json(route, { account: mockAccount });
+    if (path === '/social/overview') return json(route, emptySocial);
+    if (path === '/notifications') return json(route, { notifications: [], unread: 0, serverNow: now });
+    if (path === '/notifications/push/config') return json(route, { configured: false, publicKey: null, subscriptions: 0 });
     if (path === '/presence/ping') return json(route, { onlinePlayers: 12, presence: { online: 8, away: 2, game: 2 } });
     if (path === '/payments/status') return json(route, { ledger: true, competitionProvider: 'disabled', competitionProviderConfigured: false, premiumProvider: 'disabled', realMoneyEnabled: false, jurisdictionPolicyConfigured: false, browserAuthoritativeBalance: false });
 
     // Never return a successful but malformed payload for APIs that this flow does not
-    // exercise. Background surfaces such as SocialCenter deliberately catch non-2xx
-    // responses and retain safe empty state; a 200 {} can violate their response schema.
+    // exercise. Background surfaces should treat an unmocked route as unavailable.
     return json(route, { error: `Unmocked E2E API route: ${request.method()} ${path}` }, 404);
   });
 }
