@@ -31,11 +31,6 @@ function one<T extends SqlRow>(storage: DurableObjectStorage, statement: string,
   return storage.sql.exec(statement, ...bindings).one() as T | null;
 }
 
-function countValue(storage: DurableObjectStorage, statement: string, ...bindings: unknown[]): number {
-  const value = one<{ value: number }>(storage, statement, ...bindings)?.value;
-  return Number(value ?? 0);
-}
-
 function asNumber(value: unknown): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
@@ -111,10 +106,13 @@ export class OperationalDataRegistry extends BaseDataRegistry {
       LEFT JOIN profiles target ON target.user_id=r.target_user_id
       ORDER BY CASE r.status WHEN 'open' THEN 0 WHEN 'triaged' THEN 1 WHEN 'reviewing' THEN 2 ELSE 3 END,r.priority DESC,r.created_at DESC LIMIT 150`);
     const disputedResults = rows(storage, `
-      SELECT r.id,r.game_id,r.tournament_id,r.target_user_id,r.category,r.narrative,r.status,r.priority,r.created_at,r.updated_at,p.display_name AS target_name
-      FROM moderation_reports r LEFT JOIN profiles p ON p.user_id=r.target_user_id
-      WHERE r.game_id IS NOT NULL AND (LOWER(r.category) LIKE '%result%' OR LOWER(r.category) LIKE '%dispute%')
-      ORDER BY r.updated_at DESC LIMIT 100`);
+      SELECT r.id,r.reporter_user_id,r.target_user_id,r.game_id,r.tournament_id,r.category,r.narrative,r.status,r.priority,r.created_at,r.updated_at,r.reviewed_at,
+             reporter.display_name AS reporter_name,target.display_name AS target_name
+      FROM moderation_reports r
+      LEFT JOIN profiles reporter ON reporter.user_id=r.reporter_user_id
+      LEFT JOIN profiles target ON target.user_id=r.target_user_id
+      WHERE r.game_id IS NOT NULL AND r.status IN ('open','triaged','reviewing')
+      ORDER BY r.priority DESC,r.updated_at DESC LIMIT 100`);
     const bannedAccounts = rows(storage, `
       SELECT DISTINCT u.id,p.username,p.display_name,u.status,m.action,m.reason,m.starts_at,m.ends_at,m.created_at AS action_created_at
       FROM users u LEFT JOIN profiles p ON p.user_id=u.id
