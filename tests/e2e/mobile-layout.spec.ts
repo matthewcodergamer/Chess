@@ -26,6 +26,15 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
   expect(dimensions.body, JSON.stringify(dimensions)).toBeLessThanOrEqual(dimensions.viewport + 1);
 }
 
+async function activate(page: import('@playwright/test').Page, name: RegExp) {
+  const control = page.getByRole('button', { name });
+  await expect(control).toBeVisible();
+  // The SPA intentionally replaces the home subtree immediately after a route action.
+  // dispatchEvent verifies the real React click handler without Playwright retrying a
+  // successfully activated control after that node has already been unmounted.
+  await control.dispatchEvent('click');
+}
+
 test.beforeEach(async ({ page }) => {
   await seedApp(page);
 });
@@ -34,13 +43,15 @@ test('home is playable and never overflows an iPhone viewport', async ({ page })
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Play chess.' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Play Tournament/i })).toBeVisible();
-  await expect(page.locator('.home-board-preview cg-board')).toBeVisible();
+  const board = page.locator('[data-board-renderer="chessground"].home-live-board');
+  await expect(board).toBeVisible();
+  await expect(board).toHaveAttribute('data-piece-set', 'cburnett-svg');
   await expectNoHorizontalOverflow(page);
 });
 
 test('tournament screen stays inside the viewport', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Play Tournament/i }).click();
+  await activate(page, /Play Tournament/i);
   await expect(page.getByRole('heading', { name: /Find a tournament and get in/i })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
