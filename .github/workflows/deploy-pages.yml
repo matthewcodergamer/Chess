@@ -29,6 +29,23 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Install Playwright WebKit
+        run: npx playwright install --with-deps webkit
+
+      - name: Mobile overlap release audit
+        run: npm run test:mobile-overlap
+
+      - name: Upload mobile overlap diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-overlap-report
+          path: |
+            playwright-mobile-overlap-report/
+            test-results/mobile-overlap/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Build
         env:
           VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API || 'https://qqurz-chess-api.gamerstriper.workers.dev' }}
