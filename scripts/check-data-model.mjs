@@ -12,6 +12,7 @@ const requiredTables = [
   'friendships','friend_invites','follows','tournaments','tournament_registrations','tournament_rounds','tournament_pairings','tournament_standings',
   'payment_customers','payment_intents','wallet_accounts','ledger_transactions','ledger_entries','wallet_balances','payouts','refunds',
   'subscriptions','premium_entitlements','compliance_attestations','moderation_reports','moderation_records','device_records','security_events','notifications','audit_logs','idempotency_keys',
+  'provider_webhook_events',
 ];
 const requiredProjectionFiles = [
   'server/src/data/accountProjection.ts','server/src/data/gameProjection.ts','server/src/data/tournamentProjection.ts','server/src/data/paymentProjection.ts','server/src/data/notificationProjection.ts','server/src/data/moderationProjection.ts',
