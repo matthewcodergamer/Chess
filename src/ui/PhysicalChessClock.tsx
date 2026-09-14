@@ -51,7 +51,7 @@ export default function PhysicalChessClock({
   useEffect(() => {
     const previous = previousPending.current;
     if (previous && !pendingSlap && activeColor && activeColor !== previous) {
-      playChessSound('slap');
+      playChessSound('clock', { haptic: true });
       setSlapEvent(value => ({ color: previous, nonce: value.nonce + 1 }));
     }
     previousPending.current = pendingSlap;
