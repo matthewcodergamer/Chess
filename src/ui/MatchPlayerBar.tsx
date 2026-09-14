@@ -39,8 +39,8 @@ export default function MatchPlayerBar({
           <span>{rating}</span>
           {active && <span className="match-turn-indicator"><span aria-hidden="true">▶</span> Turn</span>}
           <small className={connected ? 'connected' : 'offline'}>{connection}</small>
-          <ReconnectCountdown active={reconnectingOpponent} />
         </div>
+        <ReconnectCountdown active={reconnectingOpponent} />
         <CapturedPieces fen={fen} forColor={color} compact />
       </div>
       <strong className="match-player-time">{time}</strong>
