@@ -59,6 +59,7 @@ export type LocalGameController = {
   setTimeControl: (value: TimeControl) => void;
   engineStatus: LocalEngineStatus;
   engineError: string;
+  retryEngine: () => void;
   positionId: number | null;
   fen: string;
   turn: Color;
@@ -89,8 +90,6 @@ export type LocalGameController = {
 };
 
 export function useLocalGameController(initialMode: LocalGameMode): LocalGameController {
-  // This hook is the only local-game rules/execution owner. 2D and 3D renderers
-  // consume its state and callbacks; neither renderer is allowed to adjudicate chess.
   const position = useRef<Chess | null>(null);
   const positionHistory = useRef<string[]>([]);
   const engine = useRef<Engine | null>(null);
@@ -138,6 +137,27 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     }
     return engine.current ?? enginePromise.current;
   }, []);
+
+  const initializeEngine = useCallback(async (): Promise<void> => {
+    setEngineStatus('loading');
+    setEngineError('');
+    try {
+      const value = await ensureEngine();
+      await value.init();
+      setEngineStatus('ready');
+    } catch (error) {
+      setEngineStatus('error');
+      setEngineError(error instanceof Error ? error.message : 'Stockfish failed to load.');
+    }
+  }, [ensureEngine]);
+
+  const retryEngine = useCallback(() => {
+    if (mode !== 'ai' || positionId === null) return;
+    try { engine.current?.cancelSearch(); engine.current?.destroy(); } catch { /* best-effort cleanup */ }
+    engine.current = null;
+    enginePromise.current = null;
+    void initializeEngine();
+  }, [initializeEngine, mode, positionId]);
 
   const humanCanMove = useCallback((pos: Chess) => {
     if (!canColorMove(session, pos.turn)) return false;
@@ -235,6 +255,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     }
     let cancelled = false;
     setEngineStatus('loading');
+    setEngineError('');
     void ensureEngine()
       .then(value => value.init())
       .then(() => { if (!cancelled) setEngineStatus('ready'); })
@@ -357,7 +378,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     if (mode !== 'ai' || aiColor !== color) return 'Local';
     if (engineStatus === 'thinking') return 'Thinking';
     if (engineStatus === 'loading') return 'Loading';
-    if (engineStatus === 'error') return 'Engine error';
+    if (engineStatus === 'error') return 'Engine unavailable';
     return 'Ready';
   }, [aiColor, engineStatus, mode]);
 
@@ -378,6 +399,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     setTimeControl,
     engineStatus,
     engineError,
+    retryEngine,
     positionId,
     fen,
     turn,
