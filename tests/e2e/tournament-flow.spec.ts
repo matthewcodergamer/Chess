@@ -75,7 +75,11 @@ async function installApi(page: Page) {
     }
     if (path === '/presence/ping') return json(route, { onlinePlayers: 12, presence: { online: 8, away: 2, game: 2 } });
     if (path === '/payments/status') return json(route, { ledger: true, competitionProvider: 'disabled', competitionProviderConfigured: false, premiumProvider: 'disabled', realMoneyEnabled: false, jurisdictionPolicyConfigured: false, browserAuthoritativeBalance: false });
-    return json(route, {});
+
+    // Never return a successful but malformed payload for APIs that this flow does not
+    // exercise. Background surfaces such as SocialCenter deliberately catch non-2xx
+    // responses and retain safe empty state; a 200 {} can violate their response schema.
+    return json(route, { error: `Unmocked E2E API route: ${request.method()} ${path}` }, 404);
   });
 }
 
