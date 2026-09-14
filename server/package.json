@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "test": "tsx --test tests/*.test.ts",
     "check:architecture": "node ../scripts/check-server-modules.mjs",
     "check:operations": "node ../scripts/check-admin-operations.mjs",
     "check": "npm run check:architecture && npm run check:operations && tsc --noEmit"
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",
+    "tsx": "4.20.6",
     "typescript": "^5.9.2",
     "wrangler": "4.128.0"
   }
