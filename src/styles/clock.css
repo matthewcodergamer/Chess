@@ -1,14 +1,15 @@
 /*
  * Match clock presentation.
- * Inspired by the strong hierarchy of dedicated chess clocks: large tabular
- * numerals, quiet inactive surfaces, and a clear green running state.
+ * Dedicated chess-clock hierarchy: large tabular numerals, quiet inactive
+ * surfaces, a pale-green running state, and a strong active strip.
+ * Responsive overrides stay centralized in responsive.css.
  */
 .match-player-time{
   position:relative;
   isolation:isolate;
   min-width:132px;
   min-height:72px;
-  padding:var(--q-space-8) var(--q-space-12) calc(var(--q-space-8) + 4px);
+  padding:var(--q-space-8) var(--q-space-12) var(--q-space-12);
   border:1px solid color-mix(in srgb,var(--q-board-status-white) 62%,var(--q-line-strong));
   border-radius:var(--q-radius-xs);
   display:inline-flex;
@@ -18,9 +19,9 @@
   overflow:hidden;
   background:color-mix(in srgb,var(--q-board-status-white) 90%,var(--q-surface-2));
   color:var(--q-ink-inverse);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 3px 10px rgba(0,0,0,.15);
+  box-shadow:var(--q-elevation-1);
   font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
-  font-size:clamp(2.4rem,5.8vw,3.55rem);
+  font-size:var(--q-type-display-match);
   font-weight:520;
   line-height:.94;
   letter-spacing:-.075em;
@@ -46,7 +47,7 @@
   border-color:color-mix(in srgb,var(--q-action) 66%,var(--q-board-status-white));
   background:color-mix(in srgb,var(--q-board-status-white) 70%,var(--q-action) 30%);
   color:var(--q-ink-inverse);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.50),0 4px 14px rgba(0,0,0,.18);
+  box-shadow:var(--q-elevation-2);
   transform:translateY(-1px);
 }
 .match-player-bar.active .match-player-time::after{background:var(--q-action-active)}
@@ -56,28 +57,3 @@
 }
 .match-player-bar.active .match-player-time.low-time::after{background:var(--q-danger)}
 .match-player-bar:not(.active) .match-player-time{opacity:.88}
-
-@media(max-width:560px){
-  .match-player-bar{min-height:88px;gap:var(--q-space-8);padding:var(--q-space-8)}
-  .match-player-time{
-    min-width:120px;
-    min-height:66px;
-    padding:var(--q-space-8) var(--q-space-8) calc(var(--q-space-8) + 4px);
-    font-size:clamp(2.05rem,9.2vw,2.8rem);
-  }
-  .match-player-identity{gap:var(--q-space-4)}
-  .match-player-identity b{max-width:68%}
-  .match-player-identity small{display:none}
-}
-
-@media(max-width:360px){
-  .match-player-bar{grid-template-columns:minmax(0,1fr) auto}
-  .match-player-dot{display:none}
-  .match-player-time{min-width:108px;font-size:2rem}
-  .match-player-identity b{max-width:72%}
-}
-
-@media(prefers-reduced-motion:reduce){
-  .match-player-time{transition:none}
-  .match-player-bar.active .match-player-time{transform:none}
-}
