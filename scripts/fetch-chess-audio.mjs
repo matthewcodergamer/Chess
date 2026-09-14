@@ -39,6 +39,31 @@ async function validExisting(path, asset) {
   catch { return false; }
 }
 
+async function download(asset, attempt = 1) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(asset.url, {
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'user-agent': 'QQURZ-Chess/1.0 (recorded chess audio build fetch)',
+        accept: 'audio/mpeg,audio/wav,audio/x-wav,application/octet-stream,*/*;q=0.2',
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!validBytes(bytes, asset)) throw new Error('unexpected audio format or size');
+    return bytes;
+  } catch (error) {
+    if (attempt >= 3) throw error;
+    await new Promise(resolveDelay => setTimeout(resolveDelay, 350 * attempt));
+    return download(asset, attempt + 1);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchAsset(asset) {
   const path = resolve(outputDir, asset.filename);
   if (await validExisting(path, asset)) {
@@ -47,19 +72,14 @@ async function fetchAsset(asset) {
   }
 
   console.log(`Downloading recorded chess audio ${asset.filename}…`);
-  const response = await fetch(asset.url, {
-    redirect: 'follow',
-    headers: {
-      'user-agent': 'QQURZ-Chess/1.0 (recorded chess audio build fetch)',
-      accept: 'audio/mpeg,audio/wav,audio/x-wav,application/octet-stream,*/*;q=0.2',
-    },
-  });
-  if (!response.ok) throw new Error(`Failed to download ${asset.filename}: HTTP ${response.status}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (!validBytes(bytes, asset)) throw new Error(`Downloaded ${asset.filename} is not the expected recorded audio asset.`);
-  await writeFile(path, bytes);
-  console.log(`Saved ${asset.filename} (${bytes.length.toLocaleString()} bytes)`);
+  try {
+    const bytes = await download(asset);
+    await writeFile(path, bytes);
+    console.log(`Saved ${asset.filename} (${bytes.length.toLocaleString()} bytes)`);
+  } catch (error) {
+    throw new Error(`Failed to stage ${asset.filename} from its CC0 source after 3 attempts: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 await mkdir(outputDir, { recursive: true });
-await Promise.all(assets.map(fetchAsset));
+for (const asset of assets) await fetchAsset(asset);
