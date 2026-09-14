@@ -26,7 +26,7 @@ export async function queueCanonicalProjection(
   storage: DurableObjectStorage,
   env: DataModelEnv,
   commands: DataCommand[],
-  id = crypto.randomUUID(),
+  id: string = crypto.randomUUID(),
 ): Promise<boolean> {
   if (!commands.length) return true;
   const envelope: ProjectionEnvelope = {
