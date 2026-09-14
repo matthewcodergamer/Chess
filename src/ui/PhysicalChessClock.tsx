@@ -51,11 +51,19 @@ export default function PhysicalChessClock({
   useEffect(() => {
     const previous = previousPending.current;
     if (previous && !pendingSlap && activeColor && activeColor !== previous) {
-      playChessSound('clock', { haptic: true });
+      // The audible click follows the authoritative clock transfer. Haptic
+      // feedback is handled only on the device that actually pressed the clock.
+      playChessSound('clock');
       setSlapEvent(value => ({ color: previous, nonce: value.nonce + 1 }));
     }
     previousPending.current = pendingSlap;
   }, [activeColor, pendingSlap]);
+
+  const handleSlap = () => {
+    if (disabled || !onSlap) return;
+    playChessSound('clock', { haptic: true, sound: false });
+    onSlap();
+  };
 
   const changeVisibility = (next: boolean) => {
     if (onVisibleChange) onVisibleChange(next);
@@ -90,7 +98,7 @@ export default function PhysicalChessClock({
             activeColor={activeColor}
             pendingSlap={pendingSlap}
             disabled={disabled}
-            onSlap={onSlap}
+            onSlap={handleSlap}
             compact={compact}
             slapColor={slapEvent.color}
             slapNonce={slapEvent.nonce}
