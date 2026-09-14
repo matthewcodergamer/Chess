@@ -189,6 +189,7 @@ export type CanonicalLedgerTransaction = {
   transactionType: string;
   purpose: string;
   reference?: string;
+  idempotencyScope?: string;
   idempotencyKey: string;
   provider?: string | null;
   providerReference?: string | null;
@@ -204,6 +205,7 @@ export type CanonicalLedgerTransaction = {
 
 export type DataCommand =
   | { type: 'sync_user'; user: CanonicalUser }
+  | { type: 'auth_token'; token: { id: string; userId: string; kind: 'verify_email'|'reset_password'|'magic_link'|'reauth'; tokenHash: string; createdAt: number; expiresAt: number; consumedAt?: number|null } }
   | { type: 'upsert_session'; session: CanonicalSession }
   | { type: 'revoke_session'; sessionId: string; revokedAt: number; reason?: string | null }
   | { type: 'record_game'; game: CanonicalGame }
@@ -212,6 +214,7 @@ export type DataCommand =
   | { type: 'upsert_tournament_round'; round: TournamentRound }
   | { type: 'upsert_tournament_pairing'; pairing: TournamentPairing }
   | { type: 'upsert_tournament_standing'; standing: TournamentStanding }
+  | { type: 'follow'; followerUserId: string; followedUserId: string; active: boolean; at: number }
   | { type: 'friendship'; userAId: string; userBId: string; active: boolean; at: number }
   | { type: 'friend_invite'; invite: { id: string; fromUserId: string; toUserId: string; status: 'pending'|'accepted'|'declined'|'cancelled'|'expired'; createdAt: number; respondedAt?: number|null; expiresAt?: number|null; metadata?: unknown } }
   | { type: 'player_block'; blockerUserId: string; blockedUserId: string; active: boolean; at: number }
@@ -223,6 +226,7 @@ export type DataCommand =
   | { type: 'refund'; refund: { id: string; userId?: string|null; paymentIntentId?: string|null; ledgerTransactionId?: string|null; provider: string; providerRefundId?: string|null; amountCents: number; currency?: string; status: 'pending'|'submitted'|'succeeded'|'failed'|'cancelled'; reason?: string; idempotencyKey: string; createdAt: number; processedAt?: number|null } }
   | { type: 'subscription'; subscription: { id: string; userId: string; provider: string; providerSubscriptionId?: string|null; planKey: string; status: 'trialing'|'active'|'past_due'|'paused'|'cancelled'|'expired'; currentPeriodStart?: number|null; currentPeriodEnd?: number|null; cancelAtPeriodEnd?: boolean; createdAt: number; updatedAt: number } }
   | { type: 'entitlement'; entitlement: { id: string; userId: string; entitlementKey: string; sourceType: 'purchase'|'subscription'|'grant'|'promotion'; sourceId?: string|null; status: 'active'|'revoked'|'expired'; startsAt: number; endsAt?: number|null; createdAt: number; updatedAt: number } }
+  | { type: 'compliance_attestation'; attestation: { id: string; userId: string; provider: string; providerReference?: string|null; countryCode?: string; regionCode?: string; identityVerified?: boolean; ageVerified?: boolean; verifiedAge?: number|null; taxProfileVerified?: boolean; status: 'pending'|'verified'|'failed'|'expired'|'revoked'; createdAt: number; updatedAt: number; expiresAt?: number|null; metadata?: unknown } }
   | { type: 'moderation_report'; report: { id: string; reporterUserId?: string|null; targetUserId?: string|null; gameId?: string|null; tournamentId?: string|null; category: string; narrative?: string; status: 'open'|'triaged'|'reviewing'|'resolved'|'dismissed'; priority?: number; createdAt: number; updatedAt: number; reviewedAt?: number|null; reviewedByUserId?: string|null; metadata?: unknown } }
   | { type: 'moderation_record'; record: { id: string; userId?: string|null; reportId?: string|null; action: string; reason: string; startsAt: number; endsAt?: number|null; createdAt: number; createdByUserId?: string|null; metadata?: unknown } }
   | { type: 'device'; device: { id: string; userId?: string|null; fingerprintHash?: string|null; deviceName?: string; platform?: string; browser?: string; firstSeenAt: number; lastSeenAt: number; trustedAt?: number|null; revokedAt?: number|null; metadata?: unknown } }
