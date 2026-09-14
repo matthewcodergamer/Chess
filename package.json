@@ -19,6 +19,11 @@
     "prepare:engine": "node scripts/copy-stockfish.mjs",
     "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
     "prepare:audio": "node scripts/fetch-chess-audio.mjs",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
+    "test:integration": "tsx --test tests/integration/*.test.ts",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:all": "npm run test && npm run test:e2e",
     "dev": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:data && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && vite",
     "build": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:data && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && tsc -b && vite build && npm run check:performance",
     "preview": "vite preview"
@@ -32,11 +37,13 @@
     "three": "0.185.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.55.0",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
+    "@types/three": "0.185.4",
     "@vitejs/plugin-react": "6.1.1",
+    "tsx": "4.20.6",
     "typescript": "5.9.2",
-    "vite": "8.2.2",
-    "@types/three": "0.185.4"
+    "vite": "8.2.2"
   }
 }
