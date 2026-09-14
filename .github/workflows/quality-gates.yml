@@ -99,23 +99,18 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Detect committed baselines
-        id: baselines
+      - name: Require complete committed baseline matrix
         shell: bash
         run: |
-          if find tests/e2e/visual-baselines -type f -name '*.png' -print -quit 2>/dev/null | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
+          count=$(find tests/e2e/visual-baselines -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+          echo "Found $count committed visual baselines"
+          if [ "$count" -ne 45 ]; then
+            echo "::error::Expected exactly 45 committed visual baselines (5 viewports × 9 surfaces); found $count."
+            exit 1
           fi
 
       - name: Compare canonical screenshots
-        if: steps.baselines.outputs.present == 'true'
         run: npm run test:visual
-
-      - name: Bootstrap canonical screenshots on first install
-        if: steps.baselines.outputs.present != 'true'
-        run: npm run test:visual -- --update-snapshots
 
       - name: Upload visual regression report on failure
         if: failure()

@@ -1,26 +1,18 @@
-name: Bootstrap visual regression baselines
+name: Update visual regression baselines
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'playwright.visual.config.ts'
-      - 'tests/e2e/visual-regression.spec.ts'
-      - 'package.json'
-      - '.github/workflows/visual-baselines.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: visual-baseline-bootstrap
+  group: visual-baseline-update
   cancel-in-progress: false
 
 jobs:
-  bootstrap:
-    name: Generate missing canonical screenshots
-    if: github.actor != 'github-actions[bot]'
+  update:
+    name: Deliberately regenerate canonical screenshots
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,48 +20,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect existing visual baselines
-        id: baselines
-        shell: bash
-        run: |
-          if find tests/e2e/visual-baselines -type f -name '*.png' -print -quit 2>/dev/null | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Setup Node
-        if: steps.baselines.outputs.present != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
-        if: steps.baselines.outputs.present != 'true'
         run: npm install --no-audit --no-fund
 
       - name: Install Playwright Chromium
-        if: steps.baselines.outputs.present != 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Generate baseline screenshots
-        if: steps.baselines.outputs.present != 'true'
-        run: npm run test:visual -- --update-snapshots
+      - name: Regenerate canonical screenshots
+        run: npm run test:visual:update
 
       - name: Verify baseline matrix
-        if: steps.baselines.outputs.present != 'true'
         shell: bash
         run: |
           count=$(find tests/e2e/visual-baselines -type f -name '*.png' | wc -l | tr -d ' ')
           echo "Generated $count visual baselines"
-          test "$count" -eq 45
+          if [ "$count" -ne 45 ]; then
+            echo "::error::Expected exactly 45 visual baselines; found $count."
+            exit 1
+          fi
 
-      - name: Commit baseline screenshots
-        if: steps.baselines.outputs.present != 'true'
+      - name: Commit deliberate baseline update
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tests/e2e/visual-baselines
-          git commit -m "Add canonical visual regression baselines"
+          if git diff --cached --quiet; then
+            echo "Canonical screenshots are already current."
+            exit 0
+          fi
+          git commit -m "Update canonical visual regression baselines"
           git push origin HEAD:main

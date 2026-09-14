@@ -4,30 +4,24 @@ QQURZ keeps a canonical screenshot matrix so responsive CSS and component change
 
 ## Canonical viewport matrix
 
-The visual suite runs the same nine product surfaces at five widths:
+The suite runs nine product surfaces at five widths: iPhone SE (375 x 667), iPhone 11 (414 x 896), tablet (768 x 1024), laptop (1366 x 768), and desktop (1600 x 1000).
 
-- iPhone SE — 375 × 667
-- iPhone 11 — 414 × 896
-- Tablet — 768 × 1024
-- Laptop — 1366 × 768
-- Desktop — 1600 × 1000
-
-The protected surfaces are the app header, homepage, menu drawer, tournament registration, game board, physical clock, blocking modal, account page, and settings screen. That produces 45 committed baseline images.
+The protected surfaces are the app header, homepage, menu drawer, tournament registration, game board, physical clock, blocking modal, account page, and settings screen. This produces 45 committed baseline images.
 
 ## Commands
 
 `npm run test:visual` compares the current app against the committed baselines.
 
-`npm run test:visual:update` intentionally regenerates the screenshots. Baseline updates should be reviewed like code: inspect the changed PNGs and only commit them when the UI change is deliberate.
+`npm run test:visual:update` intentionally regenerates the screenshots. Review the changed PNGs and only commit them when the UI change is deliberate.
 
-Normal Playwright E2E tests intentionally ignore `visual-regression.spec.ts`; the dedicated visual Playwright configuration owns the five-device screenshot matrix.
+Normal Playwright E2E tests ignore `visual-regression.spec.ts`; the dedicated visual Playwright configuration owns the five-device screenshot matrix.
 
 ## CI behavior
 
-The main quality workflow installs Chromium and runs the visual suite after functional E2E tests. A visual mismatch fails the quality gate and uploads the Playwright visual report plus actual/diff images as a workflow artifact.
+The main quality workflow requires exactly 45 committed baseline PNGs and runs the visual comparison after functional E2E tests. A missing baseline, unexpected extra baseline, visual mismatch, or horizontal overflow fails the quality gate. Visual failures upload the Playwright report plus actual and diff images as a workflow artifact.
 
-The one-time bootstrap workflow exists only to create the first missing baseline matrix. Once baselines exist it does not rewrite them on normal UI changes, so future CSS changes are compared against the committed reference images rather than silently accepted.
+Baseline regeneration does not run automatically on a normal push or pull request. The `Update visual regression baselines` workflow is manual-only and should be run after an intentional UI change has been reviewed. It regenerates the full 45-image matrix and commits changes only when screenshots differ.
 
 ## Stability rules
 
-The suite fixes onboarding, account, presence, tournament, Chess960 randomness, theme, text scale, API data, reduced-motion preference, and browser sizes. Animations/transitions are disabled for capture, and every canonical screen also checks for horizontal overflow before its screenshot is accepted.
+The suite fixes onboarding, account, presence, tournament data, Chess960 randomness, theme, text scale, API data, reduced-motion preference, and browser sizes. Animations and transitions are disabled for capture, and every canonical screen checks for horizontal overflow before its screenshot is accepted.
