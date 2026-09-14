@@ -15,14 +15,26 @@ function keepFocusedControlVisible(): void {
     if (document.activeElement !== control) return;
     const viewport = window.visualViewport;
     const viewportTop = viewport?.offsetTop ?? 0;
-    const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
-    const headerBottom = document.querySelector<HTMLElement>('.chess-topbar')?.getBoundingClientRect().bottom ?? viewportTop;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const viewportBottom = viewportTop + viewportHeight;
+    const header = document.querySelector<HTMLElement>('.chess-topbar');
+    const headerRect = header?.getBoundingClientRect();
+    const headerBottom = headerRect && headerRect.bottom > viewportTop && headerRect.top < viewportBottom
+      ? headerRect.bottom
+      : viewportTop;
     const topGuard = Math.max(viewportTop, headerBottom) + 16;
     const bottomGuard = viewportBottom - 24;
     const rect = control.getBoundingClientRect();
-    if (rect.top < topGuard || rect.bottom > bottomGuard) {
-      control.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-    }
+    if (rect.top >= topGuard && rect.bottom <= bottomGuard) return;
+
+    // Numeric scrollTo is intentionally used instead of smooth scrollIntoView.
+    // Safari can inherit `scroll-behavior: smooth`, which leaves the keyboard
+    // viewport in an intermediate position while it is animating. The focused
+    // field needs to become reachable immediately.
+    const available = Math.max(control.offsetHeight, bottomGuard - topGuard);
+    const targetViewportTop = topGuard + Math.max(0, (available - rect.height) / 2);
+    const targetScrollY = Math.max(0, window.scrollY + rect.top - targetViewportTop);
+    window.scrollTo(0, targetScrollY);
   };
 
   window.requestAnimationFrame(settle);
