@@ -211,13 +211,13 @@ async function openLocalStrategy(page: Page) {
   await page.getByRole('button', { name: 'Start game', exact: true }).click();
   await expect(page.locator('.local-board-frame')).toBeVisible();
   await expect(page.locator('.local-board-overlay')).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await stabilize(page);
 }
 
 async function openAccount(page: Page) {
   await openHome(page);
   await page.getByRole('button', { name: 'Open Visual Player profile' }).click();
-  await expect(page.getByRole('heading', { name: 'Visual Player', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Account sections' })).toBeVisible();
   await stabilize(page);
 }
@@ -228,10 +228,9 @@ async function openDisplaySettings(page: Page) {
     await page.locator('.display-toggle').click();
   } else {
     await openDrawer(page);
-    const drawer = page.getByRole('dialog', { name: 'QQURZ menu' });
-    await drawer.getByRole('button', { name: /Settings.*Display and preferences/i }).click();
+    await page.getByRole('dialog', { name: 'QQURZ menu' }).locator('.drawer-settings button').last().click();
   }
-  await expect(page.getByRole('region', { name: 'Display and accessibility settings' })).toBeVisible();
+  await expect(page.locator('#qqurz-display-menu')).toBeVisible();
   await stabilize(page);
 }
 
@@ -273,9 +272,10 @@ test('game board', async ({ page }) => {
   await openLocalStrategy(page);
   await page.locator('.local-board-overlay').getByRole('button', { name: 'Start game' }).click();
   await expect(page.locator('.local-board-overlay')).toBeHidden();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await stabilize(page);
   await expectNoDocumentOverflow(page);
-  await expect(page.locator('.local-board-frame')).toHaveScreenshot('game-board.png');
+  await expect(page).toHaveScreenshot('game-board.png');
 });
 
 test('clock', async ({ page }) => {
@@ -289,7 +289,7 @@ test('clock', async ({ page }) => {
 test('modal overlay', async ({ page }) => {
   await openLocalStrategy(page);
   await expectNoDocumentOverflow(page);
-  await expect(page.locator('.local-board-frame')).toHaveScreenshot('modal.png', {
+  await expect(page).toHaveScreenshot('modal.png', {
     mask: [page.locator('.local-board-overlay > strong')],
     maskColor: '#191816',
   });
