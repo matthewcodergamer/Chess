@@ -17,6 +17,7 @@ type InternalGameResult = {
   id: string; roomCode: string; playedAt?: number; positionId?: number | null; baseMs?: number; incrementMs?: number; moveCount?: number; result?: string; resultKind?: string | null; winner?: 'white'|'black'|null;
   white: { accountId?: string|null; name: string }; black: { accountId?: string|null; name: string };
 };
+type RatingPool = NonNullable<CanonicalUser['ratings']>[number]['pool'];
 
 function safeIds(value: unknown): string[] { return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === 'string' && Boolean(id)))] : []; }
 async function sha256(value: string): Promise<string> { const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join(''); }
@@ -25,7 +26,7 @@ function devicePlatform(ua=''): { platform: string; browser: string } {
   const browser = /crios|chrome/i.test(ua) ? 'chrome' : /firefox|fxios/i.test(ua) ? 'firefox' : /safari/i.test(ua) ? 'safari' : 'unknown';
   return { platform, browser };
 }
-function ratingPool(key: 'rapid'|'blitz'|'bullet'): CanonicalUser['ratings'][number]['pool'] { return `chess960_${key}` as CanonicalUser['ratings'][number]['pool']; }
+function ratingPool(key: 'rapid'|'blitz'|'bullet'): RatingPool { return `chess960_${key}` as RatingPool; }
 function canonicalUser(account: StoredAccount, deletedAt: number | null = null): CanonicalUser {
   const deleted = deletedAt !== null;
   const ratings = (['rapid','blitz','bullet'] as const).map(key => {
@@ -100,8 +101,8 @@ export class CanonicalAccountRegistry extends SocialAccountRegistry {
         id:game.id,roomCode:game.roomCode,status:'completed',resultKind:game.resultKind ?? null,resultText:game.result ?? null,winnerUserId:game.winner==='white'?game.white.accountId ?? null:game.winner==='black'?game.black.accountId ?? null:null,
         positionId:Number.isInteger(game.positionId)?game.positionId!:null,initialFen:Number.isInteger(game.positionId)?chess960Fen(game.positionId!):null,baseMs:Math.max(0,Number(game.baseMs)||0),incrementMs:Math.max(0,Number(game.incrementMs)||0),rated:Boolean(white&&black&&white.id!==black.id),ratingPool:poolFromHistory(whiteHistory) ?? poolFromHistory(blackHistory),createdAt:playedAt,endedAt:playedAt,
         participants:[
-          {userId:game.white.accountId ?? null,seatNo:1,color:'white',displayName:game.white.name,outcome:outcome(game.winner,'white'),ratingPool:poolFromHistory(whiteHistory),ratingBefore:whiteHistory?.ratingBefore ?? null,ratingAfter:whiteHistory?.ratingAfter ?? null,ratingDeviationBefore:whiteHistory?.ratingDeviationBefore ?? null,ratingDeviationAfter:whiteHistory?.ratingDeviationAfter ?? null},
-          {userId:game.black.accountId ?? null,seatNo:2,color:'black',displayName:game.black.name,outcome:outcome(game.winner,'black'),ratingPool:poolFromHistory(blackHistory),ratingBefore:blackHistory?.ratingBefore ?? null,ratingAfter:blackHistory?.ratingAfter ?? null,ratingDeviationBefore:blackHistory?.ratingDeviationBefore ?? null,ratingDeviationAfter:blackHistory?.ratingDeviationAfter ?? null},
+          {userId:game.white.accountId ?? null,seatNo:1,color:'white',displayName:game.white.name,outcome:outcome(game.winner ?? null,'white'),ratingPool:poolFromHistory(whiteHistory),ratingBefore:whiteHistory?.ratingBefore ?? null,ratingAfter:whiteHistory?.ratingAfter ?? null,ratingDeviationBefore:whiteHistory?.ratingDeviationBefore ?? null,ratingDeviationAfter:whiteHistory?.ratingDeviationAfter ?? null},
+          {userId:game.black.accountId ?? null,seatNo:2,color:'black',displayName:game.black.name,outcome:outcome(game.winner ?? null,'black'),ratingPool:poolFromHistory(blackHistory),ratingBefore:blackHistory?.ratingBefore ?? null,ratingAfter:blackHistory?.ratingAfter ?? null,ratingDeviationBefore:blackHistory?.ratingDeviationBefore ?? null,ratingDeviationAfter:blackHistory?.ratingDeviationAfter ?? null},
         ], metadata:{ moveCount:Math.max(0,Number(game.moveCount)||0), source:'account-result' },
       };
       commands.push({type:'record_game',game:record});
