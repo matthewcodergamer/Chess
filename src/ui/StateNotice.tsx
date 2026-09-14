@@ -50,6 +50,7 @@ export default function StateNotice({
             {actions.map(action => (
               <button
                 key={action.label}
+                type="button"
                 className={action.primary ? 'primary-black' : undefined}
                 onClick={action.onClick}
                 disabled={action.disabled}
