@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { SegmentedControl } from '../ui/controls';
-import { hapticsEnabled, hapticsSupported, setHapticsEnabled, setSoundEnabled, soundEnabled } from '../ui/sound';
+import {
+  feedbackEnabled,
+  hapticsEnabled,
+  hapticsSupported,
+  setFeedbackEnabled,
+  setHapticsEnabled,
+  setSoundEnabled,
+  soundEnabled,
+} from '../ui/sound';
 import { useAccessibilityPreferences, type BoardCoordinates, type FontScale } from './preferences';
 
 type Props = {
@@ -23,6 +31,7 @@ export default function AccessibilityPanel({
   onSoundChange,
 }: Props) {
   const [preferences, updatePreferences] = useAccessibilityPreferences();
+  const [feedbackOn, setFeedbackOn] = useState(feedbackEnabled);
   const [soundOn, setSoundOn] = useState(soundEnabled);
   const [hapticsOn, setHapticsOn] = useState(hapticsEnabled);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -30,6 +39,7 @@ export default function AccessibilityPanel({
 
   useEffect(() => {
     if (!open) return;
+    setFeedbackOn(feedbackEnabled());
     setSoundOn(soundEnabled());
     setHapticsOn(hapticsEnabled());
     const panel = panelRef.current;
@@ -42,6 +52,11 @@ export default function AccessibilityPanel({
   }, [onClose, open]);
 
   if (!open) return null;
+
+  const setAllFeedback = (enabled: boolean) => {
+    setFeedbackEnabled(enabled);
+    setFeedbackOn(enabled);
+  };
 
   const setSound = (enabled: boolean) => {
     setSoundEnabled(enabled);
@@ -119,8 +134,14 @@ export default function AccessibilityPanel({
       </div>
 
       <div className="display-setting-row">
+        <span>Sound & haptics</span>
+        <button type="button" aria-pressed={feedbackOn} onClick={() => setAllFeedback(!feedbackOn)}>{feedbackOn ? 'On' : 'Muted'}</button>
+        <small className="display-setting-help">Master control. Muting this stops every chess sound and vibration while preserving the individual choices below.</small>
+      </div>
+
+      <div className="display-setting-row">
         <span>Game sounds</span>
-        <button type="button" aria-pressed={soundOn} onClick={() => setSound(!soundOn)}>{soundOn ? 'On' : 'Off'}</button>
+        <button type="button" aria-pressed={soundOn} disabled={!feedbackOn} onClick={() => setSound(!soundOn)}>{soundOn ? 'On' : 'Off'}</button>
       </div>
 
       <div className="display-setting-row">
@@ -128,7 +149,7 @@ export default function AccessibilityPanel({
         <button
           type="button"
           aria-pressed={vibrationAvailable ? hapticsOn : undefined}
-          disabled={!vibrationAvailable}
+          disabled={!feedbackOn || !vibrationAvailable}
           onClick={() => setHaptics(!hapticsOn)}
         >
           {vibrationAvailable ? hapticsOn ? 'On' : 'Off' : 'Unavailable'}
