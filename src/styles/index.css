@@ -11,6 +11,7 @@
 @import './board.css';
 @import './game.css';
 @import './match.css';
+@import './clock.css';
 @import './tournaments.css';
 @import './spectator.css';
 @import './tournament-engine.css';
