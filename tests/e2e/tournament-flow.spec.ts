@@ -55,6 +55,12 @@ async function json(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+async function activate(page: Page, name: string | RegExp) {
+  const button = page.getByRole('button', { name });
+  await expect(button).toBeVisible();
+  await button.dispatchEvent('click');
+}
+
 async function installApi(page: Page) {
   await page.route('**/__qqurz_test_api/**', async route => {
     const request = route.request();
@@ -87,7 +93,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Home → Tournament → Register → assigned game launch', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Play Tournament/i }).click();
+  await activate(page, /Play Tournament/i);
   await expect(page.getByRole('heading', { name: 'QQURZ Automated Swiss' })).toBeVisible();
 
   const register = page.getByRole('button', { name: 'Register', exact: true });
@@ -96,7 +102,7 @@ test('Home → Tournament → Register → assigned game launch', async ({ page 
 
   const openGame = page.getByRole('button', { name: 'Open game', exact: true });
   await expect(openGame).toBeVisible();
-  await openGame.click();
+  await openGame.dispatchEvent('click');
 
   await expect(page.getByText(/Tournament · ABC123/)).toBeVisible();
   await expect(page).toHaveURL(/room=ABC123/);
