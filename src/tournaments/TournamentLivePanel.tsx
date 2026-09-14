@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import RecoveryState from '../ui/RecoveryState';
 import TournamentSpectatorBoard from './TournamentSpectatorBoard';
 import { loadTournamentLiveView, type TournamentLiveView } from './viewingClient';
 
@@ -26,24 +27,25 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
     serverNow: Date.now(),
   });
   const [selectedRoom, setSelectedRoom] = useState('');
-  const [error, setError] = useState('');
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const next = await loadTournamentLiveView(tournamentId);
       setView(next);
-      setError('');
+      setRefreshFailed(false);
       setSelectedRoom(current => {
         if (current && next.games.some(game => game.roomCode === current)) return current;
         return next.games.find(game => game.status === 'live')?.roomCode ?? next.games[0]?.roomCode ?? '';
       });
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not refresh tournament viewing.');
+    } catch {
+      setRefreshFailed(true);
     }
   }, [tournamentId]);
 
   useEffect(() => {
     setSelectedRoom('');
+    setRefreshFailed(false);
     void refresh();
     const timer = window.setInterval(() => void refresh(), 3500);
     return () => window.clearInterval(timer);
@@ -58,11 +60,25 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
         <span>{view.liveGames} live · {view.completedGames} finished</span>
       </div>
 
+      {refreshFailed && (
+        <RecoveryState
+          compact
+          tone="offline"
+          eyebrow="LIVE VIEW"
+          title="Live viewing is temporarily unavailable"
+          body="QQURZ could not refresh boards or standings. Any results already confirmed by the tournament server remain unchanged."
+          primaryAction={{ label: 'Retry live view', onClick: () => void refresh() }}
+        />
+      )}
+
       {!view.games.length ? (
-        <div className="tournament-live-empty">
-          <b>No tournament boards are live yet.</b>
-          <p>When tournament-tagged games start, they will appear here automatically and results will feed the standings.</p>
-        </div>
+        <RecoveryState
+          compact
+          tone="empty"
+          eyebrow="BOARDS"
+          title="No tournament boards are live yet"
+          body="When the server starts tournament-tagged games, boards will appear here automatically and confirmed results will feed the standings."
+        />
       ) : (
         <>
           <div className="tournament-game-picker" role="list" aria-label="Tournament games">
@@ -116,14 +132,21 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
               </tbody>
             </table>
           </div>
-        ) : <p className="tournament-standings-empty">Standings appear as soon as tournament games are registered.</p>}
+        ) : (
+          <RecoveryState
+            compact
+            tone="empty"
+            eyebrow="STANDINGS"
+            title="Standings are waiting for the first result"
+            body="The table appears after the tournament server confirms a game result. Browser-only results never create standings rows."
+          />
+        )}
       </section>
 
       <div className="spectator-analysis-boundary">
         <b>Competitive boundary</b>
         <span>Spectator analysis is not part of this player room. A future analysis board can run separately so engines never enter active competitive interfaces.</span>
       </div>
-      {error && <p className="spectator-feed-error" role="status">{error}</p>}
     </div>
   );
 }
