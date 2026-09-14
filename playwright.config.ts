@@ -15,16 +15,22 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'iphone-se',
-      use: { ...devices['iPhone SE'] },
+      name: 'iphone-small',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 375, height: 667 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
     },
     {
       name: 'iphone-13',
-      use: { ...devices['iPhone 13'] },
+      use: { ...devices['iPhone 13'], browserName: 'chromium' },
     },
     {
       name: 'desktop-chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], browserName: 'chromium' },
     },
   ],
   webServer: {
