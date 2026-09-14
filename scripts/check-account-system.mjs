@@ -15,6 +15,8 @@ const rooms = read('server/src/index.ts');
 const matchmaking = read('server/src/matchmaker.ts');
 const tournaments = read('server/src/tournaments.ts');
 const gateway = read('server/src/gateway.ts');
+const authModule = read('server/src/modules/auth/index.ts');
+const realtimeGateway = read('server/src/modules/realtime/index.ts');
 const wrangler = read('server/wrangler.jsonc');
 
 for (const endpoint of [
@@ -67,7 +69,9 @@ if (!rooms.includes('resolveAccountSession') || !rooms.includes('recordAccountGa
 }
 if (!matchmaking.includes('accountId') || !matchmaking.includes('resolveAccountSession')) errors.push('Random matchmaking is not account-aware.');
 if (!tournaments.includes('recordAccountTournament') || !tournaments.includes('accountId')) errors.push('Tournament registration is not account-aware.');
-if (!gateway.includes('handleAccountRequest') || !gateway.includes('authorization')) errors.push('Gateway is not routing account auth with authorization CORS.');
+if (!gateway.includes('./modules/realtime') || !authModule.includes('handleAccountRequest') || !realtimeGateway.includes('handleIdentityRequest') || !realtimeGateway.includes('authorization')) {
+  errors.push('Modular gateway is not routing account auth with authorization CORS.');
+}
 if (!wrangler.includes('"ACCOUNTS"') || !wrangler.includes('"AccountRegistry"')) errors.push('AccountRegistry Durable Object binding is missing.');
 
 if (!server.includes("return json({ google: false, apple: false, ordinaryAuthRequired: true })")) {
@@ -82,4 +86,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ account system OK: server-owned profiles use separate Chess960 Rapid, Blitz and Bullet Glicko-2 ratings with RD/provisional state; auth, history, privacy, blocks, sessions and deletion remain wired.');
+console.log('QQURZ account system OK: server-owned profiles use separate Chess960 Rapid, Blitz and Bullet Glicko-2 ratings with RD/provisional state; auth, history, privacy, blocks, sessions and deletion remain wired through the modular gateway.');
