@@ -43,3 +43,5 @@
 .reconnect-state{margin:var(--q-space-12) 0;}
 .reconnect-countdown{display:inline-flex;align-items:center;gap:var(--q-space-8);margin-top:var(--q-space-8);font-variant-numeric:tabular-nums;font-weight:700;color:var(--q-text);}
 .reconnect-countdown::before{content:'';inline-size:var(--q-space-8);block-size:var(--q-space-8);border-radius:var(--q-radius-pill);background:var(--q-warning);box-shadow:0 0 0 var(--q-space-4) var(--q-warning-soft);}
+.match-reconnect-countdown{display:inline-flex;align-items:center;gap:var(--q-space-4);color:var(--q-warning);font-variant-numeric:tabular-nums;font-weight:700;}
+.match-reconnect-countdown::before{content:'↻';font-size:var(--q-type-caption);}
