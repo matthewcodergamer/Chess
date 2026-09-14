@@ -1,6 +1,15 @@
 import { DataRegistry as BaseDataRegistry, dataRegistryStub, type DataModelEnv } from './registry';
 
 type SqlRow = Record<string, unknown>;
+type ActiveGameRow = SqlRow & {
+  id: string;
+  room_code: string | null;
+  status: string;
+  created_at: number;
+  started_at: number | null;
+  base_ms: number;
+  last_activity_at: number | null;
+};
 
 export type ProviderWebhookRecord = {
   id: string;
@@ -23,7 +32,7 @@ function clean(value: unknown, max = 400): string {
   return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
 }
 
-function rows<T extends SqlRow>(storage: DurableObjectStorage, statement: string, ...bindings: unknown[]): T[] {
+function rows<T extends SqlRow = SqlRow>(storage: DurableObjectStorage, statement: string, ...bindings: unknown[]): T[] {
   return storage.sql.exec(statement, ...bindings).toArray() as T[];
 }
 
@@ -68,7 +77,7 @@ export class OperationalDataRegistry extends BaseDataRegistry {
   private operationsSnapshot(): Response {
     const storage = this.opsStorage();
     const now = Date.now();
-    const activeGames = rows(storage, `
+    const activeGames = rows<ActiveGameRow>(storage, `
       SELECT g.id,g.room_code,g.status,g.result_kind,g.result_text,g.base_ms,g.increment_ms,g.rated,g.rating_pool,
              g.tournament_id,g.created_at,g.started_at,g.ended_at,
              COALESCE((SELECT MAX(COALESCE(m.committed_at,m.created_at)) FROM game_moves m WHERE m.game_id=g.id),g.started_at,g.created_at) AS last_activity_at,
