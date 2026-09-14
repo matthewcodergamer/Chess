@@ -72,10 +72,20 @@ export default function ChessBoardSurface({
 
   const effectiveConfig = useMemo<QQurzChessgroundConfig>(() => {
     const coordinateConfig = boardCoordinateConfig(preferences.boardCoordinates);
-    return {
+    const baseConfig: QQurzChessgroundConfig = {
       ...config,
       ...coordinateConfig,
-      animation: reducedMotion ? { enabled: false, duration: 0 } : config.animation,
+    };
+
+    // Do not pass `animation: undefined` into Chessground. WebKit exposed a
+    // failure path where a follow-up set() call replaced Chessground's default
+    // animation state with undefined and its animation loop then dereferenced
+    // `state.animation.current`. Preserve the library default unless QQURZ is
+    // explicitly disabling motion.
+    if (!reducedMotion) return baseConfig;
+    return {
+      ...baseConfig,
+      animation: { enabled: false, duration: 0 },
     };
   }, [config, preferences.boardCoordinates, reducedMotion]);
 

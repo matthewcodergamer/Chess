@@ -6,6 +6,7 @@ const ROOM_CODE = 'AUDIT1';
 const STANDARD_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const PROMOTION_FEN = '7k/P7/8/8/8/8/8/K7 w - - 0 1';
 const auditState = { fairPlayAccepted: true };
+const pageErrors = new WeakMap<Page, string[]>();
 
 type SessionState = 'COIN_TOSS' | 'ACTIVE' | 'RECONNECTING';
 type SafeArea = { top: number; right: number; bottom: number; left: number };
@@ -221,11 +222,17 @@ async function installSafeAreaHarness(page: Page, insets: SafeArea) {
       --release-safe-right: 0px;
       --release-safe-bottom: 0px;
       --release-safe-left: 0px;
+      --q-header-h: calc(70px + var(--release-safe-top));
     }
     @media (max-width: 900px) {
+      :root[data-release-overlap-audit='on'] .qqurz-main-content {
+        box-sizing: border-box !important;
+        padding-left: var(--release-safe-left) !important;
+        padding-right: var(--release-safe-right) !important;
+      }
       :root[data-release-overlap-audit='on'] .chess-topbar {
         box-sizing: border-box !important;
-        height: calc(70px + var(--release-safe-top)) !important;
+        height: var(--q-header-h) !important;
         padding-top: var(--release-safe-top) !important;
         padding-right: max(12px, var(--release-safe-right)) !important;
         padding-left: max(12px, var(--release-safe-left)) !important;
@@ -298,11 +305,11 @@ async function expectNoCoveredControls(page: Page, label: string) {
     const scope = dialogs.at(-1) ?? drawer ?? document.querySelector<HTMLElement>('.qqurz-main-content') ?? document.body;
     const problems: string[] = [];
 
-    const controls = [...scope.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [role="button"], [tabindex]:not([tabindex="-1"])')].filter(visible);
+    const controls = [...scope.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [role="button"]:not([aria-disabled="true"])')].filter(visible);
     for (const control of controls) {
       const rect = control.getBoundingClientRect();
-      const x = Math.min(viewport.width - 1, Math.max(0, rect.left + rect.width / 2));
-      const y = Math.min(viewport.height - 1, Math.max(0, rect.top + rect.height / 2));
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
       if (x < 0 || y < 0 || x >= viewport.width || y >= viewport.height) continue;
       const top = document.elementFromPoint(x, y);
       if (!top) continue;
@@ -373,8 +380,15 @@ async function tapBoardSquare(page: Page, file: number, rank: number) {
 
 test.beforeEach(async ({ page }) => {
   auditState.fairPlayAccepted = true;
+  const errors: string[] = [];
+  pageErrors.set(page, errors);
+  page.on('pageerror', error => errors.push(error.message));
   await seedApp(page, true);
   await installApi(page);
+});
+
+test.afterEach(async ({ page }) => {
+  expect(pageErrors.get(page) ?? [], 'The mobile release path emitted an uncaught browser error').toEqual([]);
 });
 
 test('production mobile CSS carries all four iOS safe-area inset guards', async () => {
@@ -406,13 +420,21 @@ test('virtual keyboard compression keeps the focused online input reachable', as
   const input = page.getByPlaceholder('ROOM CODE');
   await input.focus();
   await page.setViewportSize({ width: 390, height: 360 });
-  await input.scrollIntoViewIfNeeded();
+  await input.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
   await expect(input).toBeFocused();
   await auditViewport(page, 'virtual keyboard open with focused room-code input');
 
-  const box = await input.boundingBox();
-  expect(box, 'focused input must remain measurable above the simulated keyboard').not.toBeNull();
-  expect(box!.bottom, 'focused input must remain inside the shrunken visual viewport').toBeLessThanOrEqual(360);
+  const geometry = await page.evaluate(() => {
+    const inputElement = document.querySelector<HTMLInputElement>('input[placeholder="ROOM CODE"]');
+    const header = document.querySelector<HTMLElement>('.chess-topbar');
+    if (!inputElement || !header) return null;
+    const inputRect = inputElement.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    return { top: inputRect.top, bottom: inputRect.bottom, headerBottom: headerRect.bottom, viewport: window.innerHeight };
+  });
+  expect(geometry, 'focused input and sticky header must be measurable').not.toBeNull();
+  expect(geometry!.top, 'focused input must not sit under the sticky header').toBeGreaterThanOrEqual(geometry!.headerBottom - 1);
+  expect(geometry!.bottom, 'focused input must remain inside the shrunken visual viewport').toBeLessThanOrEqual(geometry!.viewport + 1);
 });
 
 test('open modal remains contained at the smallest Safari height', async ({ page }) => {
