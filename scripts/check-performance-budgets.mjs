@@ -59,7 +59,7 @@ function requireBudget(label, actual, max) {
   if (actual > max) errors.push(`${label}: ${format(actual)} exceeds ${format(max)}.`);
 }
 
-const mainKey = entries.find(([, item]) => item.isEntry)?.[0] ?? keyForSource('src/main.tsx');
+const mainKey = keyForSource('index.html') ?? keyForSource('src/main.tsx') ?? entries.find(([, item]) => item.isEntry && item.src !== 'admin.html')?.[0];
 if (!mainKey) errors.push('Could not find main Vite entry in manifest.');
 
 const initialKeys = staticClosure(mainKey);
@@ -67,6 +67,15 @@ const initial = measure(initialKeys);
 requireBudget('Initial JavaScript gzip', initial.jsGzip, 96 * KiB);
 requireBudget('Initial CSS gzip', initial.cssGzip, 34 * KiB);
 requireBudget('Initial JS+CSS gzip', initial.totalGzip, 135 * KiB);
+
+const adminKey = keyForSource('admin.html') ?? keyForSource('src/admin/main.tsx');
+if (!adminKey) errors.push('Operations console must be emitted as a separate Vite entry.');
+else {
+  if (initialKeys.has(adminKey)) errors.push('Operations console must not leak into the player startup closure.');
+  const adminMeasured = measure(staticClosure(adminKey));
+  requireBudget('Operations console gzip', adminMeasured.totalGzip, 180 * KiB);
+  console.log(`Operations     ${format(adminMeasured.totalGzip).padStart(10)} gzip`);
+}
 
 const routeBudgets = [
   ['Account', 'src/profile/ProfileHub.tsx', 16],
@@ -98,6 +107,7 @@ const forbiddenInitial = [
   ['Stockfish adapter', 'src/engine/stockfish.ts'],
   ['Premium 3D board', 'src/premium/PremiumBoard3D.tsx'],
   ['3D physical clock', 'src/ui/ChessClock3DView.tsx'],
+  ['Operations console', 'src/admin/main.tsx'],
 ];
 for (const [label, source] of forbiddenInitial) {
   const key = keyForSource(source);
@@ -132,4 +142,4 @@ if (errors.length) {
   for (const error of errors) console.error(` - ${error}`);
   process.exit(1);
 }
-console.log('QQURZ performance budgets OK: fast shell, lazy routes, AI/3D isolated from 2D startup.');
+console.log('QQURZ performance budgets OK: fast shell, lazy routes, admin/AI/3D isolated from player startup.');
