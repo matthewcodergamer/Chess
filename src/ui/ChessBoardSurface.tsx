@@ -101,16 +101,31 @@ export default function ChessBoardSurface({
     if (apiRef) apiRef.current = api;
     latestReady.current?.(api);
 
+    // Redrawing synchronously from ResizeObserver can create another geometry
+    // change while WebKit is still delivering the same observer batch. Safari
+    // reports that as "ResizeObserver loop completed with undelivered
+    // notifications". Coalesce redraws onto the next animation frame instead.
+    let disposed = false;
+    let redrawFrame = 0;
+    const scheduleRedraw = () => {
+      if (disposed || redrawFrame) return;
+      redrawFrame = window.requestAnimationFrame(() => {
+        redrawFrame = 0;
+        if (!disposed && ownApi.current === api) api.redrawAll();
+      });
+    };
     const resize = typeof ResizeObserver === 'function'
-      ? new ResizeObserver(() => api.redrawAll())
+      ? new ResizeObserver(scheduleRedraw)
       : null;
     resize?.observe(node.current);
 
     return () => {
+      disposed = true;
       resize?.disconnect();
-      api.destroy();
+      if (redrawFrame) window.cancelAnimationFrame(redrawFrame);
       if (ownApi.current === api) ownApi.current = null;
       if (apiRef?.current === api) apiRef.current = null;
+      api.destroy();
     };
   }, [apiRef, instanceKey]);
 
