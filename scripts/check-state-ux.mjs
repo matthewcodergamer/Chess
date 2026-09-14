@@ -31,6 +31,7 @@ requireText('src/tournaments/TournamentMasterGrid.tsx', ['No tournament seats ar
 requireText('src/tournaments/TournamentLivePanel.tsx', ['Standings haven’t started yet', 'Retry live view', 'Live updates paused']);
 requireText('src/multiplayer/RandomMatchmaking.tsx', ['No queue ticket or game room was created', 'Try again', 'The pool is quiet right now']);
 requireText('src/notifications/NotificationCenter.tsx', ['Inbox couldn’t refresh', 'Retry inbox', 'You’re caught up.']);
+requireText('src/social/SocialCenter.tsx', ['Players couldn’t update', 'No recent opponents.', 'No tournament rosters are available.']);
 
 for (const file of [
   'src/payments/WalletPanel.tsx',
@@ -39,6 +40,7 @@ for (const file of [
   'src/tournaments/TournamentLivePanel.tsx',
   'src/multiplayer/RandomMatchmaking.tsx',
   'src/notifications/NotificationCenter.tsx',
+  'src/social/SocialCenter.tsx',
   'src/game/LocalMatchChrome.tsx',
 ]) {
   const text = source(file);
@@ -54,4 +56,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ state UX OK: actionable empty/error states, retries, cancellation clarity and reconnect recovery are present.');
+console.log('QQURZ state UX OK: actionable empty/error states, retries, cancellation clarity, social zero states and reconnect recovery are present.');
