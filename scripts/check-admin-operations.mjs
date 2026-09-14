@@ -53,7 +53,7 @@ if (!consoleUi.includes('READ-ONLY') || !consoleUi.includes('No direct mutations
 for (const forbidden of ['refundAccount(', 'banAccount(', 'updateLedger(', 'DELETE FROM', 'UPDATE wallet_balances']) {
   if (consoleUi.includes(forbidden) || client.includes(forbidden)) errors.push(`Browser operations code must not directly mutate protected state (${forbidden}).`);
 }
-if (!vite.includes("admin: resolve(import.meta.dirname, 'admin.html')")) errors.push('Vite does not build the admin console as a separate entry.');
+if (!vite.includes("admin: 'admin.html'")) errors.push('Vite does not build the admin console as a separate entry.');
 if (!adminHtml.includes('noindex,nofollow,noarchive') || !adminHtml.includes('/src/admin/main.tsx')) {
   errors.push('Admin HTML must be a dedicated noindex entry.');
 }
