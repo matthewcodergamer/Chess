@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { accountToken } from '../account/client';
 import { TournamentGridSkeleton } from '../ui/Skeletons';
+import StateNotice from '../ui/StateNotice';
 import {
   checkInEngineTournament,
   listEngineTournaments,
@@ -55,11 +56,16 @@ function playerStatus(event: EngineTournamentSummary, me: EngineTournamentMe | n
   return 'Registered';
 }
 
+function eventHasOpenSeats(event: EngineTournamentSummary): boolean {
+  return event.registered < event.capacity && ['registration', 'check_in'].includes(event.status);
+}
+
 export default function TournamentMasterGrid({ onOpenGame }: Props) {
   const [events, setEvents] = useState<EngineTournamentSummary[]>([]);
   const [details, setDetails] = useState<Record<string, EngineTournamentDetail>>({});
   const [mine, setMine] = useState<Record<string, EngineTournamentMe | null>>({});
   const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(false);
   const [capacityFilter, setCapacityFilter] = useState<CapacityFilter>('all');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [busyId, setBusyId] = useState('');
@@ -72,9 +78,9 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
     try {
       const value = await listEngineTournaments();
       setEvents(value.tournaments.filter(event => event.status !== 'cancelled'));
-      setMessage('');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not load tournament availability.');
+      setListError(false);
+    } catch {
+      setListError(true);
     } finally {
       setListLoading(false);
     }
@@ -102,6 +108,7 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
 
   const visibleEvents = filteredEvents.slice(0, visibleCount);
   const visibleKey = visibleEvents.map(event => event.id).join('|');
+  const nextOpenEvent = useMemo(() => events.find(eventHasOpenSeats) ?? null, [events]);
 
   useEffect(() => {
     let active = true;
@@ -153,8 +160,15 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
       setMessage('Sign in to register for tournaments.');
       return;
     }
-    const detail = details[event.id] ?? await loadEngineTournament(event.id);
-    const me = mine[event.id] ?? await loadEngineTournamentMe(event.id).catch(() => null);
+    let detail: EngineTournamentDetail;
+    let me: EngineTournamentMe | null;
+    try {
+      detail = details[event.id] ?? await loadEngineTournament(event.id);
+      me = mine[event.id] ?? await loadEngineTournamentMe(event.id).catch(() => null);
+    } catch {
+      setMessage('This tournament could not be refreshed. Your status was not changed. Retry the event in a moment.');
+      return;
+    }
 
     if (me?.seat) {
       openAssignedGame(me);
@@ -173,8 +187,8 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
         setInviteEventId('');
         await refreshEvent(event.id);
         setMessage('Registration confirmed.');
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Could not register.');
+      } catch {
+        setMessage('Registration could not be completed. No seat was added. Check the invite code or retry while registration is still open.');
       } finally { setBusyId(''); }
       return;
     }
@@ -185,8 +199,8 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
         await checkInEngineTournament(event.id);
         await refreshEvent(event.id);
         setMessage('Check-in confirmed.');
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Could not check in.');
+      } catch {
+        setMessage('Check-in could not be confirmed. Your tournament status was not changed. Retry before the check-in window closes.');
       } finally { setBusyId(''); }
     }
   };
@@ -215,7 +229,7 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
     const detail = details[event.id];
     const me = mine[event.id];
     if (me?.seat) return true;
-    if (!me?.participant) return event.registered < event.capacity && ['registration', 'check_in'].includes(event.status);
+    if (!me?.participant) return eventHasOpenSeats(event);
     return Boolean(detail?.checkInRules.required && !me.participant.checkedInAt && event.status === 'check_in');
   };
 
@@ -223,12 +237,30 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
 
   if (listLoading) return <TournamentGridSkeleton/>;
 
+  if (listError && events.length === 0) return (
+    <StateNotice
+      tone="error"
+      icon="↻"
+      eyebrow="TOURNAMENT AVAILABILITY"
+      title="Tournament server unavailable"
+      body={<p>QQURZ could not load the current seat inventory. No registration attempt was made.</p>}
+      detail="Only real server tournament records are shown here, so the app will not invent placeholder seats while the service is unavailable."
+      actions={[{ label: 'Retry availability', onClick: () => void loadList(), primary: true }]}
+    />
+  );
+
+  const emptyBody = nextOpenEvent
+    ? `${nextOpenEvent.title} has ${Math.max(0, nextOpenEvent.capacity - nextOpenEvent.registered).toLocaleString()} seat${nextOpenEvent.capacity - nextOpenEvent.registered === 1 ? '' : 's'} open now.`
+    : 'The tournament server has not published the next registration window yet. QQURZ will show new seats here as soon as an organizer opens an event.';
+
   return (
     <section className="tournament-master-grid" aria-label="Tournament availability">
       <header className="master-grid-head">
         <div><span className="qqurz-kicker">MASTER GRID</span><h2>Choose a real event</h2><p>Every card below is a backend tournament record. Capacity buttons only filter those records; they never create imaginary events.</p></div>
         <span className="master-grid-live">● {events.length} live records</span>
       </header>
+
+      {listError && <StateNotice className="compact" tone="warning" icon="↻" title="Couldn’t refresh tournament availability" body={<p>Showing the last tournament records that loaded successfully. Seat counts may have changed since then.</p>} actions={[{ label: 'Retry refresh', onClick: () => void loadList() }]} />}
 
       <div className="master-capacity-filter" role="group" aria-label="Filter tournaments by capacity">
         <button className={capacityFilter === 'all' ? 'active' : ''} onClick={() => setCapacityFilter('all')}><b>All</b><small>{events.length}</small></button>
@@ -245,6 +277,8 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
             const filled = Math.max(0, Math.min(event.capacity, event.registered));
             const fill = event.capacity ? Math.round((filled / event.capacity) * 100) : 0;
             const prizePool = detail?.payout.mode && detail.payout.mode !== 'none' ? detail.payout.poolCents : null;
+            const full = event.registered >= event.capacity;
+            const alternative = nextOpenEvent && nextOpenEvent.id !== event.id ? nextOpenEvent : null;
             return (
               <article className="master-event-card" key={event.id}>
                 <div className="master-event-card-head"><span className={`engine-status ${event.status}`}>{statusLabel(event.status)}</span><span>{event.capacity.toLocaleString()} seats</span></div>
@@ -259,11 +293,25 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
                 <div className="master-player-status"><span>Your status</span><b>{playerStatusResolved ? (signedIn ? playerStatus(event, me) : 'Sign in required') : <span className="qqurz-skeleton-block qqurz-skeleton-line w-55" aria-label="Loading your tournament status"/>}</b></div>
                 {inviteEventId === event.id && !me?.participant && <input className="master-invite-input" aria-label={`Invite code for ${event.title}`} placeholder="Invite code" value={inviteCodes[event.id] ?? ''} onChange={input => setInviteCodes(current => ({ ...current, [event.id]: input.target.value }))} />}
                 <button className={me?.seat || (!me?.participant && event.registered < event.capacity) ? 'primary-black master-event-action' : 'master-event-action'} disabled={!actionEnabled(event)} onClick={() => void act(event)}>{actionLabel(event)}</button>
+                {full && <small className="master-event-recovery">Field full. {alternative ? `${alternative.title} has ${Math.max(0, alternative.capacity - alternative.registered).toLocaleString()} seats open now.` : 'No next registration window has been published yet; this card will update when the organizer opens another field.'}</small>}
               </article>
             );
           })}
         </div>
-      ) : <div className="engine-empty"><b>No tournaments match this capacity.</b><span>Availability comes only from real backend records.</span></div>}
+      ) : (
+        <StateNotice
+          tone="neutral"
+          icon="♟"
+          eyebrow="TOURNAMENT SEATS"
+          title={capacityFilter === 'all' ? 'No tournament seats are open right now' : 'No events match this field size'}
+          body={<p>{emptyBody}</p>}
+          detail="Availability comes only from real tournament records; QQURZ does not display imaginary seats or opening times."
+          actions={[
+            ...(capacityFilter === 'all' ? [] : [{ label: 'Show all events', onClick: () => setCapacityFilter('all'), primary: true }]),
+            { label: 'Retry availability', onClick: () => void loadList(), primary: capacityFilter === 'all' },
+          ]}
+        />
+      )}
 
       {filteredEvents.length > visibleCount && <button className="master-show-more" onClick={() => setVisibleCount(current => current + PAGE_SIZE)}>Show more events</button>}
       {message && <div className="inline-message-v14 master-grid-message" role="status">{message}</div>}

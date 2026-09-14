@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl';
 import TimeControlPicker from '../ui/TimeControlPicker';
+import StateNotice from '../ui/StateNotice';
 import { IconButton, PrimaryButton, SecondaryButton } from '../ui/controls';
 import {
   cancelMatch,
@@ -91,8 +92,8 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
       if (finishMatch(match)) return;
       waitingRef.current = true;
       setTicket(match.ticket);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not enter matchmaking.');
+    } catch {
+      setMessage('QQURZ could not join the matchmaking queue. No queue ticket or game room was created.');
     } finally {
       setBusy(false);
     }
@@ -121,12 +122,12 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         const match = await loadMatch(ticket);
         if (stopped) return;
         finishMatch(match);
-      } catch (error) {
+      } catch {
         if (stopped) return;
         waitingRef.current = false;
         setTicket('');
         setLatest(null);
-        setMessage(error instanceof Error ? error.message : 'Matchmaking ticket expired.');
+        setMessage('That matchmaking search ended before a match was found. No game room was created; you can start a fresh search.');
       }
     };
     void check();
@@ -219,8 +220,9 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         )}
 
         {opponent && <p className="matchmaking-found">Matched with {opponent}{latest?.opponentRating ? ` · ${Math.round(latest.opponentRating)}` : ''}.</p>}
-        {message && <p className="matchmaking-error">{message}</p>}
-        {!multiplayerConfigured && <p className="matchmaking-error">The realtime server is not configured in this build.</p>}
+        {message && <StateNotice className="compact" tone="warning" icon="↻" title="Matchmaking stopped" body={<p>{message}</p>} actions={[{ label: 'Try again', onClick: () => void start(), primary: true }]} />}
+        {!multiplayerConfigured && <StateNotice className="compact" tone="warning" icon="!" title="Live matchmaking isn’t connected" body={<p>This build does not have a realtime server configured. Local human and AI chess still work.</p>} actions={[{ label: 'Back to local modes', onClick: onBack }]} />}
+        {multiplayerConfigured && !ticket && !message && onlinePlayers !== null && onlinePlayers <= 1 && <StateNotice className="compact" tone="neutral" icon="♙" title="The pool is quiet right now" body={<p>You can still search. QQURZ will gradually widen the rating range while it waits for another compatible player.</p>} live="off" />}
 
         <div className="matchmaking-rules">
           <span><i>960</i><b>Variant + time matched</b></span>
