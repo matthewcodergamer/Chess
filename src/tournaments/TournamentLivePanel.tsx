@@ -70,7 +70,7 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
       />}
 
       {!view.games.length ? (
-        <StateNotice
+        !refreshFailed && <StateNotice
           className="compact"
           tone="neutral"
           icon="♟"
@@ -133,7 +133,11 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
               </tbody>
             </table>
           </div>
-        ) : <StateNotice className="compact" tone="neutral" icon="≡" title="Standings haven’t started yet" body={<p>The table appears after the tournament server registers players and confirms game results. Zero rows here does not mean an error.</p>} live="off" />}
+        ) : refreshFailed && !hasConfirmedData ? (
+          <p className="tournament-standings-empty">Standings are unavailable until the live tournament feed reconnects.</p>
+        ) : (
+          <StateNotice className="compact" tone="neutral" icon="≡" title="Standings haven’t started yet" body={<p>The table appears after the tournament server registers players and confirms game results. Zero rows here does not mean an error.</p>} live="off" />
+        )}
       </section>
 
       <div className="spectator-analysis-boundary">
