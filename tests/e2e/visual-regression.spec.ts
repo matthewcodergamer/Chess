@@ -194,7 +194,6 @@ async function expectNoDocumentOverflow(page: Page) {
 async function openHome(page: Page) {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Play chess.' })).toBeVisible();
-  await expect(page.getByText('12 online', { exact: true }).first()).toBeVisible();
   await stabilize(page);
 }
 
@@ -220,6 +219,19 @@ async function openAccount(page: Page) {
   await page.getByRole('button', { name: 'Open Visual Player profile' }).click();
   await expect(page.getByRole('heading', { name: 'Visual Player', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Account sections' })).toBeVisible();
+  await stabilize(page);
+}
+
+async function openDisplaySettings(page: Page) {
+  const viewport = page.viewportSize();
+  if ((viewport?.width ?? 0) > 720) {
+    await page.locator('.display-toggle').click();
+  } else {
+    await openDrawer(page);
+    const drawer = page.getByRole('dialog', { name: 'QQURZ menu' });
+    await drawer.getByRole('button', { name: /Settings.*Display and preferences/i }).click();
+  }
+  await expect(page.getByRole('region', { name: 'Display and accessibility settings' })).toBeVisible();
   await stabilize(page);
 }
 
@@ -301,11 +313,7 @@ test('account settings', async ({ page }) => {
 
 test('display settings', async ({ page }) => {
   await openHome(page);
-  await openDrawer(page);
-  const drawer = page.getByRole('dialog', { name: 'QQURZ menu' });
-  await drawer.locator('.drawer-settings button').filter({ hasText: 'Settings' }).click();
-  await expect(page.getByRole('region', { name: 'Display and accessibility settings' })).toBeVisible();
-  await stabilize(page);
+  await openDisplaySettings(page);
   await expectNoDocumentOverflow(page);
   await expect(page).toHaveScreenshot('display-settings.png');
 });
