@@ -31,6 +31,9 @@ type CanonicalOps = {
   error?: string;
 };
 
+type CanonicalResult = { ok: boolean; status: number; payload: CanonicalOps };
+type PresenceResult = { ok: boolean; status: number; payload: MatchmakerOps };
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 }
@@ -44,13 +47,13 @@ function adminAuthorized(request: Request, secret: string | undefined): boolean 
   return mismatch === 0;
 }
 
-async function canonicalSnapshot(env: OperationsEnv): Promise<{ ok: boolean; status: number; payload: CanonicalOps }> {
+async function canonicalSnapshot(env: OperationsEnv): Promise<CanonicalResult> {
   const response = await dataRegistryStub(env).fetch(new Request('https://data.internal/internal/admin/ops'));
   const payload = await response.json().catch(() => ({ error: 'Canonical operations data could not be decoded.' })) as CanonicalOps;
   return { ok: response.ok, status: response.status, payload };
 }
 
-async function presenceSnapshot(request: Request, env: OperationsEnv): Promise<{ ok: boolean; status: number; payload: MatchmakerOps }> {
+async function presenceSnapshot(request: Request, env: OperationsEnv): Promise<PresenceResult> {
   const id = env.MATCHMAKER.idFromName('qqurz-global-lobby');
   const stub = env.MATCHMAKER.get(id);
   const headers = new Headers();
@@ -66,9 +69,9 @@ export async function handleOperationsRequest(request: Request, env: OperationsE
   if (!adminAuthorized(request, env.INTEGRITY_ADMIN_SECRET)) return json({ error: 'Unauthorized operations access.' }, 401);
   if (request.method !== 'GET') return json({ error: 'Method not allowed.' }, 405);
 
-  const [canonical, presence] = await Promise.all([
-    canonicalSnapshot(env).catch(() => ({ ok: false, status: 503, payload: { error: 'Canonical data registry is unavailable.' } })),
-    presenceSnapshot(request, env).catch(() => ({ ok: false, status: 503, payload: { error: 'Matchmaking presence is unavailable.' } })),
+  const [canonical, presence]: [CanonicalResult, PresenceResult] = await Promise.all([
+    canonicalSnapshot(env).catch((): CanonicalResult => ({ ok: false, status: 503, payload: { error: 'Canonical data registry is unavailable.' } })),
+    presenceSnapshot(request, env).catch((): PresenceResult => ({ ok: false, status: 503, payload: { error: 'Matchmaking presence is unavailable.' } })),
   ]);
 
   if (!canonical.ok && canonical.status === 401) return json({ error: 'Unauthorized operations access.' }, 401);
