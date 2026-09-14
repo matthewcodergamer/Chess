@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import StateNotice from '../ui/StateNotice';
 import TournamentSpectatorBoard from './TournamentSpectatorBoard';
 import { loadTournamentLiveView, type TournamentLiveView } from './viewingClient';
 
@@ -26,19 +27,19 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
     serverNow: Date.now(),
   });
   const [selectedRoom, setSelectedRoom] = useState('');
-  const [error, setError] = useState('');
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const next = await loadTournamentLiveView(tournamentId);
       setView(next);
-      setError('');
+      setRefreshFailed(false);
       setSelectedRoom(current => {
         if (current && next.games.some(game => game.roomCode === current)) return current;
         return next.games.find(game => game.status === 'live')?.roomCode ?? next.games[0]?.roomCode ?? '';
       });
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not refresh tournament viewing.');
+    } catch {
+      setRefreshFailed(true);
     }
   }, [tournamentId]);
 
@@ -50,6 +51,7 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
   }, [refresh]);
 
   const selectedGame = useMemo(() => view.games.find(game => game.roomCode === selectedRoom) ?? null, [selectedRoom, view.games]);
+  const hasConfirmedData = Boolean(view.updatedAt || view.games.length || view.standings.length);
 
   return (
     <div className="tournament-live-panel">
@@ -58,11 +60,26 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
         <span>{view.liveGames} live · {view.completedGames} finished</span>
       </div>
 
+      {refreshFailed && <StateNotice
+        className="compact"
+        tone="warning"
+        icon="↻"
+        title={hasConfirmedData ? 'Live updates paused' : 'Live tournament view unavailable'}
+        body={<p>{hasConfirmedData ? 'QQURZ is keeping the last server-confirmed boards and standings on screen while the live feed reconnects.' : 'The tournament viewing service did not answer. No live board data is being guessed.'}</p>}
+        actions={[{ label: 'Retry live view', onClick: () => void refresh(), primary: !hasConfirmedData }]}
+      />}
+
       {!view.games.length ? (
-        <div className="tournament-live-empty">
-          <b>No tournament boards are live yet.</b>
-          <p>When tournament-tagged games start, they will appear here automatically and results will feed the standings.</p>
-        </div>
+        <StateNotice
+          className="compact"
+          tone="neutral"
+          icon="♟"
+          eyebrow="LIVE BOARDS"
+          title="No tournament boards are live yet"
+          body={<p>When the tournament server starts or registers a game, its board will appear here automatically. Nothing needs to be refreshed manually.</p>}
+          detail="Completed games remain available here after they finish, and server-confirmed results feed the standings."
+          live="off"
+        />
       ) : (
         <>
           <div className="tournament-game-picker" role="list" aria-label="Tournament games">
@@ -116,14 +133,13 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
               </tbody>
             </table>
           </div>
-        ) : <p className="tournament-standings-empty">Standings appear as soon as tournament games are registered.</p>}
+        ) : <StateNotice className="compact" tone="neutral" icon="≡" title="Standings haven’t started yet" body={<p>The table appears after the tournament server registers players and confirms game results. Zero rows here does not mean an error.</p>} live="off" />}
       </section>
 
       <div className="spectator-analysis-boundary">
         <b>Competitive boundary</b>
         <span>Spectator analysis is not part of this player room. A future analysis board can run separately so engines never enter active competitive interfaces.</span>
       </div>
-      {error && <p className="spectator-feed-error" role="status">{error}</p>}
     </div>
   );
 }
