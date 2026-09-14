@@ -6,6 +6,7 @@
   "scripts": {
     "check:css": "node scripts/check-css-architecture.mjs",
     "check:ui": "node scripts/check-controls.mjs",
+    "check:states": "node scripts/check-state-ux.mjs",
     "check:pieces": "node scripts/check-piece-system.mjs",
     "check:clock": "node scripts/check-clock-system.mjs",
     "check:audio": "node scripts/check-audio-system.mjs",
@@ -17,8 +18,8 @@
     "prepare:engine": "node scripts/copy-stockfish.mjs",
     "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
     "prepare:audio": "node scripts/fetch-chess-audio.mjs",
-    "dev": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && vite",
-    "build": "npm run check:css && npm run check:ui && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && tsc -b && vite build && npm run check:performance",
+    "dev": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && vite",
+    "build": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && tsc -b && vite build && npm run check:performance",
     "preview": "vite preview"
   },
   "dependencies": {
