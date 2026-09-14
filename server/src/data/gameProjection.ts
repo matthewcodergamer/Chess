@@ -1,0 +1,55 @@
+import { NotifyingChessRoom } from '../notifications';
+import { chess960Fen } from '../chess960';
+import type { GameSessionModel } from '../../../shared/gameSession';
+import type { CanonicalGame, DataCommand } from './model';
+import type { DataModelEnv } from './registry';
+import { drainCanonicalOutbox, queueCanonicalProjection } from './outbox';
+
+type Seat = { name: string; token: string; accountId: string | null };
+type MoveTiming = { moveNumber: number; clientSequence: number | null; clientSentAt: number | null; serverReceivedAt: number; serverCommittedAt: number; chargedElapsedMs: number; latencyCreditMs: number; nextClockStartedAt: number | null };
+type RoomSnapshot = { code: string; session: GameSessionModel; lastMoveTiming: MoveTiming | null; createdAt: number; lastActivityAt: number; players: { white: Seat; black: Seat | null } };
+type GameProjectionEnv = DataModelEnv & Record<string, unknown>;
+
+function terminal(state: string): boolean { return ['CHECKMATE','DRAW','RESIGN','TIMEOUT','FINAL'].includes(state); }
+function status(session: GameSessionModel): CanonicalGame['status'] { if(terminal(session.state)) return 'completed'; if(session.state==='PAUSED'||session.state==='RECONNECTING') return 'paused'; if(session.state==='ACTIVE') return 'active'; return 'created'; }
+function initialFen(session: GameSessionModel): string | null { return Number.isInteger(session.positionId) ? chess960Fen(session.positionId!) : null; }
+function gameId(room: RoomSnapshot): string { return `room:${room.code}:${room.createdAt}`; }
+function roomGame(room: RoomSnapshot, latestMove?: { uci: string; moverColor: 'white'|'black'; clientSentAt: number|null; timing: MoveTiming }): CanonicalGame {
+  const session=room.session; const ended=terminal(session.state) ? session.finalizedAt ?? session.updatedAt : null;
+  const started=latestMove?.timing.moveNumber===1 ? latestMove.timing.serverReceivedAt : null;
+  const participants:CanonicalGame['participants']=[{id:`${gameId(room)}:white`,userId:room.players.white.accountId,seatNo:1,color:'white',displayName:room.players.white.name,joinedAt:room.createdAt}];
+  if(room.players.black) participants.push({id:`${gameId(room)}:black`,userId:room.players.black.accountId,seatNo:2,color:'black',displayName:room.players.black.name,joinedAt:room.createdAt});
+  const moves:CanonicalGame['moves']=latestMove ? [{
+    ply:latestMove.timing.moveNumber,moverUserId:latestMove.moverColor==='white'?room.players.white.accountId:room.players.black?.accountId ?? null,moverColor:latestMove.moverColor,uci:latestMove.uci,
+    san:session.movesSan[latestMove.timing.moveNumber-1] ?? '',fenAfter:session.fen,clientSentAt:latestMove.clientSentAt,serverReceivedAt:latestMove.timing.serverReceivedAt,committedAt:latestMove.timing.serverCommittedAt,
+    thinkMs:latestMove.timing.chargedElapsedMs,clockAfterMs:latestMove.moverColor==='white'?session.clocks.whiteMs:session.clocks.blackMs,createdAt:latestMove.timing.serverCommittedAt,
+  }] : [];
+  return {
+    id:gameId(room),roomCode:room.code,status:status(session),resultKind:session.resultKind,resultText:session.result,winnerUserId:session.winner==='white'?room.players.white.accountId:session.winner==='black'?room.players.black?.accountId ?? null:null,
+    positionId:session.positionId,initialFen:initialFen(session),finalFen:session.fen,baseMs:session.clocks.baseMs,incrementMs:session.clocks.incrementMs,rated:Boolean(room.players.white.accountId&&room.players.black?.accountId&&room.players.white.accountId!==room.players.black.accountId),
+    createdAt:room.createdAt,startedAt:started,endedAt:ended,participants,moves,metadata:{source:'authoritative-room',moveCount:session.moveNumber,state:session.state},
+  };
+}
+
+export class CanonicalChessRoom extends NotifyingChessRoom {
+  private canonicalInternals(): { ctx: DurableObjectState; env: GameProjectionEnv; room: RoomSnapshot | null } { return this as unknown as { ctx: DurableObjectState; env: GameProjectionEnv; room: RoomSnapshot | null }; }
+  private async project(room: RoomSnapshot | null, latestMove?: { uci: string; moverColor:'white'|'black'; clientSentAt:number|null; timing:MoveTiming }): Promise<void> {
+    if(!room) return; const {ctx,env}=this.canonicalInternals();
+    await queueCanonicalProjection(ctx.storage,env,[{type:'record_game',game:roomGame(room,latestMove)}],`room:${room.code}:${crypto.randomUUID()}`);
+  }
+  override async fetch(request: Request): Promise<Response> {
+    const {ctx,env}=this.canonicalInternals(); await drainCanonicalOutbox(ctx.storage,env).catch(()=>undefined);
+    const response=await super.fetch(request); if(response.ok) await this.project(this.canonicalInternals().room).catch(()=>undefined); return response;
+  }
+  override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    const before=this.canonicalInternals().room; const beforeMove=before?.session.moveNumber ?? 0; const beforeColor=before?.session.sideToMove ?? 'white';
+    let payload:Record<string,any>|null=null; try { payload=JSON.parse(typeof message==='string'?message:new TextDecoder().decode(message)); } catch { /* base class handles malformed input */ }
+    await super.webSocketMessage(ws,message);
+    const room=this.canonicalInternals().room; const timing=room?.lastMoveTiming ?? null;
+    const accepted=payload?.type==='move'&&room&&timing&&room.session.moveNumber===beforeMove+1&&timing.moveNumber===room.session.moveNumber;
+    await this.project(room,accepted?{uci:String(payload?.uci ?? '').toLowerCase(),moverColor:beforeColor,clientSentAt:Number.isFinite(payload?.clientSentAt)?Number(payload.clientSentAt):null,timing}:undefined).catch(()=>undefined);
+  }
+  override async alarm(): Promise<void> { await super.alarm(); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
+  override async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> { await super.webSocketClose(ws,code,reason,wasClean); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
+  override async webSocketError(ws: WebSocket, error: unknown): Promise<void> { await super.webSocketError(ws,error); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
+}
