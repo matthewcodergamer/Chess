@@ -30,8 +30,7 @@ function clean(value: unknown, max = 180): string {
   return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
 }
 
-async function recordComplianceOutcome(request: Request, response: Response, env: PaymentsModuleEnv, receivedAt: number): Promise<void> {
-  const raw = await request.text().catch(() => '');
+async function recordComplianceOutcome(raw: string, contentType: string, response: Response, env: PaymentsModuleEnv, receivedAt: number): Promise<void> {
   let eventId = '';
   try {
     const payload = JSON.parse(raw) as { eventId?: unknown };
@@ -53,7 +52,7 @@ async function recordComplianceOutcome(request: Request, response: Response, env
     error,
     receivedAt,
     processedAt: Date.now(),
-    metadata: { contentType: request.headers.get('content-type') ?? '' },
+    metadata: { contentType },
   });
 }
 
@@ -61,10 +60,11 @@ export async function handlePaymentsRequest(request: Request, env: PaymentsModul
   const url = new URL(request.url);
   if (url.pathname === '/payments/webhooks/compliance') {
     const receivedAt = Date.now();
-    const copy = request.clone();
+    const contentType = request.headers.get('content-type') ?? '';
+    const raw = await request.clone().text().catch(() => '');
     const compliance = await handlePaymentComplianceWebhook(request, env);
     if (compliance) {
-      await recordComplianceOutcome(copy, compliance, env, receivedAt).catch(() => undefined);
+      await recordComplianceOutcome(raw, contentType, compliance, env, receivedAt).catch(() => undefined);
       return compliance;
     }
   } else {
