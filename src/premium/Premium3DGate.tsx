@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { multiplayerConfigured } from '../multiplayer/client';
 import { celebratePurchase } from '../ui/purchaseCelebration';
+import StateNotice from '../ui/StateNotice';
 import { createCheckout, loadTournamentCatalog, verifyCheckout, type PaymentMode } from '../tournaments/client';
 import { PREMIUM_3D_ENTITLEMENT_KEY } from './access';
 
@@ -8,6 +9,7 @@ const PremiumBoard3D = lazy(() => import('./PremiumBoard3D'));
 
 type Props = { onBack: () => void };
 type GateState = 'checking' | 'locked' | 'verified' | 'open';
+type GateNotice = 'default' | 'cancelled' | 'verify-error' | 'checkout-error';
 
 function money(cents: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
@@ -20,6 +22,7 @@ export default function Premium3DGate({ onBack }: Props) {
   const [paymentConfigured, setPaymentConfigured] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Checking your Premium 3D access…');
+  const [notice, setNotice] = useState<GateNotice>('default');
 
   useEffect(() => {
     let active = true;
@@ -52,36 +55,39 @@ export default function Premium3DGate({ onBack }: Props) {
     if (checkout === 'cancel' && kind === 'premium3d') {
       cleanUrl();
       setState('locked');
-      setMessage('Checkout was cancelled. Your normal 2D chess remains available.');
+      setNotice('cancelled');
+      setMessage('No purchase was completed. Premium 3D remains locked, and your normal 2D chess is unchanged.');
       return () => { active = false; };
     }
 
     if (!sessionId || !multiplayerConfigured) {
       setState('locked');
+      setNotice('default');
       setMessage(multiplayerConfigured ? 'Premium 3D is a one-time $4.99 unlock.' : 'Premium checkout is unavailable until the QQURZ payment backend is connected.');
       return () => { active = false; };
     }
 
     setState('checking');
+    setNotice('default');
     setMessage(returnedSession ? 'Verifying your purchase securely…' : 'Checking your saved Premium 3D purchase…');
     verifyCheckout(sessionId)
       .then(result => {
         if (!active) return;
-        if (!result.paid || result.kind !== 'premium3d' || result.itemId !== '3d-pass') {
-          throw new Error('This checkout does not include the Premium 3D pass.');
-        }
+        if (!result.paid || result.kind !== 'premium3d' || result.itemId !== '3d-pass') throw new Error('invalid-entitlement');
         window.localStorage.setItem(PREMIUM_3D_ENTITLEMENT_KEY, sessionId);
         window.localStorage.removeItem('qqurz:3d-pass');
         if (returnedSession) cleanUrl();
         setState('verified');
+        setNotice('default');
         setMessage(returnedSession ? 'Purchase verified. Premium 3D is ready.' : 'Premium 3D purchase verified.');
       })
-      .catch(error => {
+      .catch(() => {
         if (!active) return;
         window.localStorage.removeItem(PREMIUM_3D_ENTITLEMENT_KEY);
         if (returnedSession) cleanUrl();
         setState('locked');
-        setMessage(error instanceof Error ? error.message : 'Could not verify Premium 3D access.');
+        setNotice('verify-error');
+        setMessage('Premium 3D access could not be verified. No new unlock was recorded. You can retry checkout when the payment service is available.');
       });
 
     return () => { active = false; };
@@ -91,12 +97,14 @@ export default function Premium3DGate({ onBack }: Props) {
 
   const purchase = async () => {
     setBusy(true);
+    setNotice('default');
     setMessage('Opening secure checkout…');
     try {
       const url = await createCheckout('3d-pass', 'premium3d');
       window.location.assign(url);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not start checkout.');
+    } catch {
+      setNotice('checkout-error');
+      setMessage('Checkout could not be opened. No purchase was started, and Premium 3D remains locked.');
       setBusy(false);
     }
   };
@@ -145,9 +153,19 @@ export default function Premium3DGate({ onBack }: Props) {
           </button>
         )}
 
-        <div className={`premium-gate-status ${state}`} role="status" aria-live="polite">
-          <b>{modeLabel}</b><span>{message}</span>
-        </div>
+        {(notice === 'cancelled' || notice === 'verify-error' || notice === 'checkout-error') ? (
+          <StateNotice
+            className="compact"
+            tone={notice === 'cancelled' ? 'neutral' : 'warning'}
+            icon={notice === 'cancelled' ? '×' : '!'}
+            eyebrow="PREMIUM 3D"
+            title={notice === 'cancelled' ? 'Payment cancelled' : notice === 'checkout-error' ? 'Checkout didn’t open' : 'Purchase verification unavailable'}
+            body={<p>{message}</p>}
+            actions={notice === 'cancelled' ? [{ label: 'Back to free chess', onClick: onBack }] : [{ label: 'Retry checkout', onClick: () => void purchase(), primary: true }, { label: 'Back to free chess', onClick: onBack }]}
+          />
+        ) : (
+          <div className={`premium-gate-status ${state}`} role="status" aria-live="polite"><b>{modeLabel}</b><span>{message}</span></div>
+        )}
       </section>
     </div>
   );
