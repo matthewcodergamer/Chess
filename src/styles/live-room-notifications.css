@@ -1,0 +1,7 @@
+/*
+ * A live room already renders connection, reconnect and opponent-presence state
+ * inline beside the board. Fixed notification toasts would duplicate that state
+ * and can cover clocks or game controls on a phone, so keep the live room clear.
+ * The notification inbox remains available from its normal control.
+ */
+body:has(.online-room-shell) .notification-toast-stack{display:none}
