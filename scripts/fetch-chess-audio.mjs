@@ -13,6 +13,7 @@ const assets = [
   { filename: 'check.mp3', url: 'https://opengameart.org/sites/default/files/click_sound_2.mp3', minBytes: 7_000, kind: 'mp3' },
   { filename: 'game-start.mp3', url: 'https://opengameart.org/sites/default/files/click_sound_5.mp3', minBytes: 5_000, kind: 'mp3' },
   { filename: 'clock.mp3', url: 'https://opengameart.org/sites/default/files/click_sound.mp3', minBytes: 7_000, kind: 'mp3' },
+  { filename: 'coin.mp3', url: 'https://opengameart.org/sites/default/files/coin_drop_0.mp3', minBytes: 30_000, kind: 'mp3' },
   { filename: 'capture.wav', url: 'https://opengameart.org/sites/default/files/lightclunk1.wav', minBytes: 20_000, kind: 'wav' },
   { filename: 'game-end.wav', url: 'https://opengameart.org/sites/default/files/lightclunk2.wav', minBytes: 18_000, kind: 'wav' },
 ];
