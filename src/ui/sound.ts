@@ -1,5 +1,6 @@
-export type ChessSound = 'move' | 'capture' | 'check' | 'castle' | 'game-start' | 'game-end' | 'clock' | 'coin' | 'error';
-export type ChessSoundOptions = { haptic?: boolean };
+export type ChessSound = 'move' | 'capture' | 'check' | 'castle' | 'game-start' | 'game-end' | 'clock' | 'coin' | 'error'
+  | 'start' | 'win' | 'slap';
+export type ChessSoundOptions = { haptic?: boolean; sound?: boolean };
 
 const SOUND_KEY = 'qqurz:sound-enabled';
 const HAPTICS_KEY = 'qqurz:haptics-enabled';
@@ -7,17 +8,24 @@ const FEEDBACK_KEY = 'qqurz:feedback-enabled';
 const AUDIO_BASE = `${import.meta.env.BASE_URL ?? '/'}sounds/chess/`;
 
 const SAMPLE = {
-  move: { file: 'move.mp3', volume: .26 },
-  capture: { file: 'capture.wav', volume: .31 },
-  check: { file: 'check.mp3', volume: .25 },
-  'game-start': { file: 'game-start.mp3', volume: .25 },
-  'game-end': { file: 'game-end.wav', volume: .28 },
-  clock: { file: 'clock.mp3', volume: .38 },
-  coin: { file: 'coin.mp3', volume: .24 },
+  move: { file: 'move.mp3', volume: .26, rate: 1 },
+  capture: { file: 'capture.wav', volume: .31, rate: .96 },
+  check: { file: 'check.mp3', volume: .25, rate: 1.02 },
+  'game-start': { file: 'game-start.mp3', volume: .25, rate: .98 },
+  'game-end': { file: 'game-end.wav', volume: .28, rate: .94 },
+  clock: { file: 'clock.mp3', volume: .38, rate: .92 },
+  coin: { file: 'coin.mp3', volume: .24, rate: 1 },
 } as const;
 
 type RecordedSound = keyof typeof SAMPLE;
 const prototypes = new Map<RecordedSound, HTMLAudioElement>();
+
+function normalizedKind(kind: ChessSound): Exclude<ChessSound, 'start' | 'win' | 'slap'> {
+  if (kind === 'start') return 'game-start';
+  if (kind === 'win') return 'game-end';
+  if (kind === 'slap') return 'clock';
+  return kind;
+}
 
 function sample(kind: RecordedSound): HTMLAudioElement | null {
   if (typeof Audio === 'undefined') return null;
@@ -28,6 +36,7 @@ function sample(kind: RecordedSound): HTMLAudioElement | null {
     const audio = new Audio(`${AUDIO_BASE}${meta.file}`);
     audio.preload = 'auto';
     audio.volume = meta.volume;
+    audio.playbackRate = meta.rate;
     prototypes.set(kind, audio);
     return audio;
   } catch { return null; }
@@ -40,7 +49,9 @@ function playRecorded(kind: RecordedSound, delayMs = 0): void {
     if (!prototype) return;
     try {
       const audio = prototype.cloneNode(true) as HTMLAudioElement;
-      audio.volume = SAMPLE[kind].volume;
+      const meta = SAMPLE[kind];
+      audio.volume = meta.volume;
+      audio.playbackRate = meta.rate;
       audio.currentTime = 0;
       const playback = audio.play();
       if (playback) void playback.catch(() => undefined);
@@ -95,7 +106,7 @@ function haptic(pattern: VibratePattern): void {
   try { navigator.vibrate(pattern); } catch { /* unsupported */ }
 }
 
-function playChessHaptic(kind: ChessSound): void {
+function playChessHaptic(kind: Exclude<ChessSound, 'start' | 'win' | 'slap'>): void {
   switch (kind) {
     case 'move': haptic(5); break;
     case 'capture': haptic(9); break;
@@ -127,18 +138,19 @@ export function chessSoundForSan(san: string): ChessSound {
  */
 export function playChessSound(kind: ChessSound, options: ChessSoundOptions = {}): void {
   if (!feedbackEnabled()) return;
-  if (options.haptic) playChessHaptic(kind);
-  if (!soundEnabled() || kind === 'error') return;
+  const normalized = normalizedKind(kind);
+  if (options.haptic) playChessHaptic(normalized);
+  if (options.sound === false || !soundEnabled() || normalized === 'error') return;
 
-  if (kind === 'castle') {
+  if (normalized === 'castle') {
     // King then rook: two quiet recorded board-contact sounds, no success jingle.
     playRecorded('move');
     playRecorded('move', 72);
     return;
   }
 
-  if (kind === 'move' || kind === 'capture' || kind === 'check' || kind === 'game-start'
-    || kind === 'game-end' || kind === 'clock' || kind === 'coin') {
-    playRecorded(kind);
+  if (normalized === 'move' || normalized === 'capture' || normalized === 'check' || normalized === 'game-start'
+    || normalized === 'game-end' || normalized === 'clock' || normalized === 'coin') {
+    playRecorded(normalized);
   }
 }
