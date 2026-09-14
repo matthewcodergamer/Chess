@@ -33,6 +33,10 @@ input,select,textarea,[contenteditable='true']{scroll-margin-block-start:calc(va
 :root[data-font-scale='extra'] .social-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
 :root[data-font-scale='large'] .detail-tabs-v22,
 :root[data-font-scale='extra'] .detail-tabs-v22{grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));overflow-x:hidden}
+/* At the largest text setting, preserving screen space is more important than
+   keeping navigation pinned. Let the header scroll away so enlarged controls
+   can never be trapped underneath a sticky layer. */
+:root[data-font-scale='extra'] .chess-topbar{position:relative;top:auto}
 
 :root[data-reduced-motion='true']{scroll-behavior:auto}
 :root[data-reduced-motion='true'] .qqurz-product-system *,
