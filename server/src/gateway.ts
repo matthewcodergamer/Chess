@@ -6,33 +6,30 @@ import { handleSpectatorRoomRequest, type SpectatorRoomEnv } from './spectatorRo
 import { handleTournamentViewingRequest, type TournamentViewingEnv } from './tournamentViewing';
 import { handleTournamentEngineRequest, type TournamentEngineEnv } from './tournamentEngineApi';
 import { handleMoneyRoomRequest } from './moneyRoomApi';
-import { handlePaymentRequest, type PaymentsEnv } from './paymentApi';
+import type { PaymentsEnv } from './paymentApi';
 import { handlePaymentComplianceWebhook } from './paymentCompliance';
 import { handleIntegrityAdminRequest, type IntegrityEnv } from './integrityReview';
 import {
-  FairPlayIntegrityRegistry as IntegrityReviewRegistry,
   handleFairPlayAdminRequest,
   handleFairPlayRequest,
   requireFairPlayForCompetitiveRequest,
 } from './fairPlay';
 import { handleFairPlayRoomActionRequest } from './fairPlayRoomApi';
-import {
-  NotifyingChessRoom as ChessRoom,
-  NotifyingPaymentLedger as PaymentLedger,
-  NotifyingTournamentRegistry as TournamentRegistry,
-  handleNotificationRequest,
-  type NotificationEnv,
-} from './notifications';
-import {
-  WebPushNotificationRegistry as NotificationRegistry,
-  handleWebPushRequest,
-  type WebPushEnv,
-} from './webPush';
-import { SocialAccountRegistry as AccountRegistry, handleSocialRequest } from './social';
+import { handleNotificationRequest, type NotificationEnv } from './notifications';
+import { handleWebPushRequest, type WebPushEnv } from './webPush';
+import { handleSocialRequest } from './social';
+import { DataRegistry, type DataModelEnv } from './data/registry';
+import { CanonicalAccountRegistry as AccountRegistry } from './data/accountProjection';
+import { CanonicalChessRoom as ChessRoom } from './data/gameProjection';
+import { CanonicalTournamentRegistry as TournamentRegistry } from './data/tournamentProjection';
+import { CanonicalPaymentLedger as PaymentLedger } from './data/paymentProjection';
+import { CanonicalNotificationRegistry as NotificationRegistry } from './data/notificationProjection';
+import { CanonicalIntegrityReviewRegistry as IntegrityReviewRegistry } from './data/moderationProjection';
+import { handleCanonicalPaymentRequest } from './data/paymentApiProjection';
 
-export { AccountRegistry, ChessRoom, IntegrityReviewRegistry, Matchmaker, NotificationRegistry, PaymentLedger, TournamentRegistry };
+export { AccountRegistry, ChessRoom, DataRegistry, IntegrityReviewRegistry, Matchmaker, NotificationRegistry, PaymentLedger, TournamentRegistry };
 
-type Env = MatchmakerEnv & AccountEnv & NotificationEnv & WebPushEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & {
+type Env = MatchmakerEnv & AccountEnv & NotificationEnv & WebPushEnv & SpectatorRoomEnv & TournamentViewingEnv & TournamentEngineEnv & PaymentsEnv & IntegrityEnv & DataModelEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   TOURNAMENTS?: DurableObjectNamespace<TournamentRegistry>;
   PAYMENTS: DurableObjectNamespace<PaymentLedger>;
@@ -84,7 +81,7 @@ export default {
     const complianceResponse = await handlePaymentComplianceWebhook(request, env);
     if (complianceResponse) return withCors(request, complianceResponse, env);
 
-    const paymentResponse = await handlePaymentRequest(request, env);
+    const paymentResponse = await handleCanonicalPaymentRequest(request, env);
     if (paymentResponse) return withCors(request, paymentResponse, env);
 
     const accountResponse = await handleAccountRequest(request, env);
