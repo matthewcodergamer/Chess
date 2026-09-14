@@ -9,9 +9,11 @@ import NotificationCenter from './notifications/NotificationCenter';
 import SocialCenter from './social/SocialCenter';
 import { applyAccessibilityPreferences, loadAccessibilityPreferences } from './accessibility/preferences';
 import { startPerformanceMonitoring } from './performance/performanceMonitor';
+import { installMobileViewportFocusGuard } from './ui/mobileViewport';
 import { motionTokenMs, reducedMotionPreferred } from './ui/motion';
 
 applyAccessibilityPreferences(loadAccessibilityPreferences());
+installMobileViewportFocusGuard();
 startPerformanceMonitoring();
 
 createRoot(document.getElementById('root')!).render(
