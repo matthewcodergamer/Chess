@@ -72,7 +72,7 @@ test('threefold repetition and fifty-move rule are detected', () => {
     winner: null,
   });
 
-  const fiftyMove = parseChess960Fen('8/8/8/8/8/8/R6k/K7 w - - 100 51');
+  const fiftyMove = parseChess960Fen('8/8/8/8/8/R7/7k/K7 w - - 100 51');
   assert.deepEqual(adjudicateChess(fiftyMove, [chessPositionKey(fiftyMove)]), {
     kind: 'DRAW',
     text: 'Draw by fifty-move rule',
