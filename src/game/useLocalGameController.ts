@@ -11,7 +11,7 @@ import { adjudicateChess, appendPositionHistory, chessPositionKey } from '../../
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './chess960';
 import { useGameSession } from './useGameSession';
-import { playChessSound } from '../ui/sound';
+import { chessSoundForSan, playChessSound } from '../ui/sound';
 
 export type LocalGameMode = 'human' | 'ai';
 export type LocalDifficulty = 'easy' | 'hard' | 'crazy';
@@ -103,6 +103,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     incrementMs: DEFAULT_LOCAL_TIME_CONTROL.incrementMs,
     connectionStatus: 'LOCAL',
   });
+  const previousSessionState = useRef(session.state);
 
   const [mode, setMode] = useState<LocalGameMode>(initialMode);
   const [orientation, setOrientation] = useState<Color>('white');
@@ -182,15 +183,11 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     const pos = position.current;
     if (!pos || !canColorMove(session, pos.turn) || !pos.isLegal(move)) return false;
     const movingColor = pos.turn;
-    const fromSquare = parseSquare(orig);
-    const toSquare = parseSquare(dest);
-    const movingPiece = fromSquare === undefined ? undefined : pos.board.get(fromSquare);
-    const capturedPiece = toSquare === undefined ? undefined : pos.board.get(toSquare);
-    const isCapture = Boolean(capturedPiece) || Boolean(movingPiece?.role === 'pawn' && orig[0] !== dest[0]);
     const san = makeSan(pos, move);
     pos.play(move);
     positionHistory.current = appendPositionHistory(positionHistory.current, pos);
-    playChessSound(isCapture ? 'capture' : 'move');
+    const localMove = mode === 'human' || humanColor === movingColor;
+    playChessSound(chessSoundForSan(san), { haptic: localMove });
     dispatchSession({
       type: 'MOVE_COMMITTED',
       fen: makeFen(pos.toSetup()),
@@ -207,7 +204,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
       engine.current?.cancelSearch();
     }
     return true;
-  }, [dispatchSession, session]);
+  }, [dispatchSession, humanColor, mode, session]);
 
   const boardMove = useCallback((orig: Key, dest: Key) => {
     const pos = position.current;
@@ -263,6 +260,12 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
   }, [dispatchSession, fastForward, session.countdownMs, session.state]);
 
   useEffect(() => {
+    const previous = previousSessionState.current;
+    if (previous !== 'ACTIVE' && session.state === 'ACTIVE') playChessSound('game-start', { haptic: true });
+    previousSessionState.current = session.state;
+  }, [session.state]);
+
+  useEffect(() => {
     if (session.state !== 'ACTIVE' || !activeColor) return;
     if (mode === 'ai' && activeColor === aiColor && engineStatus === 'loading') return;
     let previous = performance.now();
@@ -279,7 +282,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     if (!session.resultKind || terminalSoundPlayed.current) return;
     terminalSoundPlayed.current = true;
     engine.current?.cancelSearch();
-    playChessSound('win');
+    playChessSound('game-end', { haptic: true });
   }, [session.resultKind]);
 
   useEffect(() => {
@@ -326,7 +329,6 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     dispatchSession({ type: 'SET_COUNTDOWN', remainingMs: 0 });
     dispatchSession({ type: 'TRANSITION', to: 'ACTIVE' });
     setFastForward(false);
-    playChessSound('start');
   }, [dispatchSession, session.state]);
 
   const slapClock = useCallback(() => {
