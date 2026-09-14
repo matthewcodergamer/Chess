@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "check:architecture": "node ../scripts/check-server-modules.mjs",
-    "check": "npm run check:architecture && tsc --noEmit"
+    "check:operations": "node ../scripts/check-admin-operations.mjs",
+    "check": "npm run check:architecture && npm run check:operations && tsc --noEmit"
   },
   "dependencies": {
     "@echecs/round-robin": "4.1.0",
