@@ -9,8 +9,8 @@ const tokensPath = path.join(stylesDir, 'tokens.css');
 
 const requiredModules = [
   'tokens.css', 'typography.css', 'buttons.css', 'navigation.css', 'home.css',
-  'board.css', 'game.css', 'match.css', 'tournaments.css', 'dialogs.css', 'forms.css',
-  'payments.css', 'profile.css', 'onboarding.css', 'animations.css', 'responsive.css',
+  'board.css', 'game.css', 'match.css', 'dialogs.css', 'forms.css',
+  'payments.css', 'profile.css', 'onboarding.css', 'brand.css', 'animations.css', 'responsive.css',
 ];
 
 const requiredTokens = [
@@ -116,4 +116,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`QQURZ design system OK: ${requiredModules.length} modules, strict tokens, centralized responsive rules.`);
+console.log(`QQURZ design system OK: ${requiredModules.length} required modules, strict tokens, centralized responsive rules.`);
