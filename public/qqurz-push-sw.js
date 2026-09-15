@@ -9,8 +9,8 @@ self.addEventListener('push', event => {
   const options = {
     body,
     tag: typeof payload.tag === 'string' ? payload.tag : undefined,
-    icon: typeof payload.icon === 'string' ? payload.icon : './favicon.svg',
-    badge: typeof payload.badge === 'string' ? payload.badge : './favicon.svg',
+    icon: typeof payload.icon === 'string' ? payload.icon : './brand/qqurz-app-icon.svg',
+    badge: typeof payload.badge === 'string' ? payload.badge : './brand/qqurz-app-icon.svg',
     data,
     renotify: false,
   };
