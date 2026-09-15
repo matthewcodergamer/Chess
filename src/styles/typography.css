@@ -5,13 +5,6 @@ h1,h2,h3,p{margin-top:0}
 .wordmark-copy b{font-family:var(--chess-display);font-size:var(--q-type-action-lg);letter-spacing:-.035em}
 .wordmark-copy small{margin-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-caption);font-weight:720;letter-spacing:var(--q-tracking-label);text-transform:uppercase}
 .qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:850;letter-spacing:.12em;text-transform:uppercase}
-.page-heading-v14 h1,.tournament-title-v22 h1{margin:var(--q-space-12) 0 var(--q-space-12);font-size:var(--q-type-display-page);line-height:.94}
-.page-heading-v14 p,.tournament-title-v22 p{max-width:720px;margin:0;color:var(--q-muted);font-size:var(--q-type-body-lg);line-height:var(--q-leading-copy)}
-.chess-hero-copy h1{margin:var(--q-space-16) 0 var(--q-space-24);font-size:var(--q-type-display-hero);line-height:.84;letter-spacing:-.06em}
-.chess-hero-copy h1 em{font-style:normal;font-weight:800;color:var(--q-action-strong)}
-.chess-hero-copy p{max-width:620px;margin:0;color:var(--q-muted);font-size:var(--q-type-body-lg);line-height:var(--q-leading-copy)}
-.section-title-v24>span{color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:850;letter-spacing:.14em}
-.section-title-v24 h2{margin:0;font-size:clamp(var(--q-type-title),5vw,var(--q-type-title-lg))}
 .board-player-bar>strong,.online-clock-row strong,.qqurz-clock-lcd strong,.strategy-overlay>div>strong{font-variant-numeric:tabular-nums}
 code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace}
 .text-back{font-size:var(--q-type-label);font-weight:720}
