@@ -1,5 +1,5 @@
 /* QQURZ brand marks and identity treatment. Product screens consume this shared language instead of inventing their own chess logo. */
-.wordmark-mark{width:var(--q-control-sm);height:var(--q-control-sm);flex:0 0 var(--q-control-sm);display:block;object-fit:contain;filter:drop-shadow(0 3px 8px rgba(0,0,0,.16))}
+.wordmark-mark{width:var(--q-control-sm);height:var(--q-control-sm);flex:0 0 var(--q-control-sm);display:block;object-fit:contain;filter:drop-shadow(0 3px 8px color-mix(in srgb,var(--q-ink-inverse) 16%,transparent))}
 .onboarding-brand>span,.account-auth-mark{overflow:hidden;background:transparent;color:transparent;box-shadow:none;font-size:0;background-image:url('/brand/qqurz-app-icon.svg');background-repeat:no-repeat;background-position:center;background-size:cover;border-radius:var(--q-radius-md)}
 .wordmark-copy b{font-family:var(--q-font-display);font-weight:850;letter-spacing:-.03em}
 .onboarding-brand b{font-family:var(--q-font-display);font-weight:850;letter-spacing:-.03em}
