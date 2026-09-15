@@ -1,0 +1,74 @@
+name: QQURZ one-time board gradient ownership migration
+
+on:
+  push:
+    branches:
+      - feature/design-consistency-pass
+    paths:
+      - .qqurz-one-time-board-gradient-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/design-consistency-pass
+          fetch-depth: 0
+
+      - name: Skip after cleanup marker is removed
+        shell: bash
+        run: |
+          if [ ! -f .qqurz-one-time-board-gradient-cleanup ]; then
+            echo "Cleanup marker has been removed; nothing to do."
+            exit 0
+          fi
+
+      - name: Move board preview gradients to board system
+        shell: python
+        run: |
+          from pathlib import Path
+
+          onboarding = Path('src/styles/onboarding.css')
+          board = Path('src/styles/board.css')
+          source = onboarding.read_text()
+
+          rules = [
+            '.board-mount cg-board{background-color:var(--q-board-dark)!important;background-image:conic-gradient(from 90deg,var(--q-board-dark) 0 25%,var(--q-board-light) 0 50%,var(--q-board-dark) 0 75%,var(--q-board-light) 0)!important;background-size:25% 25%!important}',
+            '.onboarding-board-preview.board-walnut{background:conic-gradient(from 90deg,var(--q-board-walnut-dark) 0 25%,var(--q-board-walnut-light) 0 50%,var(--q-board-walnut-dark) 0 75%,var(--q-board-walnut-light) 0)}',
+            '.onboarding-board-preview.board-tournament{background:conic-gradient(from 90deg,var(--q-board-tournament-dark) 0 25%,var(--q-board-tournament-light) 0 50%,var(--q-board-tournament-dark) 0 75%,var(--q-board-tournament-light) 0)}',
+            '.onboarding-board-preview.board-slate{background:conic-gradient(from 90deg,var(--q-board-slate-dark) 0 25%,var(--q-board-slate-light) 0 50%,var(--q-board-slate-dark) 0 75%,var(--q-board-slate-light) 0)}',
+          ]
+
+          for rule in rules:
+            if rule not in source:
+              raise SystemExit(f'Expected board rule missing from onboarding.css: {rule[:72]}')
+            source = source.replace(rule, '')
+          onboarding.write_text(source)
+
+          board_text = board.read_text().rstrip()
+          marker = '/* Onboarding board swatches use the canonical board palette and gradient ownership. */'
+          if marker not in board_text:
+            board_text += '\n\n' + marker + '\n' + '\n'.join(rules) + '\n'
+            board.write_text(board_text)
+
+      - name: Verify ownership
+        shell: bash
+        run: |
+          if grep -E '(linear|radial|conic)-gradient\(' src/styles/onboarding.css; then
+            echo 'onboarding.css still owns a gradient.' >&2
+            exit 1
+          fi
+          grep -F 'onboarding-board-preview.board-tournament' src/styles/board.css >/dev/null
+
+      - name: Commit board style ownership
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/styles/onboarding.css src/styles/board.css
+          git commit -m 'Move onboarding board gradients into board system'
+          git push origin HEAD:feature/design-consistency-pass
