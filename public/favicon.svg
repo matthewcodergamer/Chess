@@ -1,8 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QQURZ green chess pawn">
-  <rect width="512" height="512" rx="116" fill="#101713"/>
-  <circle cx="256" cy="145" r="67" fill="#69DAB0"/>
-  <path fill="#69DAB0" d="M190 219c10-20 31-32 66-32s56 12 66 32c7 15 5 31-5 45l-25 35c-7 10-10 21-9 33h-54c1-12-2-23-9-33l-25-35c-10-14-12-30-5-45Z"/>
-  <path fill="#69DAB0" d="M176 324h160c13 0 24 11 24 24v9c0 12-9 22-21 24l-166 0c-12-2-21-12-21-24v-9c0-13 11-24 24-24Z"/>
-  <path fill="#69DAB0" d="M143 379h226c16 0 29 13 29 29v10c0 16-13 29-29 29H143c-16 0-29-13-29-29v-10c0-16 13-29 29-29Z"/>
-  <path fill="#9AE8CA" opacity=".42" d="M214 111c13-20 31-30 54-30 22 0 40 10 52 28-21-12-40-16-59-12-17 3-32 8-47 14Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QQURZ Chess app icon">
+  <defs>
+    <linearGradient id="bg" x1="82" y1="52" x2="430" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#222a20"/>
+      <stop offset="1" stop-color="#10140f"/>
+    </linearGradient>
+    <linearGradient id="piece" x1="190" y1="105" x2="329" y2="421" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a9dd72"/>
+      <stop offset=".5" stop-color="#7fba4a"/>
+      <stop offset="1" stop-color="#5f9237"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <path d="M90 351 256 288l166 63-166 78L90 351Z" fill="#f4f6f1" opacity=".055"/>
+  <path d="m90 351 82-31 84 35-84 38-82-42Zm166 4 84-35 82 31-82 42-84-38Z" fill="#7fba4a" opacity=".08"/>
+  <circle cx="256" cy="145" r="57" fill="url(#piece)"/>
+  <path d="M223 111c12-16 29-24 49-24 16 0 30 5 42 16-19-6-39-6-58 1-12 4-23 10-33 18Z" fill="#e8f5dc" opacity=".45"/>
+  <path d="M198 220c0-20 16-36 36-36h44c20 0 36 16 36 36 0 10-4 19-11 26l-22 24c-12 13-18 31-17 49h-16c1-18-5-36-17-49l-22-24a36 36 0 0 1-11-26Z" fill="url(#piece)"/>
+  <rect x="185" y="303" width="142" height="48" rx="24" fill="url(#piece)"/>
+  <path d="M165 350h182c11 0 20 9 20 20v6c0 12-8 22-20 24l-182 0c-12-2-20-12-20-24v-6c0-11 9-20 20-20Z" fill="url(#piece)"/>
+  <rect x="128" y="394" width="256" height="58" rx="29" fill="url(#piece)"/>
+  <path d="M160 407h192" stroke="#dff1cf" stroke-width="7" stroke-linecap="round" opacity=".18"/>
 </svg>
