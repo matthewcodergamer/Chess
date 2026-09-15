@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="QQURZ Chess mark">
+  <defs>
+    <linearGradient id="green" x1="98" y1="34" x2="160" y2="222" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a7d96f"/>
+      <stop offset=".52" stop-color="#79b64c"/>
+      <stop offset="1" stop-color="#527f33"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="91" y1="126" x2="172" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6ea844"/>
+      <stop offset="1" stop-color="#416928"/>
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="62" r="34" fill="url(#green)"/>
+  <path d="M106 47c8-11 18-16 31-16 9 0 17 3 25 8-15-3-28 0-40 8-6 4-11 9-15 15Z" fill="#eef8e5" opacity=".34"/>
+  <path d="M94 109c0-11 9-20 20-20h28c11 0 20 9 20 20 0 9-5 16-13 20l-10 5c-8 4-13 12-13 21v10h-1v-10c0-9-5-17-13-21l-10-5c-8-4-13-11-13-20Z" fill="url(#green)"/>
+  <path d="M104 133c14 7 23 20 27 35 4-15 13-28 27-35-9 12-13 26-12 42h-28c1-16-3-30-14-42Z" fill="url(#shade)" opacity=".88"/>
+  <rect x="84" y="164" width="88" height="28" rx="14" fill="url(#green)"/>
+  <path d="M72 190h112c8 0 14 6 14 14v2c0 8-6 14-14 16H72c-8-2-14-8-14-16v-2c0-8 6-14 14-14Z" fill="url(#shade)"/>
+  <rect x="50" y="216" width="156" height="32" rx="16" fill="url(#green)"/>
+</svg>
