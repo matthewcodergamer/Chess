@@ -3,6 +3,7 @@ import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl
 import TimeControlPicker from '../ui/TimeControlPicker';
 import StateNotice from '../ui/StateNotice';
 import { IconButton, PrimaryButton, SecondaryButton } from '../ui/controls';
+import { UiIcon } from '../ui/icons';
 import {
   cancelMatch,
   enqueueMatch,
@@ -145,7 +146,7 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
   return (
     <section className="qqurz-matchmaking-page" aria-label="Find a public Chess960 opponent">
       <div className="matchmaking-card">
-        <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
+        <IconButton onClick={onBack} aria-label="Back to home"><UiIcon name="back" /></IconButton>
         <div className="matchmaking-presence"><span className="presence-dot" /> <b>{onlinePlayers ?? '—'}</b> players online</div>
         <span className="matchmaking-eyebrow">PUBLIC MATCHMAKING</span>
         <h1>Find the right game.</h1>
@@ -220,13 +221,13 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         )}
 
         {opponent && <p className="matchmaking-found">Matched with {opponent}{latest?.opponentRating ? ` · ${Math.round(latest.opponentRating)}` : ''}.</p>}
-        {message && <StateNotice className="compact" tone="warning" icon="↻" title="Matchmaking stopped" body={<p>{message}</p>} actions={[{ label: 'Try again', onClick: () => void start(), primary: true }]} />}
+        {message && <StateNotice className="compact" tone="warning" icon={<UiIcon name="retry" />} title="Matchmaking stopped" body={<p>{message}</p>} actions={[{ label: 'Try again', onClick: () => void start(), primary: true }]} />}
         {!multiplayerConfigured && <StateNotice className="compact" tone="warning" icon="!" title="Live matchmaking isn’t connected" body={<p>This build does not have a realtime server configured. Local human and AI chess still work.</p>} actions={[{ label: 'Back to local modes', onClick: onBack }]} />}
         {multiplayerConfigured && !ticket && !message && onlinePlayers !== null && onlinePlayers <= 1 && <StateNotice className="compact" tone="neutral" icon="♙" title="The pool is quiet right now" body={<p>You can still search. QQURZ will gradually widen the rating range while it waits for another compatible player.</p>} live="off" />}
 
         <div className="matchmaking-rules">
           <span><i>960</i><b>Variant + time matched</b></span>
-          <span><i>↗</i><b>Rating range expands</b></span>
+          <span><i><UiIcon name="external" /></i><b>Rating range expands</b></span>
           <span><i>✓</i><b>Server picks & records</b></span>
         </div>
       </div>
