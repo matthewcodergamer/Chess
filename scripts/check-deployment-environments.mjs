@@ -52,10 +52,12 @@ const migrations = read('server/src/data/migrations.ts');
 if (!/LATEST_DATA_SCHEMA_VERSION\s*=\s*\d+/.test(migrations)) fail('ordered data schema version is missing.');
 if (!migrations.includes('ensureProductionDataSchema')) fail('production schema migration entry point is missing.');
 
-const payments = read('server/src/modules/payments/index.ts');
+const paymentEnvironment = read('server/src/paymentEnvironment.ts');
 for (const phrase of ['Test payment providers are forbidden in production.', 'Live money is forbidden outside production.']) {
-  if (!payments.includes(phrase)) fail('payment environment isolation guard is missing.');
+  if (!paymentEnvironment.includes(phrase)) fail('payment environment isolation guard is missing.');
 }
+const paymentsModule = read('server/src/modules/payments/index.ts');
+if (!paymentsModule.includes('decidePaymentEnvironment')) fail('payments module must enforce the shared payment environment policy.');
 
 const frontendWorkflow = read('.github/workflows/deploy-pages.yml');
 const apiWorkflow = read('.github/workflows/deploy-realtime.yml');
