@@ -1,11 +1,10 @@
 /*
  * QQURZ CSS architecture.
  * This is the only first-party stylesheet imported by main.tsx.
- * Ordering is deliberate: foundations -> brand -> components -> feature areas -> accessibility -> motion -> responsive.
+ * Ordering is deliberate: foundations -> components -> feature areas -> brand identity -> accessibility -> motion -> responsive.
  */
 @import './tokens.css';
 @import './typography.css';
-@import './brand.css';
 @import './buttons.css';
 @import './navigation.css';
 @import './home.css';
@@ -25,6 +24,7 @@
 @import './social.css';
 @import './profile.css';
 @import './onboarding.css';
+@import './brand.css';
 @import './skeletons.css';
 @import './states.css';
 @import './accessibility.css';
