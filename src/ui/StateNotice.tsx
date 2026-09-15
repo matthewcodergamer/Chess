@@ -51,6 +51,7 @@ export default function StateNotice({
             {actions.map(action => action.primary ? (
               <PrimaryButton
                 key={action.label}
+                type="button"
                 size="sm"
                 onClick={action.onClick}
                 disabled={action.disabled}
@@ -60,6 +61,7 @@ export default function StateNotice({
             ) : (
               <SecondaryButton
                 key={action.label}
+                type="button"
                 size="sm"
                 onClick={action.onClick}
                 disabled={action.disabled}
