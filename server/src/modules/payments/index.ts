@@ -3,6 +3,7 @@ import { handleCanonicalPaymentRequest } from '../../data/paymentApiProjection';
 import { CanonicalPaymentLedger as PaymentLedger } from '../../data/paymentProjection';
 import { recordProviderWebhook } from '../../data/operations';
 import type { DataModelEnv } from '../../data/registry';
+import { decidePaymentEnvironment } from '../../paymentEnvironment';
 import { moduleDescriptor } from '../contracts';
 
 export {
@@ -15,7 +16,12 @@ export { PaymentLedger };
 
 type PaymentApiEnv = Parameters<typeof handleCanonicalPaymentRequest>[1];
 type ComplianceEnv = Parameters<typeof handlePaymentComplianceWebhook>[1];
-export type PaymentsModuleEnv = PaymentApiEnv & ComplianceEnv & DataModelEnv;
+export type PaymentsModuleEnv = PaymentApiEnv & ComplianceEnv & DataModelEnv & {
+  DEPLOYMENT_ENV?: string;
+  PAYMENTS_MODE?: string;
+  NUVEI_ENV?: string;
+  REAL_MONEY_ENABLED?: string;
+};
 
 export const paymentsModule = moduleDescriptor('payments-ledger', [
   'payment customers and provider intents',
@@ -24,10 +30,25 @@ export const paymentsModule = moduleDescriptor('payments-ledger', [
   'payouts, withdrawals, refunds and premium entitlements',
   'KYC/compliance attestations and jurisdiction gates',
   'provider webhook outcome observability',
+  'strict development/staging/production payment isolation',
 ], ['auth', 'notifications']);
 
 function clean(value: unknown, max = 180): string {
   return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
+}
+
+function environmentPaymentGuard(request: Request, env: PaymentsModuleEnv): Response | null {
+  const decision = decidePaymentEnvironment({
+    deploymentEnv: env.DEPLOYMENT_ENV,
+    paymentsMode: env.PAYMENTS_MODE,
+    nuveiEnv: env.NUVEI_ENV,
+    realMoneyEnabled: env.REAL_MONEY_ENABLED,
+  }, new URL(request.url).pathname);
+  return decision.allowed ? null : json({ error: decision.message }, 503);
 }
 
 async function recordComplianceOutcome(raw: string, contentType: string, response: Response, env: PaymentsModuleEnv, receivedAt: number): Promise<void> {
@@ -58,6 +79,11 @@ async function recordComplianceOutcome(raw: string, contentType: string, respons
 
 export async function handlePaymentsRequest(request: Request, env: PaymentsModuleEnv): Promise<Response | null> {
   const url = new URL(request.url);
+  if (!url.pathname.startsWith('/payments/')) return null;
+
+  const guard = environmentPaymentGuard(request, env);
+  if (guard) return guard;
+
   if (url.pathname === '/payments/webhooks/compliance') {
     const receivedAt = Date.now();
     const contentType = request.headers.get('content-type') ?? '';

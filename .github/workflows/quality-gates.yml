@@ -2,7 +2,7 @@ name: QQURZ automated quality gates
 
 on:
   push:
-    branches: [main]
+    branches: [develop, staging, main]
   pull_request:
   workflow_dispatch:
 
@@ -28,6 +28,9 @@ jobs:
 
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Deployment environment architecture
+        run: npm run check:deploy
 
       - name: Unit tests
         run: npm run test:unit
@@ -142,4 +145,6 @@ jobs:
       - name: Build production app
         env:
           VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API || 'https://qqurz-chess-api.gamerstriper.workers.dev' }}
+          VITE_DEPLOYMENT_ENV: production
+          VITE_RELEASE_ID: ${{ github.sha }}
         run: npm run build

@@ -1,10 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "qqurz-chess-api",
+  "name": "qqurz-chess-api-development",
   "main": "src/gateway.ts",
   "account_id": "753e873c467138b2ff2ddf3432e7affc",
   "workers_dev": true,
-  "compatibility_date": "2026-09-07",
+  "compatibility_date": "2026-09-15",
   "durable_objects": {
     "bindings": [
       { "name": "ROOMS", "class_name": "ChessRoom" },
@@ -28,8 +28,9 @@
     "DataRegistry": { "type": "durable-object", "storage": "sqlite" }
   },
   "vars": {
-    "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,http://localhost:5173",
-    "PUBLIC_SITE_URL": "https://qqurzchess.com",
+    "DEPLOYMENT_ENV": "development",
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173,https://dev.qqurzchess.com,https://qqurz-chess-web-development.gamerstriper.workers.dev",
+    "PUBLIC_SITE_URL": "https://qqurz-chess-web-development.gamerstriper.workers.dev",
     "ACCOUNT_SCHEMA_VERSION": "2",
     "PAYMENTS_MODE": "test",
     "PREMIUM_3D_PRICE_CENTS": "499",
@@ -41,7 +42,108 @@
     "REAL_MONEY_JURISDICTIONS_JSON": "{}",
     "NUVEI_ENV": "test",
     "INTEGRITY_SIGNAL_CAPTURE": "disabled",
-    "WEB_PUSH_VAPID_SUBJECT": "https://qqurzchess.com"
+    "WEB_PUSH_VAPID_SUBJECT": "https://dev.qqurzchess.com"
+  },
+  "env": {
+    "development": {
+      "name": "qqurz-chess-api-development",
+      "workers_dev": true,
+      "durable_objects": {
+        "bindings": [
+          { "name": "ROOMS", "class_name": "ChessRoom" },
+          { "name": "TOURNAMENTS", "class_name": "TournamentRegistry" },
+          { "name": "MATCHMAKER", "class_name": "Matchmaker" },
+          { "name": "ACCOUNTS", "class_name": "AccountRegistry" },
+          { "name": "PAYMENTS", "class_name": "PaymentLedger" },
+          { "name": "INTEGRITY", "class_name": "IntegrityReviewRegistry" },
+          { "name": "NOTIFICATIONS", "class_name": "NotificationRegistry" },
+          { "name": "DATA", "class_name": "DataRegistry" }
+        ]
+      },
+      "vars": {
+        "DEPLOYMENT_ENV": "development",
+        "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173,https://dev.qqurzchess.com,https://qqurz-chess-web-development.gamerstriper.workers.dev",
+        "PUBLIC_SITE_URL": "https://qqurz-chess-web-development.gamerstriper.workers.dev",
+        "ACCOUNT_SCHEMA_VERSION": "2",
+        "PAYMENTS_MODE": "test",
+        "PREMIUM_3D_PRICE_CENTS": "499",
+        "LIVE_TOURNAMENT_PAYMENTS": "disabled",
+        "LIVE_POSITION_BIDS": "disabled",
+        "LIVE_COLOR_BIDS": "disabled",
+        "REAL_MONEY_ENABLED": "disabled",
+        "REAL_MONEY_PROVIDER": "disabled",
+        "REAL_MONEY_JURISDICTIONS_JSON": "{}",
+        "NUVEI_ENV": "test",
+        "INTEGRITY_SIGNAL_CAPTURE": "disabled",
+        "WEB_PUSH_VAPID_SUBJECT": "https://dev.qqurzchess.com"
+      }
+    },
+    "staging": {
+      "name": "qqurz-chess-api-staging",
+      "workers_dev": true,
+      "durable_objects": {
+        "bindings": [
+          { "name": "ROOMS", "class_name": "ChessRoom" },
+          { "name": "TOURNAMENTS", "class_name": "TournamentRegistry" },
+          { "name": "MATCHMAKER", "class_name": "Matchmaker" },
+          { "name": "ACCOUNTS", "class_name": "AccountRegistry" },
+          { "name": "PAYMENTS", "class_name": "PaymentLedger" },
+          { "name": "INTEGRITY", "class_name": "IntegrityReviewRegistry" },
+          { "name": "NOTIFICATIONS", "class_name": "NotificationRegistry" },
+          { "name": "DATA", "class_name": "DataRegistry" }
+        ]
+      },
+      "vars": {
+        "DEPLOYMENT_ENV": "staging",
+        "ALLOWED_ORIGINS": "https://staging.qqurzchess.com,https://qqurz-chess-web-staging.gamerstriper.workers.dev",
+        "PUBLIC_SITE_URL": "https://qqurz-chess-web-staging.gamerstriper.workers.dev",
+        "ACCOUNT_SCHEMA_VERSION": "2",
+        "PAYMENTS_MODE": "test",
+        "PREMIUM_3D_PRICE_CENTS": "499",
+        "LIVE_TOURNAMENT_PAYMENTS": "disabled",
+        "LIVE_POSITION_BIDS": "disabled",
+        "LIVE_COLOR_BIDS": "disabled",
+        "REAL_MONEY_ENABLED": "disabled",
+        "REAL_MONEY_PROVIDER": "disabled",
+        "REAL_MONEY_JURISDICTIONS_JSON": "{}",
+        "NUVEI_ENV": "test",
+        "INTEGRITY_SIGNAL_CAPTURE": "disabled",
+        "WEB_PUSH_VAPID_SUBJECT": "https://staging.qqurzchess.com"
+      }
+    },
+    "production": {
+      "name": "qqurz-chess-api",
+      "workers_dev": true,
+      "durable_objects": {
+        "bindings": [
+          { "name": "ROOMS", "class_name": "ChessRoom" },
+          { "name": "TOURNAMENTS", "class_name": "TournamentRegistry" },
+          { "name": "MATCHMAKER", "class_name": "Matchmaker" },
+          { "name": "ACCOUNTS", "class_name": "AccountRegistry" },
+          { "name": "PAYMENTS", "class_name": "PaymentLedger" },
+          { "name": "INTEGRITY", "class_name": "IntegrityReviewRegistry" },
+          { "name": "NOTIFICATIONS", "class_name": "NotificationRegistry" },
+          { "name": "DATA", "class_name": "DataRegistry" }
+        ]
+      },
+      "vars": {
+        "DEPLOYMENT_ENV": "production",
+        "ALLOWED_ORIGINS": "https://qqurzchess.com,https://www.qqurzchess.com,https://matthewcodergamer.github.io,https://qqurz-chess-web-production.gamerstriper.workers.dev",
+        "PUBLIC_SITE_URL": "https://qqurzchess.com",
+        "ACCOUNT_SCHEMA_VERSION": "2",
+        "PAYMENTS_MODE": "disabled",
+        "PREMIUM_3D_PRICE_CENTS": "499",
+        "LIVE_TOURNAMENT_PAYMENTS": "disabled",
+        "LIVE_POSITION_BIDS": "disabled",
+        "LIVE_COLOR_BIDS": "disabled",
+        "REAL_MONEY_ENABLED": "disabled",
+        "REAL_MONEY_PROVIDER": "disabled",
+        "REAL_MONEY_JURISDICTIONS_JSON": "{}",
+        "NUVEI_ENV": "disabled",
+        "INTEGRITY_SIGNAL_CAPTURE": "disabled",
+        "WEB_PUSH_VAPID_SUBJECT": "https://qqurzchess.com"
+      }
+    }
   },
   "observability": { "enabled": true }
 }
