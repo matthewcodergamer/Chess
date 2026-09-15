@@ -72,7 +72,7 @@ export default function HomeDashboard({
   }, [quickTime]);
 
   return (
-    <div className="qqurz-home-v24 home-dashboard">
+    <div className="qqurz-home home-dashboard">
       <section className="home-player-status" aria-label="Your QQURZ player status">
         <button className="home-player-identity" onClick={onProfile} aria-label={`Open ${profile.username} profile`}>
           <span className="home-player-avatar" aria-hidden="true">{profile.avatar}</span>
@@ -157,7 +157,7 @@ export default function HomeDashboard({
         <SecondaryButton size="sm" onClick={onAI}>Practice</SecondaryButton>
       </section>
 
-      <footer className="qqurz-home-footer-v24">
+      <footer className="qqurz-home-footer">
         <span>♚ QQURZ Chess</span>
         <span>Competitive Chess960</span>
       </footer>
