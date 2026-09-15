@@ -55,7 +55,7 @@ export default function TournamentLivePanel({ tournamentId, tournamentName }: Pr
 
   return (
     <div className="tournament-live-panel">
-      <div className="detail-heading-v22 tournament-live-heading">
+      <div className="detail-heading tournament-live-heading">
         <div><span className="qqurz-kicker">LIVE VIEWING</span><h2>{tournamentName}</h2></div>
         <span>{view.liveGames} live · {view.completedGames} finished</span>
       </div>

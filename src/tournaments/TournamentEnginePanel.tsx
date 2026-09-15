@@ -316,7 +316,7 @@ export default function TournamentEnginePanel({ onOpenGame }: Props) {
           </> : <div className="engine-empty"><b>Select a tournament.</b><span>Pairings, standings and assigned games will appear here.</span></div>}
         </section>
       </div>
-      {message && <div className="inline-message-v14 engine-message" role="status">{message}</div>}
+      {message && <div className="inline-message engine-message" role="status">{message}</div>}
     </div>
   );
 }

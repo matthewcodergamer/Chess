@@ -314,7 +314,7 @@ export default function TournamentMasterGrid({ onOpenGame }: Props) {
       )}
 
       {filteredEvents.length > visibleCount && <button className="master-show-more" onClick={() => setVisibleCount(current => current + PAGE_SIZE)}>Show more events</button>}
-      {message && <div className="inline-message-v14 master-grid-message" role="status">{message}</div>}
+      {message && <div className="inline-message master-grid-message" role="status">{message}</div>}
     </section>
   );
 }
