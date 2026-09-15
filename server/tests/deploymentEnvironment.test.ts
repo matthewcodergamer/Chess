@@ -1,36 +1,45 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handlePaymentsRequest } from '../src/modules/payments/index';
+import { decidePaymentEnvironment } from '../src/paymentEnvironment';
 
-function request(path: string): Request {
-  return new Request(`https://qqurz.test${path}`, { method: 'POST' });
-}
-
-function env(overrides: Record<string, unknown> = {}): any {
+function config(overrides: Record<string, string | undefined> = {}) {
   return {
-    DEPLOYMENT_ENV: 'staging',
-    PAYMENTS_MODE: 'test',
-    NUVEI_ENV: 'test',
-    REAL_MONEY_ENABLED: 'disabled',
+    deploymentEnv: 'staging',
+    paymentsMode: 'test',
+    nuveiEnv: 'test',
+    realMoneyEnabled: 'disabled',
     ...overrides,
   };
 }
 
-test('production refuses test-mode payment routes', async () => {
-  const response = await handlePaymentsRequest(request('/payments/premium/checkout'), env({ DEPLOYMENT_ENV: 'production', PAYMENTS_MODE: 'test', NUVEI_ENV: 'test' }));
-  assert.equal(response?.status, 503);
-  const body = await response?.json() as { error?: string };
-  assert.match(body.error ?? '', /disabled|forbidden/i);
+test('production refuses test-mode payment routes', () => {
+  const decision = decidePaymentEnvironment(config({ deploymentEnv: 'production', paymentsMode: 'test', nuveiEnv: 'test' }), '/payments/premium/checkout');
+  assert.equal(decision.allowed, false);
+  if (!decision.allowed) assert.match(decision.message, /disabled|forbidden/i);
 });
 
-test('staging refuses live payment mode', async () => {
-  const response = await handlePaymentsRequest(request('/payments/premium/checkout'), env({ DEPLOYMENT_ENV: 'staging', PAYMENTS_MODE: 'live' }));
-  assert.equal(response?.status, 503);
-  const body = await response?.json() as { error?: string };
-  assert.match(body.error ?? '', /forbidden/i);
+test('production baseline remains fail-closed while payments are disabled', () => {
+  const decision = decidePaymentEnvironment(config({ deploymentEnv: 'production', paymentsMode: 'disabled', nuveiEnv: 'disabled' }), '/payments/deposit');
+  assert.equal(decision.allowed, false);
 });
 
-test('development refuses real-money enablement', async () => {
-  const response = await handlePaymentsRequest(request('/payments/deposit'), env({ DEPLOYMENT_ENV: 'development', REAL_MONEY_ENABLED: 'enabled' }));
-  assert.equal(response?.status, 503);
+test('staging refuses live payment mode', () => {
+  const decision = decidePaymentEnvironment(config({ deploymentEnv: 'staging', paymentsMode: 'live' }), '/payments/premium/checkout');
+  assert.equal(decision.allowed, false);
+  if (!decision.allowed) assert.match(decision.message, /forbidden/i);
+});
+
+test('development refuses real-money enablement', () => {
+  const decision = decidePaymentEnvironment(config({ deploymentEnv: 'development', realMoneyEnabled: 'enabled' }), '/payments/deposit');
+  assert.equal(decision.allowed, false);
+});
+
+test('staging allows only configured test-mode money routes', () => {
+  const decision = decidePaymentEnvironment(config(), '/payments/premium/checkout');
+  assert.deepEqual(decision, { allowed: true });
+});
+
+test('non-money payment reads are not blocked by environment policy', () => {
+  const decision = decidePaymentEnvironment(config({ deploymentEnv: 'production', paymentsMode: 'disabled' }), '/payments/status');
+  assert.deepEqual(decision, { allowed: true });
 });
