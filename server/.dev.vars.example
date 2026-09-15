@@ -1,0 +1,18 @@
+# Copy to .dev.vars.development for local Worker development.
+# Never commit the real file or real provider credentials.
+
+# Test credentials only in development/staging.
+STRIPE_SECRET_KEY=sk_test_REPLACE_ME
+STRIPE_WEBHOOK_SECRET=whsec_REPLACE_ME
+PAYMENTS_INTENT_SECRET=replace-with-at-least-24-random-characters
+PAYMENTS_INTERNAL_SECRET=replace-with-at-least-24-random-characters
+PAYMENTS_COMPLIANCE_WEBHOOK_SECRET=replace-with-at-least-24-random-characters
+
+# Optional test-provider credentials. Leave blank until configured.
+NUVEI_MERCHANT_ID=
+NUVEI_MERCHANT_SITE_ID=
+NUVEI_SECRET_KEY=
+
+# Optional integrity/admin secrets.
+INTEGRITY_ADMIN_SECRET=
+INTEGRITY_SIGNAL_SECRET=
