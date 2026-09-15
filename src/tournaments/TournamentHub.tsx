@@ -3,6 +3,7 @@ import TournamentMasterGrid from './TournamentMasterGrid';
 import LegacyTournamentHub from './LegacyTournamentHub';
 import { TournamentEngineSkeleton } from '../ui/Skeletons';
 import StateNotice from '../ui/StateNotice';
+import { UiIcon } from '../ui/icons';
 
 const TournamentEnginePanel = lazy(() => import('./TournamentEnginePanel'));
 
@@ -34,7 +35,7 @@ export default function TournamentHub(props: Props) {
   if (surface === 'catalog') {
     return (
       <div className="tournament-center-shell">
-        {paymentCancelled && <StateNotice className="compact" tone="neutral" icon="×" eyebrow="TOURNAMENT PAYMENT" title="Payment cancelled" body={<p>No tournament purchase was completed, and no paid entry was registered from that checkout.</p>} />}
+        {paymentCancelled && <StateNotice className="compact" tone="neutral" icon={<UiIcon name="close" />} eyebrow="TOURNAMENT PAYMENT" title="Payment cancelled" body={<p>No tournament purchase was completed, and no paid entry was registered from that checkout.</p>} />}
         <div className="tournament-center-switch" role="tablist" aria-label="Tournament mode">
           <button role="tab" aria-selected={false} onClick={() => setSurface('engine')}>Tournament engine</button>
           <button role="tab" aria-selected className="active" onClick={() => setSurface('catalog')}>Preset / test catalog</button>
@@ -47,12 +48,12 @@ export default function TournamentHub(props: Props) {
   return (
     <div className="tournament-center-shell qqurz-content-page">
       <section className="tournament-engine-title">
-        <button className="text-back" onClick={props.onBack}>← Home</button>
+        <button className="text-back" onClick={props.onBack}><UiIcon name="back" /> Home</button>
         <span className="qqurz-kicker">TOURNAMENTS</span>
         <h1>Find a tournament and get in.</h1>
         <p>The availability grid is built from real server tournament records. Capacity filters help you browse; registration, check-in, pairings, results and player status stay server-authoritative.</p>
       </section>
-      {paymentCancelled && <StateNotice className="compact" tone="neutral" icon="×" eyebrow="TOURNAMENT PAYMENT" title="Payment cancelled" body={<p>No purchase was completed. QQURZ did not create a paid tournament entry from the cancelled checkout, so you can safely choose another event or leave this page.</p>} />}
+      {paymentCancelled && <StateNotice className="compact" tone="neutral" icon={<UiIcon name="close" />} eyebrow="TOURNAMENT PAYMENT" title="Payment cancelled" body={<p>No purchase was completed. QQURZ did not create a paid tournament entry from the cancelled checkout, so you can safely choose another event or leave this page.</p>} />}
       <div className="tournament-center-switch" role="tablist" aria-label="Tournament mode">
         <button role="tab" aria-selected className="active" onClick={() => setSurface('engine')}>Live tournaments</button>
         <button role="tab" aria-selected={false} onClick={() => setSurface('catalog')}>Preset / test catalog</button>
