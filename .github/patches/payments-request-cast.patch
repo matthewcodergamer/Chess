@@ -1,0 +1,13 @@
+diff --git a/server/src/modules/payments/index.ts b/server/src/modules/payments/index.ts
+index c7512a5..6191d52 100644
+--- a/server/src/modules/payments/index.ts
++++ b/server/src/modules/payments/index.ts
+@@ -120,7 +120,7 @@ export async function handlePaymentsRequest(request: Request, env: PaymentsModul
+       if (compliance) return compliance;
+     }
+     const response = await handleCanonicalPaymentRequest(request, env);
+-    if (response && providerRequest) await recordProviderOutcome(providerRequest, response, env, receivedAt).catch(() => undefined);
++    if (response && providerRequest) await recordProviderOutcome(providerRequest as unknown as Request, response, env, receivedAt).catch(() => undefined);
+     return response;
+   } catch (error) {
+     const failure = error instanceof Error ? error : new Error(String(error ?? 'Unknown payment exception'));
