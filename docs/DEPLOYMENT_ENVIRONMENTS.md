@@ -119,7 +119,7 @@ API:
 
 ```bash
 cd server
-cp .dev.vars.example .dev.vars
+cp .dev.vars.example .dev.vars.development
 npm install
 npx wrangler dev --env development
 ```
