@@ -53,6 +53,8 @@ jobs:
           git apply /tmp/error-monitoring.patch
           git apply --check .github/patches/payments-request-cast.patch
           git apply .github/patches/payments-request-cast.patch
+          git apply --check .github/patches/lazy-monitor-bootstrap.patch
+          git apply .github/patches/lazy-monitor-bootstrap.patch
           rm -rf .github/patches
           rm -f .github/workflows/apply-error-monitoring.yml
 
