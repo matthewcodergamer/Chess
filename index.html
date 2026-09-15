@@ -4,8 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="QQURZ Chess — fast Freestyle Chess960, Stockfish AI, online rooms, tournaments and optional premium 3D." />
-    <meta name="theme-color" content="#f2f5ee" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#151814" media="(prefers-color-scheme: dark)" />
+    <meta id="qqurz-theme-color" name="theme-color" content="#151814" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="QQURZ" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,12 +15,21 @@
     <title>QQURZ Chess</title>
 
     <script>
-      try {
-        const savedTheme = localStorage.getItem('qqurz:theme');
-        document.documentElement.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
-      } catch (_) {
-        document.documentElement.dataset.theme = 'dark';
-      }
+      (() => {
+        const applyThemeChrome = () => {
+          const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+          const meta = document.getElementById('qqurz-theme-color');
+          if (meta) meta.setAttribute('content', theme === 'light' ? '#f2f5ee' : '#151814');
+        };
+        try {
+          const savedTheme = localStorage.getItem('qqurz:theme');
+          document.documentElement.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+        } catch (_) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+        applyThemeChrome();
+        new MutationObserver(applyThemeChrome).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      })();
     </script>
     <style>
       #qqurz-boot {
