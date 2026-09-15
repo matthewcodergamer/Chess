@@ -51,6 +51,8 @@ jobs:
         run: |
           set -euo pipefail
           git apply /tmp/error-monitoring.patch
+          git apply --check .github/patches/payments-request-cast.patch
+          git apply .github/patches/payments-request-cast.patch
           rm -rf .github/patches
           rm -f .github/workflows/apply-error-monitoring.yml
 
