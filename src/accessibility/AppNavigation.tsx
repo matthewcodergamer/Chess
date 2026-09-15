@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
 import { IconButton } from '../ui/controls';
+import { UiIcon } from '../ui/icons';
 import { boardAppearanceLabel, type BoardAppearance } from '../onboarding/preferences';
 import { useAccessibilityPreferences } from './preferences';
 import AccessibilityPanel from './AccessibilityPanel';
@@ -106,7 +107,7 @@ export default function AppNavigation({
   return <>
     <a className="qqurz-skip-link" href="#qqurz-main-content">Skip to main content</a>
     <header className="qqurz-nav chess-topbar">
-      <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
+      <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}><UiIcon name="menu" /></IconButton>
 
       <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="QQURZ Chess home">
         <span className="wordmark-piece" aria-hidden="true">♞</span>
@@ -146,7 +147,7 @@ export default function AppNavigation({
       <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="QQURZ menu" onPointerDown={event => event.stopPropagation()}>
         <div className="drawer-head">
           <button className="qqurz-wordmark" onClick={() => run(onHome)}><span className="wordmark-piece" aria-hidden="true">♞</span><span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span></button>
-          <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
+          <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><UiIcon name="close" /></button>
         </div>
         <nav className="drawer-links" aria-label="Chess menu" onKeyDown={moveFocus}>
           <button onClick={() => run(onTournaments)} {...intent('tournaments')}><span aria-hidden="true">♛</span><div><b>Play a tournament</b><small>QQURZ competitive events</small></div></button>
@@ -161,11 +162,11 @@ export default function AppNavigation({
           <button onClick={() => run(onMatchmaking)} {...intent('matchmaking')}>Find an opponent</button>
         </div>
         <div className="drawer-settings" aria-label="Preferences and settings">
-          <button onClick={onToggleTheme}><span aria-hidden="true">◐</span><div><b>App theme</b><small>{theme === 'dark' ? 'Dark' : 'Light'}</small></div></button>
-          <button onClick={onCycleBoardAppearance}><span aria-hidden="true">▦</span><div><b>Board</b><small>{boardAppearanceLabel(boardAppearance)}</small></div></button>
-          <button onClick={() => onSoundChange(!soundOn)}><span aria-hidden="true">{soundOn ? '♪' : '×'}</span><div><b>Sound</b><small>{soundOn ? 'On' : 'Off'}</small></div></button>
+          <button onClick={onToggleTheme}><span aria-hidden="true"><UiIcon name="theme" /></span><div><b>App theme</b><small>{theme === 'dark' ? 'Dark' : 'Light'}</small></div></button>
+          <button onClick={onCycleBoardAppearance}><span aria-hidden="true"><UiIcon name="board" /></span><div><b>Board</b><small>{boardAppearanceLabel(boardAppearance)}</small></div></button>
+          <button onClick={() => onSoundChange(!soundOn)}><span aria-hidden="true"><UiIcon name={soundOn ? 'sound' : 'muted'} /></span><div><b>Sound</b><small>{soundOn ? 'On' : 'Off'}</small></div></button>
           <button onClick={cycleTextSize}><span aria-hidden="true">Aa</span><div><b>Text size</b><small>{fontScaleLabel(preferences.fontScale)}</small></div></button>
-          <button onClick={() => { setMenuOpen(false); setDisplayOpen(true); }}><span aria-hidden="true">◎</span><div><b>Accessibility</b><small>Contrast, motion, coordinates & feedback</small></div></button>
+          <button onClick={() => { setMenuOpen(false); setDisplayOpen(true); }}><span aria-hidden="true"><UiIcon name="accessibility" /></span><div><b>Accessibility</b><small>Contrast, motion, coordinates & feedback</small></div></button>
         </div>
       </aside>
     </div>}
