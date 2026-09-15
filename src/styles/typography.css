@@ -1,10 +1,11 @@
 /* Application typography. Screens choose roles; tokens own the actual sizes. */
-body,.qqurz-product-system,.qqurz-product-system button,.qqurz-product-system input,.qqurz-product-system select,.qqurz-product-system textarea{font-family:var(--chess-ui);font-size:var(--q-type-body);line-height:var(--q-leading-body);letter-spacing:var(--q-tracking-ui)}
+body,.qqurz-product-system,.qqurz-product-system button,.qqurz-product-system input,.qqurz-product-system select,.qqurz-product-system textarea{font-family:var(--q-font-ui);font-size:var(--q-type-body);line-height:var(--q-leading-body);letter-spacing:var(--q-tracking-ui)}
 h1,h2,h3,p{margin-top:0}
-.qqurz-product-system h1,.qqurz-product-system h2,.qqurz-product-system h3,.qqurz-product-system .end-title{font-family:var(--chess-ui);font-weight:800;letter-spacing:var(--q-tracking-tight)}
-.wordmark-copy b{font-family:var(--chess-display);font-size:var(--q-type-action-lg);letter-spacing:-.035em}
-.wordmark-copy small{margin-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-caption);font-weight:720;letter-spacing:var(--q-tracking-label);text-transform:uppercase}
-.qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+.qqurz-product-system h1,.qqurz-product-system h2,.qqurz-product-system h3,.qqurz-product-system .end-title{font-family:var(--q-font-display);font-weight:800;letter-spacing:var(--q-tracking-tight)}
+.qqurz-product-system h1{font-feature-settings:"kern" 1,"ss01" 1}
+.wordmark-copy b{font-family:var(--q-font-display);font-size:var(--q-type-action-lg);font-weight:850;letter-spacing:-.03em}
+.wordmark-copy small{margin-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-caption);font-weight:700;letter-spacing:var(--q-tracking-label);text-transform:uppercase}
+.qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:800;letter-spacing:.11em;text-transform:uppercase}
 .board-player-bar>strong,.online-clock-row strong,.qqurz-clock-lcd strong,.strategy-overlay>div>strong{font-variant-numeric:tabular-nums}
 code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace}
-.text-back{font-size:var(--q-type-label);font-weight:720}
+.text-back{font-size:var(--q-type-label);font-weight:700}
