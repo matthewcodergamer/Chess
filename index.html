@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="QQURZ Chess — fast Freestyle Chess960, Stockfish AI, online rooms, tournaments and optional premium 3D." />
-    <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f2f5ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#151814" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="QQURZ" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <link rel="apple-touch-icon" href="./brand/qqurz-logo.jpg" />
+    <link rel="apple-touch-icon" href="./brand/qqurz-app-icon.svg" />
+    <link rel="mask-icon" href="./brand/qqurz-app-icon.svg" color="#7fba4a" />
     <link rel="manifest" href="./site.webmanifest" />
     <title>QQURZ Chess</title>
 
@@ -32,20 +33,20 @@
         justify-items: center;
         gap: 0;
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        background: #181816;
-        color: #f4f1ea;
+        background: #151814;
+        color: #f4f6f1;
         opacity: 0;
         pointer-events: none;
         animation: qqurz-boot-show .12s ease-out .07s forwards;
         transition: opacity .18s ease, visibility .18s ease;
       }
-      html[data-theme='light'] #qqurz-boot { background: #eee9df; color: #1b1a17; }
+      html[data-theme='light'] #qqurz-boot { background: #f2f5ee; color: #192116; }
       #qqurz-boot.is-hidden { animation: none; opacity: 0; visibility: hidden; }
       .qqurz-boot-wheel {
         width: 24px;
         height: 24px;
-        color: currentColor;
-        opacity: .82;
+        color: #7fba4a;
+        opacity: .92;
         animation: qqurz-boot-spin .84s steps(12, end) infinite;
       }
       .qqurz-boot-wheel line {
