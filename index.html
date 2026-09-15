@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="QQURZ Chess — fast Freestyle Chess960, Stockfish AI, online rooms, tournaments and optional premium 3D." />
-    <meta id="qqurz-theme-color" name="theme-color" content="#151814" />
+    <meta name="color-scheme" content="dark light" />
+    <meta id="qqurz-theme-color" name="theme-color" content="#262522" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="QQURZ" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./brand/qqurz-app-icon.svg" />
-    <link rel="mask-icon" href="./brand/qqurz-app-icon.svg" color="#7fba4a" />
+    <link rel="mask-icon" href="./brand/qqurz-mark.svg" color="#79b64c" />
     <link rel="manifest" href="./site.webmanifest" />
     <title>QQURZ Chess</title>
 
@@ -19,7 +20,7 @@
         const applyThemeChrome = () => {
           const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
           const meta = document.getElementById('qqurz-theme-color');
-          if (meta) meta.setAttribute('content', theme === 'light' ? '#f2f5ee' : '#151814');
+          if (meta) meta.setAttribute('content', theme === 'light' ? '#f3f0e8' : '#262522');
         };
         try {
           const savedTheme = localStorage.getItem('qqurz:theme');
@@ -41,19 +42,19 @@
         justify-items: center;
         gap: 0;
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        background: #151814;
-        color: #f4f6f1;
+        background: #262522;
+        color: #f5f5f2;
         opacity: 0;
         pointer-events: none;
         animation: qqurz-boot-show .12s ease-out .07s forwards;
         transition: opacity .18s ease, visibility .18s ease;
       }
-      html[data-theme='light'] #qqurz-boot { background: #f2f5ee; color: #192116; }
+      html[data-theme='light'] #qqurz-boot { background: #f3f0e8; color: #1f1e1a; }
       #qqurz-boot.is-hidden { animation: none; opacity: 0; visibility: hidden; }
       .qqurz-boot-wheel {
         width: 24px;
         height: 24px;
-        color: #7fba4a;
+        color: #79b64c;
         opacity: .92;
         animation: qqurz-boot-spin .84s steps(12, end) infinite;
       }
