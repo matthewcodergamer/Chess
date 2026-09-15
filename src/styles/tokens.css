@@ -17,7 +17,9 @@
   --q-space-48:48px;
   --q-space-64:64px;
 
-  /* Typography. Mobile body copy intentionally starts at 17px. */
+  /* Typography. Native on every platform: SF on Apple, Roboto on Android, Segoe UI on Windows. */
+  --q-font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --q-font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --q-type-caption:.875rem;
   --q-type-label-sm:.9375rem;
   --q-type-label:1rem;
@@ -27,20 +29,20 @@
   --q-type-action-lg:1.5rem;
   --q-type-title:2rem;
   --q-type-title-lg:2.75rem;
-  --q-type-display-page:clamp(3rem,7vw,5.2rem);
-  --q-type-display-hero:clamp(4rem,8vw,7.2rem);
-  --q-type-display-match:clamp(2.6rem,9vw,4.6rem);
-  --q-type-display-page-mobile:clamp(2.75rem,12vw,3.75rem);
-  --q-type-display-hero-mobile:clamp(2.85rem,14vw,4.6rem);
-  --q-type-section-mobile:clamp(2rem,10vw,3.25rem);
+  --q-type-display-page:clamp(2.8rem,6vw,4.8rem);
+  --q-type-display-hero:clamp(3.4rem,7vw,5.8rem);
+  --q-type-display-match:clamp(2.5rem,8vw,4.2rem);
+  --q-type-display-page-mobile:clamp(2.5rem,11vw,3.45rem);
+  --q-type-display-hero-mobile:clamp(2.75rem,12vw,4rem);
+  --q-type-section-mobile:clamp(1.9rem,9vw,2.9rem);
   --q-type-display-ornament:clamp(16rem,32vw,27rem);
   --q-type-display-ornament-mobile:clamp(13rem,55vw,22rem);
-  --q-leading-tight:1;
-  --q-leading-body:1.55;
-  --q-leading-copy:1.65;
-  --q-tracking-tight:-.038em;
-  --q-tracking-ui:-.01em;
-  --q-tracking-label:.08em;
+  --q-leading-tight:1.04;
+  --q-leading-body:1.5;
+  --q-leading-copy:1.6;
+  --q-tracking-tight:-.028em;
+  --q-tracking-ui:-.008em;
+  --q-tracking-label:.075em;
 
   /* Controls: all standard interactive controls exceed the 44px touch target minimum. */
   --q-control-sm:48px;
@@ -55,55 +57,55 @@
   --q-radius-xl:32px;
   --q-radius-pill:999px;
 
-  /* QQURZ forest palette: quiet neutral surfaces, green reserved for action/state. */
-  --q-surface-canvas:#151814;
-  --q-surface-1:#1d211c;
-  --q-surface-2:#272c25;
-  --q-surface-3:#323930;
-  --q-surface-board-shell:#0e110d;
-  --q-text:#f4f6f1;
+  /* QQURZ green-on-charcoal palette. Green means action/state; warm neutrals keep the board dominant. */
+  --q-surface-canvas:#262522;
+  --q-surface-1:#302e2a;
+  --q-surface-2:#3a3834;
+  --q-surface-3:#47443f;
+  --q-surface-board-shell:#171714;
+  --q-text:#f5f5f2;
   --q-text-inverse:#ffffff;
-  --q-ink-inverse:#0d120a;
-  --q-muted:#b9c1b5;
-  --q-subtle:#899483;
-  --q-line:rgba(235,245,232,.09);
-  --q-line-strong:rgba(235,245,232,.17);
+  --q-ink-inverse:#10130d;
+  --q-muted:#c2c0ba;
+  --q-subtle:#95928b;
+  --q-line:rgba(255,255,255,.08);
+  --q-line-strong:rgba(255,255,255,.15);
 
   /* Primary green action system. */
-  --q-action:#7fba4a;
-  --q-action-hover:#8dca56;
-  --q-action-active:#6fa63f;
-  --q-action-strong:#a8d97c;
+  --q-action:#79b64c;
+  --q-action-hover:#88c659;
+  --q-action-active:#689f3e;
+  --q-action-strong:#a7d96f;
   --q-action-ink:#102008;
-  --q-action-soft:rgba(127,186,74,.16);
-  --q-focus-ring:color-mix(in srgb,var(--q-action) 68%,white);
+  --q-action-soft:rgba(121,182,76,.16);
+  --q-focus-ring:color-mix(in srgb,var(--q-action) 72%,white);
 
   /* Semantic states. */
-  --q-success:#69b97a;
-  --q-success-strong:#91d9a0;
-  --q-success-soft:rgba(105,185,122,.15);
-  --q-danger:#d76e65;
-  --q-danger-strong:#ee9188;
-  --q-danger-soft:rgba(215,110,101,.14);
-  --q-warning:#d5aa5c;
-  --q-warning-soft:rgba(213,170,92,.14);
+  --q-success:#70bb7c;
+  --q-success-strong:#9bd9a4;
+  --q-success-soft:rgba(112,187,124,.15);
+  --q-danger:#db736a;
+  --q-danger-strong:#f0948b;
+  --q-danger-soft:rgba(219,115,106,.14);
+  --q-warning:#d9ad5e;
+  --q-warning-soft:rgba(217,173,94,.14);
 
   /* Board palette. */
   --q-board-walnut-light:#b98a5e;
   --q-board-walnut-dark:#6f452a;
   --q-board-walnut-frame:#4d3222;
-  --q-board-tournament-light:#e4ddbd;
-  --q-board-tournament-dark:#789455;
-  --q-board-tournament-frame:#435b32;
-  --q-board-slate-light:#b9c0c3;
-  --q-board-slate-dark:#657078;
-  --q-board-slate-frame:#384047;
+  --q-board-tournament-light:#e8edcf;
+  --q-board-tournament-dark:#769656;
+  --q-board-tournament-frame:#465c34;
+  --q-board-slate-light:#bcc2c5;
+  --q-board-slate-dark:#68737b;
+  --q-board-slate-frame:#3c444a;
   --q-board-light:var(--q-board-walnut-light);
   --q-board-dark:var(--q-board-walnut-dark);
   --q-board-frame:var(--q-board-walnut-frame);
-  --q-board-legal:#54b963;
-  --q-board-legal-soft:rgba(84,185,99,.18);
-  --q-board-piece-light:#efebe2;
+  --q-board-legal:#58b968;
+  --q-board-legal-soft:rgba(88,185,104,.18);
+  --q-board-piece-light:#f0ece3;
   --q-board-piece-dark:#24231f;
   --q-board-status-white:#ddd8ca;
   --q-board-status-black:#6e6b63;
@@ -111,20 +113,20 @@
   /* Overlay / modal system. */
   --q-overlay-modal:rgba(0,0,0,.64);
   --q-overlay-drawer:rgba(0,0,0,.60);
-  --q-overlay-board:rgba(13,17,12,.78);
-  --q-overlay-card:rgba(29,33,28,.95);
+  --q-overlay-board:rgba(20,20,17,.80);
+  --q-overlay-card:rgba(48,46,42,.96);
   --q-overlay-control:rgba(255,255,255,.12);
   --q-overlay-control-line:rgba(255,255,255,.24);
   --q-overlay-copy:rgba(255,255,255,.80);
-  --q-blur-nav:22px;
+  --q-blur-nav:20px;
   --q-blur-overlay:8px;
 
-  /* Elevation. */
-  --q-elevation-1:0 10px 30px rgba(0,0,0,.18);
-  --q-elevation-2:0 18px 50px rgba(0,0,0,.25);
-  --q-elevation-3:0 24px 70px rgba(0,0,0,.30);
-  --q-elevation-board:0 18px 50px rgba(0,0,0,.30);
-  --q-elevation-action:inset 0 1px 0 rgba(255,255,255,.22),0 3px 0 rgba(43,78,23,.55),0 8px 18px rgba(0,0,0,.16);
+  /* Elevation: restrained, physical, never neon. */
+  --q-elevation-1:0 6px 18px rgba(0,0,0,.16);
+  --q-elevation-2:0 12px 32px rgba(0,0,0,.22);
+  --q-elevation-3:0 20px 52px rgba(0,0,0,.28);
+  --q-elevation-board:0 16px 42px rgba(0,0,0,.28);
+  --q-elevation-action:inset 0 1px 0 rgba(255,255,255,.20),0 3px 0 rgba(48,82,26,.58),0 6px 14px rgba(0,0,0,.17);
 
   /* Motion. */
   --q-motion-press:100ms;
@@ -146,8 +148,8 @@
   --q-content:1120px;
   --q-header-h:76px;
   --q-page-gutter:var(--q-space-24);
-  --chess-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
-  --chess-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --chess-display:var(--q-font-display);
+  --chess-ui:var(--q-font-ui);
 
   /* Compatibility names: values still resolve to the canonical tokens above. */
   --q-bg:var(--q-surface-canvas);
@@ -162,32 +164,32 @@
 
 :root[data-theme='light']{
   color-scheme:light;
-  --q-surface-canvas:#f2f5ee;
-  --q-surface-1:#fbfcf8;
-  --q-surface-2:#e8eee3;
-  --q-surface-3:#dae4d4;
-  --q-text:#192116;
-  --q-muted:#65705f;
-  --q-subtle:#879181;
-  --q-line:rgba(31,55,25,.10);
-  --q-line-strong:rgba(31,55,25,.18);
-  --q-action:#5d9837;
-  --q-action-hover:#69a943;
-  --q-action-active:#50842f;
-  --q-action-strong:#416d29;
-  --q-action-soft:rgba(93,152,55,.13);
-  --q-success:#3e8b5f;
+  --q-surface-canvas:#f3f0e8;
+  --q-surface-1:#fcfaf5;
+  --q-surface-2:#eae5da;
+  --q-surface-3:#dcd5c8;
+  --q-text:#1f1e1a;
+  --q-muted:#69665f;
+  --q-subtle:#8c887e;
+  --q-line:rgba(42,36,28,.10);
+  --q-line-strong:rgba(42,36,28,.18);
+  --q-action:#5f933b;
+  --q-action-hover:#6ba647;
+  --q-action-active:#527f33;
+  --q-action-strong:#3f6f27;
+  --q-action-soft:rgba(95,147,59,.13);
+  --q-success:#408c60;
   --q-success-strong:#2f704b;
-  --q-success-soft:rgba(62,139,95,.12);
-  --q-danger:#b54d45;
-  --q-danger-strong:#943c36;
-  --q-danger-soft:rgba(181,77,69,.12);
-  --q-warning:#94691f;
-  --q-warning-soft:rgba(148,105,31,.12);
-  --q-elevation-1:0 10px 30px rgba(38,60,31,.07);
-  --q-elevation-2:0 18px 50px rgba(38,60,31,.10);
-  --q-elevation-3:0 24px 70px rgba(38,60,31,.13);
-  --q-elevation-board:0 18px 50px rgba(45,67,35,.20);
+  --q-success-soft:rgba(64,140,96,.12);
+  --q-danger:#b85048;
+  --q-danger-strong:#963f38;
+  --q-danger-soft:rgba(184,80,72,.12);
+  --q-warning:#95691f;
+  --q-warning-soft:rgba(149,105,31,.12);
+  --q-elevation-1:0 6px 18px rgba(55,45,32,.07);
+  --q-elevation-2:0 12px 32px rgba(55,45,32,.10);
+  --q-elevation-3:0 20px 52px rgba(55,45,32,.13);
+  --q-elevation-board:0 16px 42px rgba(55,45,32,.18);
 }
 
 /* Explicit high-contrast modes preserve the current theme while raising text,
@@ -268,7 +270,7 @@
 *{box-sizing:border-box}
 html{min-width:320px;min-height:100%;font-size:calc(16px * var(--q-font-scale));background:var(--q-bg);scroll-behavior:smooth}
 body,#root{margin:0;min-width:320px;min-height:100%;background:var(--q-bg);color:var(--q-text)}
-body{min-height:100vh;min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{min-height:100vh;min-height:100dvh;overflow-x:hidden;font-family:var(--q-font-ui);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 button,input,select,textarea{font:inherit;color:inherit}
 button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 button:not(:disabled){cursor:pointer}
