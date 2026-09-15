@@ -20,3 +20,9 @@
 .promotion-grid button,.online-promotion button{display:flex;align-items:center;justify-content:center;gap:var(--q-space-8)}
 .promotion-grid button .qqurz-piece-asset,.online-promotion button .qqurz-piece-asset{flex:0 0 auto}
 .premium-physical-clock{margin-top:var(--q-space-12)}
+
+/* Onboarding board swatches use the canonical board palette and gradient ownership. */
+.board-mount cg-board{background-color:var(--q-board-dark)!important;background-image:conic-gradient(from 90deg,var(--q-board-dark) 0 25%,var(--q-board-light) 0 50%,var(--q-board-dark) 0 75%,var(--q-board-light) 0)!important;background-size:25% 25%!important}
+.onboarding-board-preview.board-walnut{background:conic-gradient(from 90deg,var(--q-board-walnut-dark) 0 25%,var(--q-board-walnut-light) 0 50%,var(--q-board-walnut-dark) 0 75%,var(--q-board-walnut-light) 0)}
+.onboarding-board-preview.board-tournament{background:conic-gradient(from 90deg,var(--q-board-tournament-dark) 0 25%,var(--q-board-tournament-light) 0 50%,var(--q-board-tournament-dark) 0 75%,var(--q-board-tournament-light) 0)}
+.onboarding-board-preview.board-slate{background:conic-gradient(from 90deg,var(--q-board-slate-dark) 0 25%,var(--q-board-slate-light) 0 50%,var(--q-board-slate-dark) 0 75%,var(--q-board-slate-light) 0)}
