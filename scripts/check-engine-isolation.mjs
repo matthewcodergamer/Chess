@@ -157,11 +157,12 @@ forbidText(
 );
 
 // Shared rule helpers are expected to be rule/data logic, not UI or AI logic.
+// Match actual UI/renderer imports rather than English words such as "threefold".
 forbidText(
   violations,
   'shared/chess960Rules.ts',
   sharedRules,
-  /react|three|stockfish|Chessground/i,
+  /(?:from\s+['"](?:react|react-dom|three|@react-three\/[^'"]+|@lichess-org\/chessground)['"]|import\(\s*['"](?:react|react-dom|three|@react-three\/[^'"]+|@lichess-org\/chessground)['"]\s*\)|stockfish)/i,
   'must stay presentation- and AI-independent.',
 );
 
