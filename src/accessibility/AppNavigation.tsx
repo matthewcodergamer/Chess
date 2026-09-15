@@ -29,6 +29,8 @@ type Props = {
   intent: (screen: Screen) => IntentHandlers;
 };
 
+const BRAND_MARK = `${import.meta.env.BASE_URL}brand/qqurz-mark.svg`;
+
 function moveFocus(event: KeyboardEvent<HTMLElement>): void {
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
   const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
@@ -110,7 +112,7 @@ export default function AppNavigation({
       <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}><UiIcon name="menu" /></IconButton>
 
       <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="QQURZ Chess home">
-        <span className="wordmark-piece" aria-hidden="true">♞</span>
+        <img className="wordmark-mark" src={BRAND_MARK} alt="" aria-hidden="true" />
         <span className="wordmark-copy"><b>QQURZ</b><small>Competitive Chess960</small></span>
       </button>
 
@@ -146,7 +148,7 @@ export default function AppNavigation({
     {menuOpen && <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
       <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="QQURZ menu" onPointerDown={event => event.stopPropagation()}>
         <div className="drawer-head">
-          <button className="qqurz-wordmark" onClick={() => run(onHome)}><span className="wordmark-piece" aria-hidden="true">♞</span><span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span></button>
+          <button className="qqurz-wordmark" onClick={() => run(onHome)}><img className="wordmark-mark" src={BRAND_MARK} alt="" aria-hidden="true" /><span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span></button>
           <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><UiIcon name="close" /></button>
         </div>
         <nav className="drawer-links" aria-label="Chess menu" onKeyDown={moveFocus}>
