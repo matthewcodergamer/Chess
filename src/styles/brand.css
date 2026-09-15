@@ -1,0 +1,6 @@
+/* QQURZ brand marks and identity treatment. Product screens consume this shared language instead of inventing their own chess logo. */
+.wordmark-piece,.onboarding-brand>span,.account-auth-mark{overflow:hidden;background:transparent;color:transparent;box-shadow:none;font-size:0;background-image:url('/brand/qqurz-app-icon.svg');background-repeat:no-repeat;background-position:center;background-size:cover}
+.wordmark-piece{border-radius:var(--q-radius-sm)}
+.onboarding-brand>span,.account-auth-mark{border-radius:var(--q-radius-md)}
+.wordmark-copy b{font-family:var(--chess-display);font-weight:900;letter-spacing:var(--q-tracking-tight)}
+.onboarding-brand b{font-family:var(--chess-display);font-weight:900;letter-spacing:var(--q-tracking-tight)}
