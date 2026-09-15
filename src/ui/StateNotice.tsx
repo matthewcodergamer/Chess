@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PrimaryButton, SecondaryButton } from './controls';
 
 type StateNoticeTone = 'neutral' | 'warning' | 'error' | 'success';
 
@@ -14,7 +15,7 @@ type Props = {
   title: string;
   body: ReactNode;
   tone?: StateNoticeTone;
-  icon?: string;
+  icon?: ReactNode;
   actions?: StateNoticeAction[];
   detail?: ReactNode;
   className?: string;
@@ -47,16 +48,24 @@ export default function StateNotice({
         {detail && <div className="state-notice-detail">{detail}</div>}
         {actions.length > 0 && (
           <div className="state-notice-actions">
-            {actions.map(action => (
-              <button
+            {actions.map(action => action.primary ? (
+              <PrimaryButton
                 key={action.label}
-                type="button"
-                className={action.primary ? 'primary-black' : undefined}
+                size="sm"
                 onClick={action.onClick}
                 disabled={action.disabled}
               >
                 {action.label}
-              </button>
+              </PrimaryButton>
+            ) : (
+              <SecondaryButton
+                key={action.label}
+                size="sm"
+                onClick={action.onClick}
+                disabled={action.disabled}
+              >
+                {action.label}
+              </SecondaryButton>
             ))}
           </div>
         )}
