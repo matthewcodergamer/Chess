@@ -1,25 +1,93 @@
-name: Deploy QQURZ Chess to GitHub Pages
+name: Deploy QQURZ frontend environment
 
 on:
   push:
-    branches: [main]
+    branches: [develop, staging, main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'shared/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'scripts/**'
+      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
+    inputs:
+      deployment_environment:
+        description: Environment to deploy
+        required: true
+        type: choice
+        options: [development, staging, production]
+      source_ref:
+        description: Optional commit/tag to deploy (useful for frontend rollback)
+        required: false
+        type: string
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: frontend-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  build:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.resolve.outputs.target }}
+      source_ref: ${{ steps.resolve.outputs.source_ref }}
+      project: ${{ steps.resolve.outputs.project }}
+      branch: ${{ steps.resolve.outputs.branch }}
     steps:
-      - name: Checkout
+      - id: resolve
+        shell: bash
+        env:
+          REQUESTED: ${{ inputs.deployment_environment }}
+          REQUESTED_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            target="$REQUESTED"
+          else
+            case "${{ github.ref_name }}" in
+              develop) target=development ;;
+              staging) target=staging ;;
+              main) target=production ;;
+              *) echo "Unsupported deployment branch" >&2; exit 1 ;;
+            esac
+          fi
+
+          case "$target" in
+            development) required_branch=develop; project=qqurz-chess-web-development ;;
+            staging) required_branch=staging; project=qqurz-chess-web-staging ;;
+            production) required_branch=main; project=qqurz-chess-web-production ;;
+            *) echo "Unsupported deployment environment: $target" >&2; exit 1 ;;
+          esac
+
+          if [ "${{ github.ref_name }}" != "$required_branch" ]; then
+            echo "Deploy $target from the $required_branch branch, not ${{ github.ref_name }}." >&2
+            exit 1
+          fi
+
+          source_ref="${REQUESTED_REF:-${{ github.sha }}}"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
+          echo "project=$project" >> "$GITHUB_OUTPUT"
+          echo "branch=$required_branch" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: resolve
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve.outputs.target }}
+    steps:
+      - name: Checkout release source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.source_ref }}
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -29,45 +97,56 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Install Playwright WebKit
-        run: npx playwright install --with-deps webkit
+      - name: Verify deployment architecture
+        run: npm run check:deploy
 
       - name: Mobile overlap release audit
-        run: npm run test:mobile-overlap
+        if: needs.resolve.outputs.target != 'development'
+        run: |
+          npx playwright install --with-deps webkit
+          npm run test:mobile-overlap
 
-      - name: Upload mobile overlap diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-overlap-report
-          path: |
-            playwright-mobile-overlap-report/
-            test-results/mobile-overlap/
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Build
+      - name: Build environment artifact
+        shell: bash
         env:
-          VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API || 'https://qqurz-chess-api.gamerstriper.workers.dev' }}
-        run: npm run build
+          TARGET: ${{ needs.resolve.outputs.target }}
+          CONFIGURED_API: ${{ vars.VITE_MULTIPLAYER_API }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          api="$CONFIGURED_API"
+          if [ -z "$api" ]; then
+            case "$TARGET" in
+              development) api='https://qqurz-chess-api-development.gamerstriper.workers.dev' ;;
+              staging) api='https://qqurz-chess-api-staging.gamerstriper.workers.dev' ;;
+              production) api='https://qqurz-chess-api.gamerstriper.workers.dev' ;;
+            esac
+          fi
+          case "$api" in https://*) ;; *) echo "VITE_MULTIPLAYER_API must use HTTPS." >&2; exit 1 ;; esac
+          VITE_MULTIPLAYER_API="$api" VITE_DEPLOYMENT_ENV="$TARGET" VITE_RELEASE_ID="$RELEASE_ID" npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      - name: Require Cloudflare deployment credentials
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment-scoped CLOUDFLARE_API_TOKEN.' >&2; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing environment-scoped CLOUDFLARE_ACCOUNT_ID.' >&2; exit 1; }
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
+      - name: Deploy immutable frontend artifact
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          PROJECT: ${{ needs.resolve.outputs.project }}
+          DEPLOY_BRANCH: ${{ needs.resolve.outputs.branch }}
+        run: npx wrangler pages deploy dist --project-name "$PROJECT" --branch "$DEPLOY_BRANCH"
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo "### QQURZ frontend deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: **${{ needs.resolve.outputs.target }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source: \`${{ needs.resolve.outputs.source_ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cloudflare Pages project: \`${{ needs.resolve.outputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
