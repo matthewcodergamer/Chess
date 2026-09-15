@@ -8,7 +8,7 @@
 /* First-run account surfaces use the same calm full-screen hierarchy as the mobile product instead of a floating SaaS card. */
 .qqurz-product-system:has(.account-auth-page) .chess-topbar{display:none}
 .qqurz-product-system:has(.account-auth-page) .qqurz-main-content{min-height:100dvh}
-.qqurz-product-system .account-auth-page{min-height:100dvh;width:min(100%,760px);padding:var(--q-space-24);align-content:start}
+.qqurz-product-system .account-auth-page{min-height:100dvh;width:min(100%,calc(var(--q-control-lg) * 12));padding:var(--q-space-24);align-content:start}
 .qqurz-product-system .account-auth-shell{width:100%;min-height:calc(100dvh - var(--q-space-48));align-content:start;gap:var(--q-space-32);padding:var(--q-space-24) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
 .qqurz-product-system .account-auth-top{min-height:var(--q-control-sm)}
 .qqurz-product-system .account-auth-top .qqurz-kicker{color:var(--q-muted);letter-spacing:var(--q-tracking-label)}
@@ -16,16 +16,16 @@
 .qqurz-product-system .account-auth-mark{width:calc(var(--q-control-lg) + var(--q-space-16));height:calc(var(--q-control-lg) + var(--q-space-16))}
 .qqurz-product-system .account-auth-heading h1{max-width:14ch;font-size:clamp(var(--q-type-title),8vw,var(--q-type-title-lg));font-weight:900;line-height:var(--q-leading-tight)}
 .qqurz-product-system .account-auth-heading p{max-width:42ch;margin-inline:auto;color:var(--q-muted);font-size:var(--q-type-body);line-height:var(--q-leading-body)}
-.qqurz-product-system .account-form{width:min(100%,620px);margin-inline:auto;gap:var(--q-space-16)}
+.qqurz-product-system .account-form{width:min(100%,calc(var(--q-control-lg) * 10));margin-inline:auto;gap:var(--q-space-16)}
 .qqurz-product-system .account-form .qqurz-button--lg{min-height:var(--q-control-lg);font-weight:900}
-.qqurz-product-system .account-social-gate{width:min(100%,620px);margin-inline:auto;color:var(--q-muted)}
+.qqurz-product-system .account-social-gate{width:min(100%,calc(var(--q-control-lg) * 10));margin-inline:auto;color:var(--q-muted)}
 
 /* Onboarding stays one question per page, but visually belongs to the same QQURZ launch experience. */
 .qqurz-onboarding{align-content:start}
-.qqurz-onboarding .onboarding-shell{width:min(100%,720px);min-height:100dvh;align-content:start;gap:var(--q-space-24);padding:var(--q-space-24) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.qqurz-onboarding .onboarding-shell{width:min(100%,calc(var(--q-control-lg) * 11));min-height:100dvh;align-content:start;gap:var(--q-space-24);padding:var(--q-space-24) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
 .qqurz-onboarding .onboarding-header{padding-inline:var(--q-space-4)}
 .qqurz-onboarding .onboarding-brand>span{width:var(--q-control-md);height:var(--q-control-md)}
 .qqurz-onboarding .onboarding-brand b{font-size:var(--q-type-action)}
-.qqurz-onboarding .onboarding-stage{min-height:min(62dvh,620px)}
+.qqurz-onboarding .onboarding-stage{min-height:min(62dvh,calc(var(--q-control-lg) * 9))}
 .qqurz-onboarding .onboarding-question>h1{max-width:14ch;font-size:clamp(var(--q-type-title),8vw,var(--q-type-title-lg));font-weight:900}
 .qqurz-onboarding .onboarding-question>p{max-width:52ch;font-size:var(--q-type-body)}
