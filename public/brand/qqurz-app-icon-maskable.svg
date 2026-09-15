@@ -1,34 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QQURZ Chess maskable app icon">
   <defs>
-    <linearGradient id="bg" x1="96" y1="68" x2="422" y2="452" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#34322d"/>
-      <stop offset="1" stop-color="#181815"/>
+    <linearGradient id="bg" x1="82" y1="56" x2="430" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#36342f"/>
+      <stop offset=".56" stop-color="#252420"/>
+      <stop offset="1" stop-color="#171714"/>
     </linearGradient>
-    <linearGradient id="green" x1="210" y1="92" x2="308" y2="426" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#a7d96f"/>
-      <stop offset=".52" stop-color="#79b64c"/>
+    <linearGradient id="green" x1="215" y1="96" x2="298" y2="426" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a9dc73"/>
+      <stop offset=".5" stop-color="#79b64c"/>
       <stop offset="1" stop-color="#527f33"/>
     </linearGradient>
-    <linearGradient id="greenShade" x1="190" y1="250" x2="342" y2="430" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6ea844"/>
-      <stop offset="1" stop-color="#416928"/>
+    <linearGradient id="greenDark" x1="212" y1="276" x2="310" y2="418" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6fa947"/>
+      <stop offset="1" stop-color="#416929"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <g opacity=".13" transform="translate(0 18)">
-    <path d="M64 368 160 328l96 41-96 43-96-44Z" fill="#f5f5f2"/>
-    <path d="m256 369 96-41 96 40-96 44-96-43Z" fill="#79b64c"/>
-    <path d="m160 412 96-43 96 43-96 47-96-47Z" fill="#79b64c" opacity=".58"/>
+  <g opacity=".10">
+    <path d="M70 382 163 343l93 40-93 42-93-43Z" fill="#f5f5f2"/>
+    <path d="m256 383 93-40 93 39-93 43-93-42Z" fill="#79b64c"/>
+    <path d="m163 425 93-42 93 42-93 45-93-45Z" fill="#79b64c" opacity=".55"/>
   </g>
-  <ellipse cx="256" cy="418" rx="124" ry="22" fill="#000" opacity=".18"/>
-  <g transform="translate(0 -2)">
-    <circle cx="256" cy="133" r="55" fill="url(#green)"/>
-    <path d="M220 109c12-17 29-26 51-26 15 0 29 4 41 13-23-4-45 0-64 13-10 6-18 14-24 23Z" fill="#eef8e5" opacity=".34"/>
-    <path d="M199 211c0-17 14-31 31-31h52c17 0 31 14 31 31 0 13-8 25-19 30l-17 8c-12 6-21 18-21 32v18h-1v-18c0-14-9-26-21-32l-17-8c-11-5-18-17-18-30Z" fill="url(#green)"/>
-    <path d="M215 246c21 11 35 30 41 53 6-23 20-42 41-53-13 18-19 39-17 64h-48c2-25-4-46-17-64Z" fill="url(#greenShade)" opacity=".88"/>
-    <rect x="184" y="296" width="144" height="46" rx="23" fill="url(#green)"/>
-    <path d="M164 339h184c12 0 21 9 21 21v4c0 12-9 22-21 24H164c-12-2-21-12-21-24v-4c0-12 9-21 21-21Z" fill="url(#greenShade)"/>
-    <rect x="126" y="381" width="260" height="58" rx="29" fill="url(#green)"/>
-    <path d="M157 396h198" stroke="#eef8e5" stroke-width="7" stroke-linecap="round" opacity=".18"/>
-  </g>
+  <ellipse cx="256" cy="424" rx="118" ry="21" fill="#000" opacity=".18"/>
+  <circle cx="256" cy="138" r="50" fill="url(#green)"/>
+  <path d="M223 115c10-15 26-23 45-23 14 0 26 4 37 11-20-4-39 0-55 11-9 6-16 13-21 21Z" fill="#eef8e5" opacity=".34"/>
+  <path d="M205 195c0-13 10-23 23-23h56c13 0 23 10 23 23 0 11-7 20-17 23l-12 4h-44l-12-4c-10-3-17-12-17-23Z" fill="url(#green)"/>
+  <path d="M232 220h48c-2 39 11 72 45 103 13 12 7 33-11 36H198c-18-3-24-24-11-36 34-31 47-64 45-103Z" fill="url(#green)"/>
+  <path d="M237 236c5 35-6 66-31 93-7 6-6 15-2 20h-5c-15-3-21-21-10-32 31-29 43-59 43-97h13c0 6-1 11-1 16Z" fill="#b9e48f" opacity=".20"/>
+  <rect x="184" y="345" width="144" height="36" rx="18" fill="url(#greenDark)"/>
+  <rect x="153" y="376" width="206" height="44" rx="22" fill="url(#green)"/>
+  <path d="M178 389h156" stroke="#eef8e5" stroke-width="6" stroke-linecap="round" opacity=".18"/>
 </svg>
