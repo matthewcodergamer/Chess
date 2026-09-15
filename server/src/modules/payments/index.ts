@@ -3,6 +3,7 @@ import { handleCanonicalPaymentRequest } from '../../data/paymentApiProjection';
 import { CanonicalPaymentLedger as PaymentLedger } from '../../data/paymentProjection';
 import { recordProviderWebhook } from '../../data/operations';
 import type { DataModelEnv } from '../../data/registry';
+import { decidePaymentEnvironment } from '../../paymentEnvironment';
 import { moduleDescriptor } from '../contracts';
 
 export {
@@ -40,36 +41,14 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
 }
 
-function isMoneyChangingRoute(pathname: string): boolean {
-  return pathname === '/payments/deposit'
-    || pathname === '/payments/withdrawal'
-    || pathname === '/payments/premium/checkout'
-    || pathname.startsWith('/payments/webhooks/');
-}
-
 function environmentPaymentGuard(request: Request, env: PaymentsModuleEnv): Response | null {
-  const pathname = new URL(request.url).pathname;
-  if (!isMoneyChangingRoute(pathname)) return null;
-
-  const deployment = clean(env.DEPLOYMENT_ENV, 32).toLowerCase() || 'development';
-  const paymentsMode = clean(env.PAYMENTS_MODE, 16).toLowerCase() || 'disabled';
-  const nuveiMode = clean(env.NUVEI_ENV, 16).toLowerCase() || 'disabled';
-
-  // Production is fail-closed. Test provider credentials can never be exercised
-  // against the production API; live money requires an explicit reviewed config change.
-  if (deployment === 'production') {
-    if (paymentsMode !== 'live') return json({ error: 'Payments are disabled in production.' }, 503);
-    if (nuveiMode === 'test') return json({ error: 'Test payment providers are forbidden in production.' }, 503);
-    return null;
-  }
-
-  // Development and staging are test-only. This blocks an accidentally supplied
-  // live provider secret even if somebody misconfigures a GitHub environment.
-  if (paymentsMode === 'live' || nuveiMode === 'live' || env.REAL_MONEY_ENABLED === 'enabled') {
-    return json({ error: 'Live money is forbidden outside production.' }, 503);
-  }
-  if (paymentsMode !== 'test') return json({ error: 'Test payments are not enabled in this environment.' }, 503);
-  return null;
+  const decision = decidePaymentEnvironment({
+    deploymentEnv: env.DEPLOYMENT_ENV,
+    paymentsMode: env.PAYMENTS_MODE,
+    nuveiEnv: env.NUVEI_ENV,
+    realMoneyEnabled: env.REAL_MONEY_ENABLED,
+  }, new URL(request.url).pathname);
+  return decision.allowed ? null : json({ error: decision.message }, 503);
 }
 
 async function recordComplianceOutcome(raw: string, contentType: string, response: Response, env: PaymentsModuleEnv, receivedAt: number): Promise<void> {
