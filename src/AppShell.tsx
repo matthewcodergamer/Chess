@@ -6,6 +6,7 @@ import { setSoundEnabled, soundEnabled } from './ui/sound';
 import { ProfilePageSkeleton, TournamentPageSkeleton } from './ui/Skeletons';
 import HomeDashboard from './ui/HomeDashboard';
 import StateNotice from './ui/StateNotice';
+import { UiIcon } from './ui/icons';
 import FirstRunOnboarding from './onboarding/FirstRunOnboarding';
 import {
   hasCompletedOnboarding,
@@ -197,7 +198,7 @@ export default function AppShell() {
   };
 
   return (
-    <main className="qqurz-app-v14 qqurz-app-v22 qqurz-app-v24 qqurz-product-system">
+    <main className="qqurz-app qqurz-product-system">
       <AppNavigation
         screen={screen}
         onlineVariant={onlineVariant}
@@ -224,7 +225,7 @@ export default function AppShell() {
           <div className="qqurz-content-page">
             <StateNotice
               tone="warning"
-              icon="↻"
+              icon={<UiIcon name="retry" />}
               eyebrow="LIVE SERVICES"
               title="The QQURZ server isn’t responding"
               body={<p>Your local chess modes still work. No move, registration, or payment action was accepted by the live server while it was unreachable.</p>}
@@ -249,8 +250,8 @@ export default function AppShell() {
           />
         )}
 
-        {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
-        {screen === 'online' && invalidInvite && <div className="qqurz-content-page"><StateNotice tone="warning" icon="↗" eyebrow="ROOM INVITE" title="This invite link isn’t valid" body={<p>QQURZ room codes contain exactly six letters or numbers. This link may be incomplete, expired from sharing, or edited.</p>} detail="You can create a fresh private room and send its new invite instead." actions={[{ label: 'Create a room', onClick: createFreshRoom, primary: true }, { label: 'Back home', onClick: goHome }]} /></div>}
+        {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
+        {screen === 'online' && invalidInvite && <div className="qqurz-content-page"><StateNotice tone="warning" icon={<UiIcon name="external" />} eyebrow="ROOM INVITE" title="This invite link isn’t valid" body={<p>QQURZ room codes contain exactly six letters or numbers. This link may be incomplete, expired from sharing, or edited.</p>} detail="You can create a fresh private room and send its new invite instead." actions={[{ label: 'Create a room', onClick: createFreshRoom, primary: true }, { label: 'Back home', onClick: goHome }]} /></div>}
         {screen === 'online' && !invalidInvite && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
         {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={(_seat: RoomSeat) => { setOnlineVariant('friends'); setScreen('online'); }} onBack={goHome}/></></Suspense>}
         {screen === 'tournaments' && <Suspense fallback={<TournamentPageSkeleton/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { prefetchScreen('online'); setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => { prefetchScreen('3d'); setScreen('3d'); }}/></div></Suspense>}
