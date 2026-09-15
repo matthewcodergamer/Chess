@@ -3,3 +3,13 @@ dist
 .DS_Store
 *.local
 public/stockfish/
+
+# Deployment/runtime secrets must never be committed.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!server/.dev.vars.example
+server/.env
+server/.env.*
