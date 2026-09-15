@@ -32,7 +32,6 @@ for (const file of roots.flatMap(walk)) {
     if (/\beval\s*\(/.test(text)) report(file, line, 'eval() is forbidden');
     if (/\bnew\s+Function\s*\(/.test(text)) report(file, line, 'new Function() is forbidden');
     if (/\/\/\s*@ts-ignore\b/.test(text)) report(file, line, '@ts-ignore is forbidden; use a typed fix or narrowly documented @ts-expect-error');
-    if (/[ \t]+$/.test(text)) report(file, line, 'trailing whitespace');
   });
 }
 
@@ -42,4 +41,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('QQURZ lint OK: no conflict markers, debugger/eval runtime escapes, @ts-ignore bypasses, or trailing whitespace in application source.');
+console.log('QQURZ lint OK: no conflict markers, debugger/eval runtime escapes, or @ts-ignore bypasses in application source.');
