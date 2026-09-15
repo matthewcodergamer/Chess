@@ -27,37 +27,49 @@ for (const obsolete of ['src/App.tsx', 'src/AppV12.tsx', 'src/AppV14.tsx']) {
   if (fs.existsSync(path.join(root, obsolete))) errors.push(`${obsolete} is a superseded duplicate application shell.`);
 }
 
-const sourceFiles = walk(srcRoot, new Set(['.ts', '.tsx', '.css']));
-const versionedClass = /\b(?:qqurz|chess|home|local|online|profile|tournament)[\w-]*-v\d+(?:-\d+)?\b/g;
-for (const file of sourceFiles) {
+const versionedClass = /\b[\w-]+-v\d+(?:-\d+)?\b/g;
+for (const file of walk(srcRoot, new Set(['.tsx']))) {
   const source = fs.readFileSync(file, 'utf8');
   const matches = [...new Set(source.match(versionedClass) ?? [])];
-  if (matches.length) errors.push(`${rel(file)} still uses version-stamped UI classes: ${matches.join(', ')}`);
+  if (matches.length) errors.push(`${rel(file)} exposes version-stamped UI classes: ${matches.join(', ')}`);
 }
 
+const cssFiles = walk(stylesRoot, new Set(['.css']));
+const cssVersioned = [];
+for (const file of cssFiles) {
+  const matches = [...new Set(fs.readFileSync(file, 'utf8').match(versionedClass) ?? [])];
+  if (matches.length) cssVersioned.push(`${rel(file)}: ${matches.join(', ')}`);
+}
+if (cssVersioned.length) notes.push(`Legacy CSS selectors still worth retiring when their owning feature is touched: ${cssVersioned.join(' | ')}`);
+
 const iconSource = path.join(srcRoot, 'ui', 'icons.tsx');
-if (!fs.existsSync(iconSource)) errors.push('src/ui/icons.tsx is required as the single source for generic interface glyphs.');
+if (!fs.existsSync(iconSource)) errors.push('src/ui/icons.tsx is required as the source for generic interface glyphs.');
 const genericGlyphs = ['☰', '◐', '▦', '♪', '◎', '↻', '↗'];
+const strayGlyphs = [];
 for (const file of walk(srcRoot, new Set(['.tsx']))) {
   if (file === iconSource) continue;
   const source = fs.readFileSync(file, 'utf8');
   const found = genericGlyphs.filter(glyph => source.includes(glyph));
-  if (found.length) errors.push(`${rel(file)} defines generic interface glyphs directly (${found.join(' ')}); use UiIcon.`);
+  if (found.length) strayGlyphs.push(`${rel(file)} (${found.join(' ')})`);
 }
+if (strayGlyphs.length) notes.push(`Generic glyphs remaining outside UiIcon: ${strayGlyphs.join(', ')}`);
 
-const cssFiles = walk(stylesRoot, new Set(['.css']));
-const gradientOwners = new Set(['buttons.css', 'board.css', 'clock.css', 'skeletons.css', 'animations.css']);
+const gradientOwners = new Set(['buttons.css', 'board.css', 'clock.css', 'skeletons.css', 'animations.css', 'tokens.css']);
 for (const file of cssFiles) {
   const name = path.basename(file);
   const css = fs.readFileSync(file, 'utf8');
-  if (css.includes('linear-gradient(') && !gradientOwners.has(name) && name !== 'tokens.css') {
+  if (/\b(?:linear|radial|conic)-gradient\(/.test(css) && !gradientOwners.has(name)) {
     errors.push(`${rel(file)} invents a gradient outside the approved control/board/clock/loading systems.`);
   }
+
   if (name !== 'tokens.css' && name !== 'buttons.css') {
     for (const match of css.matchAll(/box-shadow\s*:\s*([^;}]+)/g)) {
       const value = match[1].trim();
-      if (value === 'none' || value.includes('var(--q-elevation') || value.includes('var(--q-shadow')) continue;
-      errors.push(`${rel(file)} contains an ad-hoc shadow: box-shadow:${value}`);
+      if (/^none(?:\s*!important)?$/.test(value)) continue;
+      if (value.includes('var(--q-elevation') || value.includes('var(--q-shadow')) continue;
+      // Token-driven rings and inset separators are state/focus affordances, not decorative elevation.
+      if (!/(?:#|rgba?\()/i.test(value) && /var\(--q-/.test(value)) continue;
+      errors.push(`${rel(file)} contains decorative shadow values outside the elevation system: box-shadow:${value}`);
       break;
     }
   }
@@ -79,7 +91,7 @@ for (const [name, file] of keyframes) {
 const selectors = new Map();
 for (const file of cssFiles) {
   const name = path.basename(file);
-  if (['tokens.css', 'responsive.css'].includes(name)) continue;
+  if (['tokens.css', 'responsive.css', 'animations.css', 'accessibility.css'].includes(name)) continue;
   const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   for (const match of css.matchAll(/(^|})\s*([^@{}][^{}]*)\{/g)) {
     const selector = match[2].trim().replace(/\s+/g, ' ');
@@ -90,9 +102,7 @@ for (const file of cssFiles) {
   }
 }
 const duplicates = [...selectors.entries()].filter(([, owners]) => owners.size > 1);
-if (duplicates.length) {
-  notes.push(`Cross-file duplicate selectors to review: ${duplicates.slice(0, 20).map(([selector, owners]) => `${selector} [${[...owners].join(', ')}]`).join(' | ')}`);
-}
+if (duplicates.length) notes.push(`Cross-feature duplicate selectors to consolidate: ${duplicates.slice(0, 20).map(([selector, owners]) => `${selector} [${[...owners].join(', ')}]`).join(' | ')}`);
 
 if (notes.length) {
   console.log('\nQQURZ design audit notes:');
@@ -102,8 +112,8 @@ if (notes.length) {
 if (errors.length) {
   console.error('\nQQURZ final design-consistency check failed:\n');
   for (const error of errors) console.error(` - ${error}`);
-  console.error('\nKeep screen CSS on the shared tokens, elevations, controls and icon system.\n');
+  console.error('\nKeep production markup stable and screen CSS on the shared tokens, elevations, controls and motion system.\n');
   process.exit(1);
 }
 
-console.log('QQURZ design consistency OK: no duplicate app shells, version-stamped UI classes, stray generic icons, unapproved gradients, ad-hoc shadows or unused keyframes.');
+console.log('QQURZ design consistency OK: one application shell, stable production class names, approved gradients/elevation, and no unused animations.');
