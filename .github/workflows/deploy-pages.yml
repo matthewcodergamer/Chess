@@ -1,18 +1,10 @@
 name: Deploy QQURZ frontend environment
 
 on:
-  push:
+  workflow_run:
+    workflows: ["QQURZ automated quality gates"]
+    types: [completed]
     branches: [develop, staging, main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'shared/**'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vite.config.ts'
-      - 'scripts/**'
-      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
     inputs:
       deployment_environment:
@@ -29,11 +21,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: frontend-${{ github.ref_name }}
+  group: frontend-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   resolve:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       target: ${{ steps.resolve.outputs.target }}
@@ -46,12 +39,14 @@ jobs:
         env:
           REQUESTED: ${{ inputs.deployment_environment }}
           REQUESTED_REF: ${{ inputs.source_ref }}
+          TRIGGER_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+          TRIGGER_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             target="$REQUESTED"
           else
-            case "${{ github.ref_name }}" in
+            case "$TRIGGER_BRANCH" in
               develop) target=development ;;
               staging) target=staging ;;
               main) target=production ;;
@@ -66,12 +61,12 @@ jobs:
             *) echo "Unsupported deployment environment: $target" >&2; exit 1 ;;
           esac
 
-          if [ "${{ github.ref_name }}" != "$required_branch" ]; then
-            echo "Deploy $target from the $required_branch branch, not ${{ github.ref_name }}." >&2
+          if [ "$TRIGGER_BRANCH" != "$required_branch" ]; then
+            echo "Deploy $target from the $required_branch branch, not $TRIGGER_BRANCH." >&2
             exit 1
           fi
 
-          source_ref="${REQUESTED_REF:-${{ github.sha }}}"
+          source_ref="${REQUESTED_REF:-$TRIGGER_SHA}"
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
           echo "project=$project" >> "$GITHUB_OUTPUT"
@@ -89,6 +84,11 @@ jobs:
           ref: ${{ needs.resolve.outputs.source_ref }}
           fetch-depth: 0
 
+      - id: source
+        name: Resolve immutable release SHA
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -97,8 +97,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Verify deployment architecture
-        run: npm run check:deploy
+      - name: Verify deployment and CI architecture
+        run: npm run check:deploy && npm run check:ci
+
+      - name: TypeScript and lint preflight
+        run: npm run typecheck && npm run lint
 
       - name: Mobile overlap release audit
         if: needs.resolve.outputs.target != 'development'
@@ -111,7 +114,7 @@ jobs:
         env:
           TARGET: ${{ needs.resolve.outputs.target }}
           CONFIGURED_API: ${{ vars.VITE_MULTIPLAYER_API }}
-          RELEASE_ID: ${{ github.sha }}
+          RELEASE_ID: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
           api="$CONFIGURED_API"
@@ -123,7 +126,8 @@ jobs:
             esac
           fi
           case "$api" in https://*) ;; *) echo "VITE_MULTIPLAYER_API must use HTTPS." >&2; exit 1 ;; esac
-          VITE_MULTIPLAYER_API="$api" VITE_DEPLOYMENT_ENV="$TARGET" VITE_RELEASE_ID="$RELEASE_ID" npm run build
+          VITE_MULTIPLAYER_API="$api" VITE_DEPLOYMENT_ENV="$TARGET" VITE_RELEASE_ID="$RELEASE_ID" npm run build:artifact
+          npm run check:bundle
 
       - name: Require Cloudflare deployment credentials
         shell: bash
@@ -134,7 +138,7 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment-scoped CLOUDFLARE_API_TOKEN.' >&2; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing environment-scoped CLOUDFLARE_ACCOUNT_ID.' >&2; exit 1; }
 
-      - name: Deploy immutable frontend artifact
+      - name: Atomically deploy immutable frontend artifact
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -148,5 +152,6 @@ jobs:
         run: |
           echo "### QQURZ frontend deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: **${{ needs.resolve.outputs.target }}**" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source: \`${{ needs.resolve.outputs.source_ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release: \`${{ steps.source.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Cloudflare Pages project: \`${{ needs.resolve.outputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Normal branch deployment was released only after the complete quality workflow succeeded." >> "$GITHUB_STEP_SUMMARY"
