@@ -4,54 +4,63 @@ QQURZ should feel like one native-quality chess product across iPhone, tablet an
 
 ## Typography
 
-QQURZ uses the platform-native UI stack rather than downloading a webfont on startup:
+QQURZ uses a platform-native sans-serif stack rather than downloading a webfont on startup:
 
 ```css
--apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, Roboto, "Helvetica Neue", Arial, sans-serif
+-apple-system,
+BlinkMacSystemFont,
+"SF Pro Text",
+"SF Pro Display",
+"Segoe UI",
+Roboto,
+"Helvetica Neue",
+Arial,
+sans-serif
 ```
 
-On iPhone this resolves to Apple's San Francisco family; Android can resolve to Roboto; other platforms receive a high-quality native sans-serif. This keeps text crisp, avoids a font-loading flash and protects the startup performance budget.
+That choice is intentional. On iPhone it resolves to Apple's San Francisco family; Android resolves naturally to Roboto; Windows uses Segoe UI. It gives QQURZ the clean, familiar geometry of modern native apps without a font-loading flash, privacy dependency or extra startup bytes.
 
-Headings and the QQURZ wordmark use the same family with heavier weight and tighter tracking. Chess identity comes from the board, pieces and QQURZ mark rather than from an unrelated decorative serif.
+Headings and the QQURZ wordmark use the same family with heavier weight and tighter tracking. Chess identity comes from the board, pieces, QQURZ mark, terminology and green action system—not from decorative newspaper-style serif typography.
 
-## Forest-green palette
+## QQURZ green palette
 
-Green is the QQURZ action color, not the background of every surface. The interface uses quiet forest-charcoal neutrals so the board remains the visual focus and green means something.
+The brand is green, but the whole interface is not painted green. Bright green is reserved for action, selection, presence and positive game state. Warm charcoal surfaces keep the board and game state visually dominant.
 
 ### Dark
 
-- Canvas: `#151814`
-- Primary surface: `#1d211c`
-- Raised surface: `#272c25`
-- Strong raised surface: `#323930`
-- Primary text: `#f4f6f1`
-- Muted text: `#b9c1b5`
-- Action green: `#7fba4a`
-- Action hover: `#8dca56`
-- Strong accent: `#a8d97c`
+- Canvas: `#262522`
+- Primary surface: `#302e2a`
+- Raised surface: `#3a3834`
+- Strong raised surface: `#47443f`
+- Primary text: `#f5f5f2`
+- Muted text: `#c2c0ba`
+- Action green: `#79b64c`
+- Action hover: `#88c659`
+- Strong accent: `#a7d96f`
 
 ### Light
 
-- Canvas: `#f2f5ee`
-- Primary surface: `#fbfcf8`
-- Raised surface: `#e8eee3`
-- Strong raised surface: `#dae4d4`
-- Primary text: `#192116`
-- Muted text: `#65705f`
-- Action green: `#5d9837`
-- Strong accent: `#416d29`
+- Canvas: `#f3f0e8`
+- Primary surface: `#fcfaf5`
+- Raised surface: `#eae5da`
+- Strong raised surface: `#dcd5c8`
+- Primary text: `#1f1e1a`
+- Muted text: `#69665f`
+- Action green: `#5f933b`
+- Strong accent: `#3f6f27`
 
-All product CSS consumes the variables in `src/styles/tokens.css`; feature screens must not hard-code these values.
+The result should feel like a warm chess room with a confident green identity, not a green-tinted dashboard. All product CSS consumes variables in `src/styles/tokens.css`; feature screens must not hard-code their own palette.
 
-## App icon
+## App icon and mark
 
 Canonical assets:
 
-- `public/brand/qqurz-app-icon.svg` — rounded QQURZ icon for favicon/interface use.
-- `public/brand/qqurz-app-icon-maskable.svg` — full-bleed maskable web-app icon.
-- `public/favicon.svg` — browser favicon using the same artwork.
+- `public/brand/qqurz-app-icon.svg` — rounded QQURZ web-app icon.
+- `public/brand/qqurz-app-icon-maskable.svg` — full-bleed maskable PWA icon.
+- `public/brand/qqurz-mark.svg` — transparent pawn mark for the in-app wordmark and monochrome browser use.
+- `public/favicon.svg` — browser favicon using the same app-icon artwork.
 
-The mark is a QQURZ-specific green pawn over a restrained board motif on a forest background. It is intentionally not a reproduction of another chess service's piece or logo.
+The refreshed mark uses a QQURZ-specific green pawn with simple three-dimensional shading and a restrained board motif on warm charcoal. It is intentionally recognizable at favicon size and is not a reproduction of another chess service's logo.
 
 ## Mobile account/onboarding language
 
@@ -65,3 +74,4 @@ First-run and signed-out account screens use a calm full-screen hierarchy: brand
 4. Prefer native platform typography over remotely loaded fonts.
 5. Maintain AA-level text contrast and all existing large-text/high-contrast modes.
 6. Do not create screen-specific brand colors or alternate QQURZ marks.
+7. Use restrained physical depth—small highlights and shadows, never neon glow.
