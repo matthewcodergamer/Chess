@@ -1,14 +1,10 @@
 name: Deploy QQURZ API environment
 
 on:
-  push:
+  workflow_run:
+    workflows: ["QQURZ automated quality gates"]
+    types: [completed]
     branches: [develop, staging, main]
-    paths:
-      - 'server/**'
-      - 'shared/**'
-      - 'scripts/check-deployment-environments.mjs'
-      - 'package.json'
-      - '.github/workflows/deploy-realtime.yml'
   workflow_dispatch:
     inputs:
       deployment_environment:
@@ -25,11 +21,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: api-${{ github.ref_name }}
+  group: api-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   resolve:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       target: ${{ steps.resolve.outputs.target }}
@@ -41,12 +38,14 @@ jobs:
         env:
           REQUESTED: ${{ inputs.deployment_environment }}
           REQUESTED_REF: ${{ inputs.source_ref }}
+          TRIGGER_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+          TRIGGER_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             target="$REQUESTED"
           else
-            case "${{ github.ref_name }}" in
+            case "$TRIGGER_BRANCH" in
               develop) target=development ;;
               staging) target=staging ;;
               main) target=production ;;
@@ -60,12 +59,12 @@ jobs:
             production) required_branch=main ;;
             *) echo "Unsupported deployment environment: $target" >&2; exit 1 ;;
           esac
-          if [ "${{ github.ref_name }}" != "$required_branch" ]; then
-            echo "Deploy $target from the $required_branch branch, not ${{ github.ref_name }}." >&2
+          if [ "$TRIGGER_BRANCH" != "$required_branch" ]; then
+            echo "Deploy $target from the $required_branch branch, not $TRIGGER_BRANCH." >&2
             exit 1
           fi
 
-          source_ref="${REQUESTED_REF:-${{ github.sha }}}"
+          source_ref="${REQUESTED_REF:-$TRIGGER_SHA}"
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
           echo "required_branch=$required_branch" >> "$GITHUB_OUTPUT"
@@ -91,16 +90,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install app dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Verify deployment architecture
-        run: npm run check:deploy
+      - name: Verify deployment and CI architecture
+        run: npm run check:deploy && npm run check:ci
+
+      - name: Frontend TypeScript and lint safety check
+        run: npm run typecheck && npm run lint
 
       - name: Install server dependencies
         working-directory: server
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Server domain tests
         working-directory: server
@@ -189,7 +192,8 @@ jobs:
           put_secret NUVEI_MERCHANT_SITE_ID "$NUVEI_TEST_MERCHANT_SITE_ID"
           put_secret NUVEI_SECRET_KEY "$NUVEI_TEST_SECRET_KEY"
 
-      - name: Deploy isolated Worker
+      - id: worker_deploy
+        name: Atomically deploy isolated Worker version
         working-directory: server
         shell: bash
         env:
@@ -199,7 +203,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy --env "$TARGET" --var "RELEASE_ID:$RELEASE_SHA"
 
-      - name: Smoke test deployed API
+      - id: smoke
+        name: Smoke test deployed API
+        continue-on-error: true
         shell: bash
         env:
           TARGET: ${{ needs.resolve.outputs.target }}
@@ -216,9 +222,27 @@ jobs:
             esac
           fi
           case "$api" in https://*) ;; *) echo 'API_BASE_URL must use HTTPS.' >&2; exit 1 ;; esac
-          payload="$(curl --fail --silent --show-error "$api/_health")"
-          node -e 'const p=JSON.parse(process.argv[1]);if(!p.ok||p.environment!==process.argv[2])process.exit(1)' "$payload" "$TARGET"
+          payload="$(curl --retry 3 --retry-delay 2 --fail --silent --show-error "$api/_health")"
+          node -e 'const p=JSON.parse(process.argv[1]);if(!p.ok||p.environment!==process.argv[2]||p.release!==process.argv[3])process.exit(1)' "$payload" "$TARGET" "$RELEASE_SHA"
           echo "API health check passed for $TARGET ($RELEASE_SHA)."
+
+      - name: Roll back unhealthy Worker release
+        if: steps.worker_deploy.outcome == 'success' && steps.smoke.outcome == 'failure'
+        working-directory: server
+        shell: bash
+        env:
+          TARGET: ${{ needs.resolve.outputs.target }}
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler rollback --env "$TARGET" --message "Automatic rollback after failed QQURZ health check for $RELEASE_SHA"
+
+      - name: Fail deployment after smoke-test rollback
+        if: steps.smoke.outcome == 'failure'
+        shell: bash
+        run: |
+          echo 'The new Worker failed its health check and rollback was requested. The deployment is failed.' >&2
+          exit 1
 
       - name: Deployment summary
         shell: bash
@@ -226,4 +250,6 @@ jobs:
           echo "### QQURZ API deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: **${{ needs.resolve.outputs.target }}**" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release: \`${{ steps.source.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Normal branch deployment was released only after the complete quality workflow succeeded." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worker publication is atomic; failed post-deploy health checks request an automatic rollback." >> "$GITHUB_STEP_SUMMARY"
           echo "- Payments: nonproduction test-only; production remains fail-closed" >> "$GITHUB_STEP_SUMMARY"
