@@ -34,6 +34,8 @@ export type RealtimeGatewayEnv =
   & {
     ALLOWED_ORIGINS?: string;
     PAYMENTS_COMPLIANCE_WEBHOOK_SECRET?: string;
+    DEPLOYMENT_ENV?: string;
+    RELEASE_ID?: string;
   };
 
 export const realtimeGatewayModule = moduleDescriptor('realtime-gateway', [
@@ -41,7 +43,12 @@ export const realtimeGatewayModule = moduleDescriptor('realtime-gateway', [
   'CORS and transport-level policy',
   'deterministic module routing order',
   'Durable Object export composition',
+  'environment and release health metadata',
 ], ['admin', 'moderation', 'notifications', 'auth', 'payments-ledger', 'matchmaking', 'tournament-engine', 'game']);
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
+}
 
 function withCors(request: Request, response: Response, env: RealtimeGatewayEnv): Response {
   const origin = request.headers.get('origin');
@@ -54,10 +61,22 @@ function withCors(request: Request, response: Response, env: RealtimeGatewayEnv)
   headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
   headers.set('access-control-allow-headers', 'content-type,authorization,idempotency-key,x-integrity-admin');
   headers.set('access-control-max-age', '86400');
+  if (env.RELEASE_ID) headers.set('x-qqurz-release', env.RELEASE_ID);
+  if (env.DEPLOYMENT_ENV) headers.set('x-qqurz-environment', env.DEPLOYMENT_ENV);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 async function routed(request: Request, env: RealtimeGatewayEnv): Promise<Response> {
+  const url = new URL(request.url);
+  if (request.method === 'GET' && (url.pathname === '/_health' || url.pathname === '/healthz')) {
+    return json({
+      ok: true,
+      service: 'qqurz-chess-api',
+      environment: env.DEPLOYMENT_ENV ?? 'development',
+      release: env.RELEASE_ID ?? 'unknown',
+    });
+  }
+
   const admin = await handleAdminRequest(request, env);
   if (admin) return admin;
 
