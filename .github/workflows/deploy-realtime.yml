@@ -90,10 +90,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install app dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
 
       - name: Verify deployment and CI architecture
         run: npm run check:deploy && npm run check:ci
@@ -103,7 +102,7 @@ jobs:
 
       - name: Install server dependencies
         working-directory: server
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
 
       - name: Server domain tests
         working-directory: server
