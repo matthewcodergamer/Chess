@@ -1,0 +1,61 @@
+name: Roll back QQURZ API environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_environment:
+        description: Environment to roll back
+        required: true
+        type: choice
+        options: [development, staging, production]
+      worker_version_id:
+        description: Cloudflare Worker version ID to restore
+        required: true
+        type: string
+      reason:
+        description: Rollback reason
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.deployment_environment }}
+    steps:
+      - name: Checkout current deployment policy
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm install --no-audit --no-fund
+
+      - name: Roll back Worker code/config version
+        working-directory: server
+        env:
+          TARGET: ${{ inputs.deployment_environment }}
+          VERSION_ID: ${{ inputs.worker_version_id }}
+          REASON: ${{ inputs.reason }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx wrangler rollback "$VERSION_ID" --env "$TARGET" --message "QQURZ rollback: $REASON"
+
+      - name: Important storage note
+        shell: bash
+        run: |
+          echo "### QQURZ API rollback" >> "$GITHUB_STEP_SUMMARY"
+          echo "Worker code/config was rolled back for **${{ inputs.deployment_environment }}**." >> "$GITHUB_STEP_SUMMARY"
+          echo "Durable Object storage is not rolled back by a Worker version rollback. Use the PITR recovery runbook if data recovery is required." >> "$GITHUB_STEP_SUMMARY"
