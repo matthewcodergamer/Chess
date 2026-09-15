@@ -1,0 +1,278 @@
+diff --git a/.env.example b/.env.example
+index 117bdd1..62a9c9e 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,3 +1,7 @@
+ # Public HTTPS URL of the deployed QQURZ realtime Worker.
+ # Example: https://qqurz-chess-api.YOUR-SUBDOMAIN.workers.dev
+ VITE_MULTIPLAYER_API=
++
++# Optional build metadata. CI sets these automatically for production.
++VITE_RELEASE_ID=dev
++VITE_APP_VERSION=1.8.0
+diff --git a/.github/workflows/deploy-pages.yml b/.github/workflows/deploy-pages.yml
+index 919f0c4..224d7fe 100644
+--- a/.github/workflows/deploy-pages.yml
++++ b/.github/workflows/deploy-pages.yml
+@@ -49,6 +49,8 @@ jobs:
+       - name: Build
+         env:
+           VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API || 'https://qqurz-chess-api.gamerstriper.workers.dev' }}
++          VITE_RELEASE_ID: ${{ github.sha }}
++          VITE_APP_VERSION: 1.8.0
+         run: npm run build
+ 
+       - name: Setup Pages
+diff --git a/.github/workflows/deploy-realtime.yml b/.github/workflows/deploy-realtime.yml
+index 33606fa..7d06410 100644
+--- a/.github/workflows/deploy-realtime.yml
++++ b/.github/workflows/deploy-realtime.yml
+@@ -91,6 +91,18 @@ jobs:
+         env:
+           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+ 
++      - name: Stamp Worker release
++        shell: bash
++        run: |
++          node --input-type=module <<'NODE'
++          import { readFile, writeFile } from 'node:fs/promises';
++          const path = 'wrangler.jsonc';
++          const release = process.env.GITHUB_SHA || 'dev';
++          let source = await readFile(path, 'utf8');
++          source = source.replace('\"QQURZ_RELEASE_ID\": \"dev\"', `\"QQURZ_RELEASE_ID\": \"${release}\"`);
++          await writeFile(path, source);
++          NODE
++
+       - name: Deploy Worker
+         run: npx wrangler deploy
+         env:
+diff --git a/.github/workflows/quality-gates.yml b/.github/workflows/quality-gates.yml
+index b2147a7..652c169 100644
+--- a/.github/workflows/quality-gates.yml
++++ b/.github/workflows/quality-gates.yml
+@@ -142,4 +142,6 @@ jobs:
+       - name: Build production app
+         env:
+           VITE_MULTIPLAYER_API: ${{ vars.VITE_MULTIPLAYER_API || 'https://qqurz-chess-api.gamerstriper.workers.dev' }}
++          VITE_RELEASE_ID: ${{ github.sha }}
++          VITE_APP_VERSION: 1.8.0
+         run: npm run build
+diff --git a/package.json b/package.json
+index 02ed8ac..d9a0ffb 100644
+--- a/package.json
++++ b/package.json
+@@ -16,6 +16,7 @@
+     "check:engine-isolation": "node scripts/check-engine-isolation.mjs",
+     "check:3d-boundary": "node scripts/check-3d-presentation-boundary.mjs",
+     "check:performance": "node scripts/check-performance-budgets.mjs",
++    "check:monitoring": "node scripts/check-error-monitoring.mjs",
+     "prepare:engine": "node scripts/copy-stockfish.mjs",
+     "prepare:quarter": "node scripts/fetch-quarter-assets.mjs",
+     "prepare:audio": "node scripts/fetch-chess-audio.mjs",
+@@ -27,8 +28,8 @@
+     "test:visual:update": "playwright test -c playwright.visual.config.ts --update-snapshots",
+     "test": "npm run test:unit && npm run test:integration",
+     "test:all": "npm run test && npm run test:e2e && npm run test:mobile-overlap && npm run test:visual",
+-    "dev": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:data && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && vite",
+-    "build": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:data && npm run check:engine-isolation && npm run check:3d-boundary && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && tsc -b && vite build && npm run check:performance",
++    "dev": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:data && npm run check:engine-isolation && npm run check:3d-boundary && npm run check:monitoring && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && vite",
++    "build": "npm run check:css && npm run check:ui && npm run check:states && npm run check:pieces && npm run check:clock && npm run check:audio && npm run check:chess960 && npm run check:account && npm run check:data && npm run check:engine-isolation && npm run check:3d-boundary && npm run check:monitoring && npm run prepare:engine && npm run prepare:quarter && npm run prepare:audio && tsc -b && vite build && npm run check:performance",
+     "preview": "vite preview"
+   },
+   "dependencies": {
+diff --git a/scripts/check-admin-operations.mjs b/scripts/check-admin-operations.mjs
+index aa7d130..00d67fd 100644
+--- a/scripts/check-admin-operations.mjs
++++ b/scripts/check-admin-operations.mjs
+@@ -26,14 +26,17 @@ for (const marker of [
+ 
+ for (const marker of [
+   'activeGames', 'stuckGames', 'tournaments', 'registration_total', 'refunds', 'transactionStates',
+-  'disputedResults', 'reports', 'bannedAccounts', 'payouts', 'failedWebhooks', 'audit', 'integrity_check',
++  'disputedResults', 'reports', 'bannedAccounts', 'payouts', 'failedWebhooks', 'operational_errors', 'recentErrorGroups', 'audit', 'integrity_check',
+ ]) if (!operations.includes(marker)) errors.push(`Canonical operations read model is missing ${marker}.`);
+ 
+ if (!matchmaking.includes('/internal/admin/presence') || !matchmaking.includes('INTEGRITY_ADMIN_SECRET')) {
+   errors.push('Detailed online-player visibility must remain behind the admin capability.');
+ }
+-if (!migrations.includes('LATEST_DATA_SCHEMA_VERSION = 3') || !migrations.includes('provider_webhook_events')) {
+-  errors.push('Webhook outcome storage must be an ordered v3 schema migration.');
++if (!migrations.includes('LATEST_DATA_SCHEMA_VERSION = 4') || !migrations.includes('provider_webhook_events') || !migrations.includes('operational_errors')) {
++  errors.push('Webhook/error outcome storage must include the ordered v4 operational monitoring migration.');
++}
++if (!realtime.includes('handleClientErrorReport') || !realtime.includes('x-qqurz-release') || !realtime.includes('recordOperationalError')) {
++  errors.push('Realtime gateway must expose sanitized client error intake and release-tagged backend exception monitoring.');
+ }
+ if (!payments.includes('recordProviderWebhook') || !payments.includes("provider: 'compliance'")) {
+   errors.push('Provider webhook outcomes are not projected for operations visibility.');
+@@ -65,4 +68,4 @@ if (errors.length) {
+   process.exit(1);
+ }
+ 
+-console.log('QQURZ admin operations OK: privileged read model, live presence, money/moderation/webhook health, audit visibility and separate session-only operator UI are wired.');
++console.log('QQURZ admin operations OK: privileged read model, live presence, money/moderation/webhook/error health, release visibility, audit visibility and separate session-only operator UI are wired.');
+diff --git a/scripts/check-error-monitoring.mjs b/scripts/check-error-monitoring.mjs
+new file mode 100644
+index 0000000..c8dccb5
+--- /dev/null
++++ b/scripts/check-error-monitoring.mjs
+@@ -0,0 +1,43 @@
++import fs from 'node:fs';
++
++const read = path => fs.readFileSync(path, 'utf8');
++const errors = [];
++const monitor = read('src/monitoring/errorMonitor.ts');
++const main = read('src/main.tsx');
++const socket = read('src/multiplayer/client.ts');
++const stockfish = read('src/engine/stockfish.ts');
++const webgl = read('src/premium/ThreeBoardRenderer.tsx');
++const tournamentClient = read('src/tournaments/engineClient.ts');
++const paymentClient = read('src/tournaments/client.ts');
++const ops = read('server/src/data/operations.ts');
++const migrations = read('server/src/data/migrations.ts');
++const gateway = read('server/src/modules/realtime/index.ts');
++const payments = read('server/src/modules/payments/index.ts');
++const tournament = read('server/src/modules/tournament/index.ts');
++const pages = read('.github/workflows/deploy-pages.yml');
++const realtime = read('.github/workflows/deploy-realtime.yml');
++
++for (const marker of ['unhandledrejection', "window.addEventListener('error'", "credentials: 'omit'", "referrerPolicy: 'no-referrer'", 'VITE_RELEASE_ID', 'VITE_APP_VERSION']) {
++  if (!monitor.includes(marker)) errors.push(`Client crash monitor is missing ${marker}.`);
++}
++if (monitor.includes('accountToken') || monitor.includes('qqurz:profile')) errors.push('Crash monitor must not attach account identity.');
++if (!main.includes('installCrashMonitoring()')) errors.push('Crash monitor is not installed at app bootstrap.');
++if (!socket.includes("kind: 'websocket_failure'")) errors.push('WebSocket failure reporting is missing.');
++if (!stockfish.includes("kind: 'stockfish_crash'") || !stockfish.includes("kind: 'stockfish_timeout'")) errors.push('Stockfish crash/timeout reporting is incomplete.');
++if (!webgl.includes('webglcontextlost') || !webgl.includes("kind: 'webgl_context_lost'")) errors.push('WebGL context-loss reporting is missing.');
++if (!tournamentClient.includes("kind: 'tournament_engine_error'")) errors.push('Tournament client error reporting is missing.');
++if (!paymentClient.includes("kind: 'payment_failure'")) errors.push('Payment client error reporting is missing.');
++for (const marker of ['operational_errors', 'occurrence_count', 'release_id', '/monitoring/client-error']) if (!ops.includes(marker) && !migrations.includes(marker)) errors.push(`Persistent operational error model is missing ${marker}.`);
++for (const marker of ['recordOperationalError', 'unhandled_exception', 'x-qqurz-release', 'x-qqurz-version']) if (!gateway.includes(marker)) errors.push(`Backend exception boundary is missing ${marker}.`);
++if (!payments.includes('provider_webhook_failed') || !payments.includes('webhook_exception')) errors.push('Payment/webhook monitoring is incomplete.');
++if (!tournament.includes('tournament_engine_exception') || !tournament.includes('tournament_engine_response')) errors.push('Tournament backend monitoring is incomplete.');
++if (!pages.includes('VITE_RELEASE_ID: ${{ github.sha }}')) errors.push('Pages build is not stamped with the Git commit release ID.');
++if (!realtime.includes('Stamp Worker release') || !realtime.includes('GITHUB_SHA')) errors.push('Worker deployment is not stamped with the Git commit release ID.');
++
++if (errors.length) {
++  console.error('\nQQURZ crash/error monitoring check failed:\n');
++  for (const error of errors) console.error(` - ${error}`);
++  console.error('');
++  process.exit(1);
++}
++console.log('QQURZ crash/error monitoring OK: frontend, WebSocket, Stockfish, WebGL, payments/webhooks, tournament engine and backend exceptions are release-tagged and privacy-scrubbed.');
+diff --git a/server/src/data/migrations.ts b/server/src/data/migrations.ts
+index 0b9d2fd..25c8144 100644
+--- a/server/src/data/migrations.ts
++++ b/server/src/data/migrations.ts
+@@ -1,12 +1,13 @@
+ import { DATA_SCHEMA_SQL, DATA_SCHEMA_VERSION, REQUIRED_DATA_TABLES } from './schema';
+ 
+-export const LATEST_DATA_SCHEMA_VERSION = 3;
++export const LATEST_DATA_SCHEMA_VERSION = 4;
+ 
+ export const REQUIRED_PRODUCTION_DATA_TABLES = [
+   ...REQUIRED_DATA_TABLES,
+   'follows',
+   'compliance_attestations',
+   'provider_webhook_events',
++  'operational_errors',
+ ] as const;
+ 
+ function currentVersion(storage: DurableObjectStorage): number {
+@@ -104,6 +105,33 @@ function migrateV2ToV3(storage: DurableObjectStorage): void {
+   `);
+ }
+ 
++
++function migrateV3ToV4(storage: DurableObjectStorage): void {
++  storage.sql.exec(`
++    CREATE TABLE IF NOT EXISTS operational_errors (
++      fingerprint TEXT PRIMARY KEY,
++      source TEXT NOT NULL,
++      kind TEXT NOT NULL,
++      release_id TEXT NOT NULL,
++      app_version TEXT NOT NULL,
++      surface TEXT NOT NULL,
++      message TEXT NOT NULL,
++      stack TEXT NOT NULL DEFAULT '',
++      http_status INTEGER NOT NULL DEFAULT 0 CHECK (http_status BETWEEN 0 AND 599),
++      occurrence_count INTEGER NOT NULL DEFAULT 1 CHECK (occurrence_count >= 1),
++      first_seen_at INTEGER NOT NULL,
++      last_seen_at INTEGER NOT NULL,
++      metadata_json TEXT NOT NULL DEFAULT '{}'
++    ) STRICT;
++    CREATE INDEX IF NOT EXISTS ix_operational_errors_last_seen
++      ON operational_errors(last_seen_at DESC);
++    CREATE INDEX IF NOT EXISTS ix_operational_errors_release
++      ON operational_errors(release_id,last_seen_at DESC);
++    CREATE INDEX IF NOT EXISTS ix_operational_errors_source_kind
++      ON operational_errors(source,kind,last_seen_at DESC);
++  `);
++}
++
+ export function ensureProductionDataSchema(storage: DurableObjectStorage): number {
+   // The v1 schema is the bootstrap migration. Every later change must be an
+   // ordered migration so deployed data is never rebuilt destructively.
+@@ -126,6 +154,13 @@ export function ensureProductionDataSchema(storage: DurableObjectStorage): numbe
+   } else {
+     migrateV2ToV3(storage);
+   }
++  if (version < 4) {
++    storage.transactionSync(() => migrateV3ToV4(storage));
++    version = 4;
++    setVersion(storage, version);
++  } else {
++    migrateV3ToV4(storage);
++  }
+   setVersion(storage, version);
+   return version;
+ }
+diff --git a/server/src/data/operations.ts b/server/src/data/operations.ts
+index 2199ac6..61a18af 100644
+--- a/server/src/data/operations.ts
++++ b/server/src/data/operations.ts
+@@ -11,6 +11,20 @@ type ActiveGameRow = SqlRow & {
+   last_activity_at: number | null;
+ };
+ 
++
++export type OperationalErrorRecord = {
++  source: 'frontend' | 'websocket' | 'stockfish' | 'webgl' | 'payment' | 'webhook' | 'tournament' | 'backend';
++  kind: string;
++  releaseId: string;
++  appVersion: string;
++  surface: string;
++  message: string;
++  stack?: string;
++  httpStatus?: number;
++  occurredAt?: number;
++  metadata?: unknown;
++};
++
+ export type ProviderWebhookRecord = {
+   id: string;
+   provider: string;
+@@ -32,6 +46,47 @@ function clean(value: unknown, max = 400): string {
+   return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+ }
+ 
++
++
++function scrubOperationalText(value: unknown, max = 1200): string {
++  return clean(value, max)
++    .replace(/https?:\/\/[^\s)\]]+/gi, match => match.split(/[?#]/, 1)[0])
++    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[redacted-email]')
++    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [redacted]')
++    .replace(/\b[a-f0-9]{32,}\b/gi, '[redacted-id]')
++    .slice(0, max);
++}
++
++function stableFingerprint(value: string): string {
++  let hash = 0x811c9dc5;
++  for (let index = 0; index < value.length; index += 1) {
++    hash ^= value.charCodeAt(index);
++    hash = Math.imul(hash, 0x01000193) >>> 0;
++  }
++  return hash.toString(16).padStart(8, '0');
++}
++
