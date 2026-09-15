@@ -1,97 +1,229 @@
-name: Deploy QQURZ realtime server
+name: Deploy QQURZ API environment
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main]
+    branches: [develop, staging, main]
     paths:
       - 'server/**'
       - 'shared/**'
+      - 'scripts/check-deployment-environments.mjs'
+      - 'package.json'
       - '.github/workflows/deploy-realtime.yml'
+  workflow_dispatch:
+    inputs:
+      deployment_environment:
+        description: Environment to deploy
+        required: true
+        type: choice
+        options: [development, staging, production]
+      source_ref:
+        description: Optional commit/tag to deploy
+        required: false
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: api-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  resolve:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: server
+    outputs:
+      target: ${{ steps.resolve.outputs.target }}
+      source_ref: ${{ steps.resolve.outputs.source_ref }}
+      required_branch: ${{ steps.resolve.outputs.required_branch }}
     steps:
-      - name: Checkout
+      - id: resolve
+        shell: bash
+        env:
+          REQUESTED: ${{ inputs.deployment_environment }}
+          REQUESTED_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            target="$REQUESTED"
+          else
+            case "${{ github.ref_name }}" in
+              develop) target=development ;;
+              staging) target=staging ;;
+              main) target=production ;;
+              *) echo "Unsupported deployment branch" >&2; exit 1 ;;
+            esac
+          fi
+
+          case "$target" in
+            development) required_branch=develop ;;
+            staging) required_branch=staging ;;
+            production) required_branch=main ;;
+            *) echo "Unsupported deployment environment: $target" >&2; exit 1 ;;
+          esac
+          if [ "${{ github.ref_name }}" != "$required_branch" ]; then
+            echo "Deploy $target from the $required_branch branch, not ${{ github.ref_name }}." >&2
+            exit 1
+          fi
+
+          source_ref="${REQUESTED_REF:-${{ github.sha }}}"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
+          echo "required_branch=$required_branch" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: resolve
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve.outputs.target }}
+    steps:
+      - name: Checkout release source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.source_ref }}
+          fetch-depth: 0
+
+      - id: source
+        name: Resolve immutable release SHA
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install shared app dependencies
-        working-directory: .
+      - name: Install app dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Verify deployment architecture
+        run: npm run check:deploy
 
       - name: Install server dependencies
+        working-directory: server
         run: npm install --no-audit --no-fund
 
-      - name: Typecheck server
+      - name: Server domain tests
+        working-directory: server
+        run: npm test
+
+      - name: Server type and architecture checks
+        working-directory: server
         run: npm run check
 
-      - name: Verify Cloudflare login
-        run: npx wrangler whoami
+      - name: Require Cloudflare deployment credentials
+        shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment-scoped CLOUDFLARE_API_TOKEN.' >&2; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing environment-scoped CLOUDFLARE_ACCOUNT_ID.' >&2; exit 1; }
 
-      - name: Configure integrity capabilities
+      - name: Validate payment secret class
+        if: needs.resolve.outputs.target != 'production'
         shell: bash
+        env:
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
         run: |
           set -euo pipefail
-          INTERNAL_SECRET="$(openssl rand -hex 32)"
-          printf '%s' "$INTERNAL_SECRET" | npx wrangler secret put INTEGRITY_INTERNAL_SECRET
-          if [ -n "${INTEGRITY_ADMIN_SECRET:-}" ]; then
-            printf '%s' "$INTEGRITY_ADMIN_SECRET" | npx wrangler secret put INTEGRITY_ADMIN_SECRET
+          if [ -n "$STRIPE_TEST_SECRET_KEY" ]; then
+            case "$STRIPE_TEST_SECRET_KEY" in sk_test_*) ;; *) echo 'Nonproduction STRIPE_TEST_SECRET_KEY must begin with sk_test_.' >&2; exit 1 ;; esac
           fi
-          if [ -n "${INTEGRITY_SIGNAL_SECRET:-}" ]; then
-            printf '%s' "$INTEGRITY_SIGNAL_SECRET" | npx wrangler secret put INTEGRITY_SIGNAL_SECRET
-          fi
+
+      - name: Sync stable environment secrets
+        working-directory: server
+        shell: bash
         env:
+          TARGET: ${{ needs.resolve.outputs.target }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          PAYMENTS_INTERNAL_SECRET: ${{ secrets.PAYMENTS_INTERNAL_SECRET }}
+          PAYMENTS_INTENT_SECRET: ${{ secrets.PAYMENTS_INTENT_SECRET }}
+          PAYMENTS_COMPLIANCE_WEBHOOK_SECRET: ${{ secrets.PAYMENTS_COMPLIANCE_WEBHOOK_SECRET }}
+          INTEGRITY_INTERNAL_SECRET: ${{ secrets.INTEGRITY_INTERNAL_SECRET }}
           INTEGRITY_ADMIN_SECRET: ${{ secrets.INTEGRITY_ADMIN_SECRET }}
           INTEGRITY_SIGNAL_SECRET: ${{ secrets.INTEGRITY_SIGNAL_SECRET }}
-
-      - name: Ensure stable Web Push VAPID keys
-        shell: bash
+          WEB_PUSH_VAPID_PUBLIC_KEY: ${{ secrets.WEB_PUSH_VAPID_PUBLIC_KEY }}
+          WEB_PUSH_VAPID_PRIVATE_KEY: ${{ secrets.WEB_PUSH_VAPID_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          SECRETS_JSON="$(npx wrangler secret list --format json)"
-          HAS_PUBLIC="$(printf '%s' "$SECRETS_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);process.stdout.write(a.some(x=>x.name==='WEB_PUSH_VAPID_PUBLIC_KEY')?'1':'0')})")"
-          HAS_PRIVATE="$(printf '%s' "$SECRETS_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);process.stdout.write(a.some(x=>x.name==='WEB_PUSH_VAPID_PRIVATE_KEY')?'1':'0')})")"
+          put_secret() {
+            key="$1"; value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$key" --env "$TARGET"
+            fi
+          }
+          put_secret PAYMENTS_INTERNAL_SECRET "$PAYMENTS_INTERNAL_SECRET"
+          put_secret PAYMENTS_INTENT_SECRET "$PAYMENTS_INTENT_SECRET"
+          put_secret PAYMENTS_COMPLIANCE_WEBHOOK_SECRET "$PAYMENTS_COMPLIANCE_WEBHOOK_SECRET"
+          put_secret INTEGRITY_INTERNAL_SECRET "$INTEGRITY_INTERNAL_SECRET"
+          put_secret INTEGRITY_ADMIN_SECRET "$INTEGRITY_ADMIN_SECRET"
+          put_secret INTEGRITY_SIGNAL_SECRET "$INTEGRITY_SIGNAL_SECRET"
+          put_secret WEB_PUSH_VAPID_PUBLIC_KEY "$WEB_PUSH_VAPID_PUBLIC_KEY"
+          put_secret WEB_PUSH_VAPID_PRIVATE_KEY "$WEB_PUSH_VAPID_PRIVATE_KEY"
 
-          if [ "$HAS_PUBLIC" = "1" ] && [ "$HAS_PRIVATE" = "1" ]; then
-            echo "Web Push VAPID keys already configured; preserving the existing pair."
-            exit 0
-          fi
-          if [ "$HAS_PUBLIC" != "$HAS_PRIVATE" ]; then
-            echo "Only one Web Push VAPID key is configured. Refusing to create a mismatched pair." >&2
-            exit 1
-          fi
-
-          umask 077
-          node --input-type=module <<'NODE'
-          import { generateVAPIDKeys } from 'web-push-neo';
-          import { writeFile } from 'node:fs/promises';
-          const keys = await generateVAPIDKeys();
-          await writeFile('.vapid-public', keys.publicKey, { mode: 0o600 });
-          await writeFile('.vapid-private', keys.privateKey, { mode: 0o600 });
-          NODE
-          printf '%s' "$(cat .vapid-public)" | npx wrangler secret put WEB_PUSH_VAPID_PUBLIC_KEY
-          printf '%s' "$(cat .vapid-private)" | npx wrangler secret put WEB_PUSH_VAPID_PRIVATE_KEY
-          rm -f .vapid-public .vapid-private
-          echo "Created and stored the initial Web Push VAPID key pair."
+      - name: Sync test-only payment provider secrets
+        if: needs.resolve.outputs.target != 'production'
+        working-directory: server
+        shell: bash
         env:
+          TARGET: ${{ needs.resolve.outputs.target }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.STRIPE_TEST_WEBHOOK_SECRET }}
+          NUVEI_TEST_MERCHANT_ID: ${{ secrets.NUVEI_TEST_MERCHANT_ID }}
+          NUVEI_TEST_MERCHANT_SITE_ID: ${{ secrets.NUVEI_TEST_MERCHANT_SITE_ID }}
+          NUVEI_TEST_SECRET_KEY: ${{ secrets.NUVEI_TEST_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          put_secret() {
+            key="$1"; value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$key" --env "$TARGET"
+            fi
+          }
+          put_secret STRIPE_SECRET_KEY "$STRIPE_TEST_SECRET_KEY"
+          put_secret STRIPE_WEBHOOK_SECRET "$STRIPE_TEST_WEBHOOK_SECRET"
+          put_secret NUVEI_MERCHANT_ID "$NUVEI_TEST_MERCHANT_ID"
+          put_secret NUVEI_MERCHANT_SITE_ID "$NUVEI_TEST_MERCHANT_SITE_ID"
+          put_secret NUVEI_SECRET_KEY "$NUVEI_TEST_SECRET_KEY"
 
-      - name: Deploy Worker
-        run: npx wrangler deploy
+      - name: Deploy isolated Worker
+        working-directory: server
+        shell: bash
         env:
+          TARGET: ${{ needs.resolve.outputs.target }}
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --env "$TARGET" --var "RELEASE_ID:$RELEASE_SHA"
+
+      - name: Smoke test deployed API
+        shell: bash
+        env:
+          TARGET: ${{ needs.resolve.outputs.target }}
+          CONFIGURED_API: ${{ vars.API_BASE_URL }}
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          api="$CONFIGURED_API"
+          if [ -z "$api" ]; then
+            case "$TARGET" in
+              development) api='https://qqurz-chess-api-development.gamerstriper.workers.dev' ;;
+              staging) api='https://qqurz-chess-api-staging.gamerstriper.workers.dev' ;;
+              production) api='https://qqurz-chess-api.gamerstriper.workers.dev' ;;
+            esac
+          fi
+          case "$api" in https://*) ;; *) echo 'API_BASE_URL must use HTTPS.' >&2; exit 1 ;; esac
+          payload="$(curl --fail --silent --show-error "$api/_health")"
+          node -e 'const p=JSON.parse(process.argv[1]);if(!p.ok||p.environment!==process.argv[2])process.exit(1)' "$payload" "$TARGET"
+          echo "API health check passed for $TARGET ($RELEASE_SHA)."
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo "### QQURZ API deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: **${{ needs.resolve.outputs.target }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release: \`${{ steps.source.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Payments: nonproduction test-only; production remains fail-closed" >> "$GITHUB_STEP_SUMMARY"
