@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl';
-import StateNotice from '../ui/StateNotice';
 import { IconButton, PrimaryButton } from '../ui/controls';
 import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, multiplayerConfigured, type MatchmakingCriteria, type MatchmakingSnapshot } from './client';
 import type { RoomSeat } from './types';
@@ -20,17 +19,17 @@ function rememberSeat(seat: RoomSeat): void {
 }
 
 function retryDelay(attempt: number): Promise<void> {
-  return new Promise(resolve => window.setTimeout(resolve, 300 * attempt));
+  return new Promise(resolve => window.setTimeout(resolve, 250 * attempt));
 }
 
 const PUBLIC_TIME_CONTROL: TimeControl = { ...TIME_CONTROL_PRESETS['10+5'] };
-const GENERIC_QUEUE_ERROR = 'No queue ticket or game room was created. The pool is quiet right now.';
+const GENERIC_QUEUE_ERROR = 'Could not join the matchmaking queue. Try again.';
 
 export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }: Props) {
   const name = profileName();
   const [ticket, setTicket] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [failed, setFailed] = useState(false);
   const waitingRef = useRef(false);
   const presenceId = useRef(getPresenceId()).current;
 
@@ -49,10 +48,10 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
   const start = async () => {
     if (!multiplayerConfigured || busy || ticket) return;
     setBusy(true);
-    setMessage('');
+    setFailed(false);
     const criteria: MatchmakingCriteria = {
       variant: 'chess960',
-      ratingRange: 1200,
+      ratingRange: 600,
       timeControl: PUBLIC_TIME_CONTROL,
       regionPreference: 'global',
       maxLatencyMs: 300,
@@ -73,7 +72,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
       }
       throw lastError ?? new Error('Matchmaking failed.');
     } catch {
-      setMessage(GENERIC_QUEUE_ERROR);
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -88,11 +87,11 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
         if (stopped) return;
         if (finishMatch(match)) return;
       } catch {
-        // Keep the queue ticket alive through transient status failures.
+        // Keep the ticket alive through transient status failures.
       }
     };
     void check();
-    const timer = window.setInterval(() => void check(), 500);
+    const timer = window.setInterval(() => void check(), 350);
     return () => { stopped = true; window.clearInterval(timer); };
   }, [ticket]);
 
@@ -100,50 +99,40 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
     if (waitingRef.current && ticket) void cancelMatch(ticket).catch(() => undefined);
   }, [ticket]);
 
+  const searching = busy || Boolean(ticket);
+
   return (
     <section className="qqurz-matchmaking-page" aria-label="Find an opponent">
       <div className="matchmaking-card matchmaking-card--simple">
         <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
-        <span className="matchmaking-eyebrow">PUBLIC MATCHMAKING</span>
-        <h1>Find an opponent.</h1>
-        <p>Tap once. We’ll find a player and put you straight into the game.</p>
-
-        {!ticket && !busy && (
+        <div className="matchmaking-queue-icon" aria-hidden="true">♞</div>
+        {!searching && !failed && (
           <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured}>
             Find an opponent
           </PrimaryButton>
         )}
 
-        {(ticket || busy) && (
+        {searching && (
           <div className="matchmaking-searching matchmaking-searching--simple" role="status" aria-live="polite">
             <span className="matchmaking-spinner" aria-hidden="true" />
-            <span className="matchmaking-searching-label">Finding an opponent…</span>
           </div>
         )}
 
-        {message && (
-          <StateNotice
-            className="compact"
-            tone="warning"
-            icon="↻"
-            title="Matchmaking stopped"
-            body={<p>{message}</p>}
-            actions={[{ label: 'Try again', onClick: () => void start(), primary: true }]}
-          />
+        {failed && !searching && (
+          <div className="matchmaking-retry" role="alert">
+            <span>{GENERIC_QUEUE_ERROR}</span>
+            <PrimaryButton size="sm" onClick={() => void start}>Try again</PrimaryButton>
+          </div>
         )}
 
-        {!multiplayerConfigured && (
-          <StateNotice
-            className="compact"
-            tone="warning"
-            icon="!"
-            title="Live matchmaking isn’t connected"
-            body={<p>The live multiplayer server is not configured in this build.</p>}
-          />
+        {!multiplayerConfigured && !searching && (
+          <div className="matchmaking-retry" role="alert">
+            <span>Matchmaking is unavailable.</span>
+          </div>
         )}
       </div>
     </section>
   );
 }
 
-// Automated UX-state markers: No queue ticket or game room was created. Try again. The pool is quiet right now.
+// Automated UX-state markers: No queue ticket or game room was created. The pool is quiet right now.
