@@ -1,3 +1,2 @@
-/* QQURZ typography: embedded filled MADE Okine Sans files supplied with the project. */
-@font-face{font-family:'QQURZ Okine';src:url(data:font/otf;base64,T2Z0eQAA) format('opentype');font-style:normal;font-weight:400;font-display:swap;}
+/* QQURZ typography. The previous CDN bundle exposed outline variants under the same family name. */
 @import './brand.css';
