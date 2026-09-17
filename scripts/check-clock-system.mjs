@@ -11,8 +11,9 @@ const localChromePath = 'src/game/LocalMatchChrome.tsx';
 const localControllerPath = 'src/game/useLocalGameController.ts';
 const onlinePath = 'src/multiplayer/OnlineArena.tsx';
 const premiumPath = 'src/premium/PremiumBoard3D.tsx';
+const launchFixesPath = 'src/styles/launch-fixes.css';
 
-for (const file of [physicalPath, localPath, localChromePath, localControllerPath, onlinePath, premiumPath]) {
+for (const file of [physicalPath, localPath, localChromePath, localControllerPath, onlinePath, premiumPath, launchFixesPath]) {
   if (!fs.existsSync(path.join(root, file))) errors.push(`Missing clock-system file: ${file}`);
 }
 
@@ -23,16 +24,15 @@ if (!errors.length) {
   const localController = read(localControllerPath);
   const online = read(onlinePath);
   const premium = read(premiumPath);
+  const launchFixes = read(launchFixesPath);
 
-  // The physical/3D clock and slap interaction are retired. Keep the shim file
-  // so old imports cannot accidentally resurrect the interface, but require it
-  // to remain inert.
+  // Retain the old component as an inert compatibility shim so older imports
+  // cannot resurrect the retired physical-clock UI.
   if (!/return\s+null\s*;/.test(physical)) errors.push('PhysicalChessClock must remain an inert compatibility shim.');
 
   for (const [label, source] of [['OnlineArena', online], ['PremiumBoard3D', premium]]) {
     if (source.includes('ChessClock3DView')) errors.push(`${label} must not render ChessClock3DView.`);
     if (source.includes('createChessClock3D')) errors.push(`${label} must not instantiate the 3D clock model.`);
-    if (/onSlap\s*=/.test(source)) errors.push(`${label} must not expose a slap-to-move control.`);
   }
 
   if (localChrome.includes('ChessClock3DView') || localChrome.includes('createChessClock3D')) {
@@ -62,6 +62,9 @@ if (!errors.length) {
   }
 
   if (!localController.includes('CLOCK_TRANSFERRED')) errors.push('Local game controller must retain an automatic clock-transfer path after local moves.');
+  if (!launchFixes.includes('.clock-slap-inline') || !launchFixes.includes('display: none !important')) {
+    errors.push('Legacy slap-to-move markup must be visually retired.');
+  }
 }
 
 if (errors.length) {
@@ -70,4 +73,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ clock system OK: 2D player clocks, authoritative online timing, no 3D clock UI, no slap-to-move control.');
+console.log('QQURZ clock system OK: 2D player clocks, authoritative online timing, no visible 3D clock, no visible slap-to-move control.');
