@@ -1,4 +1,4 @@
-name: Deploy QQURZ production from main
+name: Deploy QQURZ production API from main
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-deploy
+  group: production-api-deploy
   cancel-in-progress: false
 
 env:
@@ -70,11 +70,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler deploy --env production --var "RELEASE_ID:${{ github.sha }}"
 
-      - name: Deploy production frontend
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler pages deploy dist --project-name qqurz-chess-web-production --branch main
-
       - name: Verify production API release
         env:
           RELEASE_SHA: ${{ github.sha }}
@@ -83,3 +78,4 @@ jobs:
           payload="$(curl --retry 5 --retry-delay 2 --fail --silent --show-error https://qqurz-chess-api.gamerstriper.workers.dev/_health)"
           node -e 'const p=JSON.parse(process.argv[1]); if (!p.ok || p.environment !== "production" || p.release !== process.argv[2]) process.exit(1)' "$payload" "$RELEASE_SHA"
           echo "Production API is serving $RELEASE_SHA"
+          echo "Frontend deployment is handled by the GitHub Pages workflow after quality gates succeed."
