@@ -50,6 +50,8 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
     return status?.textContent?.includes('Stockfish ready');
   }, null, { timeout: 20_000 });
 
+  // Keep the move list open so the browser test can verify the AI reply as well as engine state.
+  await page.getByRole('button', { name: 'Options' }).click();
   const moves = page.locator('.match-move-list li');
   await expect(moves).toHaveCount(0);
 
