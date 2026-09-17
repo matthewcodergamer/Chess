@@ -50,10 +50,18 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
     return status?.textContent?.includes('Stockfish ready');
   }, null, { timeout: 20_000 });
 
+  // The production navigation must expose only the lowercase brand.
+  await expect(page.locator('.qqurz-wordmark .wordmark-copy b').first()).toHaveText('qqurzchess');
+
   // Keep the move list open so the browser test can verify the AI reply as well as engine state.
   await page.getByRole('button', { name: 'Options' }).click();
   const moves = page.locator('.match-move-list li');
   await expect(moves).toHaveCount(0);
+
+  // Capture the black-piece render positions before the AI turn.
+  const blackPiecesBefore = await page.locator('.cg-wrap .piece.black').evaluateAll(
+    pieces => pieces.map(piece => piece.getAttribute('style')).sort(),
+  );
 
   // e2-e4 is legal from every Chess960 starting position and leaves White in control.
   await clickSquare(page, 'e2');
@@ -61,6 +69,16 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
 
   await expect(moves).toHaveCount(2, { timeout: 20_000 });
   await expect(moves.nth(1)).not.toHaveText('');
+
+  // Do not accept "Stockfish moved" as a sound-only success: a black piece must
+  // have a different rendered board position after the AI move.
+  await expect.poll(
+    async () => JSON.stringify(await page.locator('.cg-wrap .piece.black').evaluateAll(
+      pieces => pieces.map(piece => piece.getAttribute('style')).sort(),
+    )),
+    { timeout: 5_000 },
+  ).not.toBe(JSON.stringify(blackPiecesBefore));
+
   await expect(page.locator('.local-engine-state')).toContainText('Stockfish ready');
   await expect(page.locator('.match-turn-note')).toContainText('Your move');
 });
