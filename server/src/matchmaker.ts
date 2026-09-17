@@ -344,28 +344,23 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     for (let attempt = 0; attempt < 12; attempt += 1) {
       const code = roomCode();
       const room = this.env.ROOMS.get(this.env.ROOMS.idFromName(code));
-      const created = await room.fetch(new Request('https://room.internal/create', {
+      const created = await room.fetch(new Request('https://room.internal/match', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           code,
-          name: first.name,
-          accountId: first.accountId,
+          whiteName: first.name,
+          whiteAccountId: first.accountId,
+          blackName: second.name,
+          blackAccountId: second.accountId,
           timeControl: first.criteria.timeControl,
         }),
       }));
       if (created.status === 409) continue;
-      if (!created.ok) throw new Error('Could not create a matchmaking room.');
-      const firstSeat = await created.json() as RoomSeat;
-
-      const joined = await room.fetch(new Request('https://room.internal/join', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: second.name, accountId: second.accountId }),
-      }));
-      if (!joined.ok) throw new Error('Could not seat the matched opponent.');
-      const secondSeat = await joined.json() as RoomSeat;
-      return { first: firstSeat, second: secondSeat };
+      if (!created.ok) throw new Error('Could not atomically create the matchmaking game.');
+      const seats = await created.json() as { white?: RoomSeat; black?: RoomSeat };
+      if (!seats.white || !seats.black) throw new Error('Matchmaking server returned incomplete seats.');
+      return { first: seats.white, second: seats.black };
     }
     throw new Error('Could not allocate a matchmaking room.');
   }

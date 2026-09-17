@@ -161,8 +161,6 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
       this.rejectMove(ws, token, 'Duplicate or replayed move ignored.');
       return;
     }
-    await ctx.storage.put(storageKey, [...recent, replayKey].slice(-REPLAY_CACHE_LIMIT));
-
     // A legacy room can contain a pending physical-clock transfer. Resolve it
     // before accepting a new move so old rooms migrate cleanly to automatic
     // clock transfer instead of remaining permanently blocked.
@@ -180,6 +178,7 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
       return;
     }
 
+    await ctx.storage.put(storageKey, [...recent, replayKey].slice(-REPLAY_CACHE_LIMIT));
     this.autoTransferClockAfterMove();
     const internals = this.roomInternals();
     await internals.persist();

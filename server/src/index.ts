@@ -284,6 +284,52 @@ export class ChessRoom extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.hostname === 'room.internal' && url.pathname === '/match' && request.method === 'POST') {
+      if (this.room) return json({ error: 'Room already exists.' }, 409);
+      const body = await request.json() as {
+        code?: string;
+        whiteName?: string;
+        whiteAccountId?: string | null;
+        blackName?: string;
+        blackAccountId?: string | null;
+        timeControl?: TimeControlRequest;
+        tournamentTemplateId?: TournamentTimeTemplateId;
+      };
+      const code = String(body.code ?? '').toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) return json({ error: 'Invalid room code.' }, 400);
+      const now = Date.now();
+      const whiteToken = seatToken();
+      const blackToken = seatToken();
+      const positionId = randomChess960Id();
+      const timeControl = normalizeTimeControl(body.timeControl, '10+5');
+      const templateId = body.tournamentTemplateId && TOURNAMENT_TIME_TEMPLATES[body.tournamentTemplateId] ? body.tournamentTemplateId : null;
+      if (templateId && !isTournamentControlAllowed(templateId, timeControl)) return json({ error: 'That time control is not allowed by this tournament template.' }, 400);
+      const fen = chess960Fen(positionId);
+      this.room = {
+        code,
+        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen, sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'CONNECTED', now }),
+        lastMoveTiming: null,
+        accountResultRecordedAt: null,
+        positionHistory: historyForFen(fen),
+        createdAt: now,
+        lastActivityAt: now,
+        players: {
+          white: { name: normalizeName(body.whiteName), token: whiteToken, accountId: body.whiteAccountId ?? null },
+          black: { name: normalizeName(body.blackName), token: blackToken, accountId: body.blackAccountId ?? null },
+        },
+        coin: emptyCoin(),
+        auction: emptyAuction(),
+        colorAuction: emptyColorAuction(),
+      };
+      this.prepareCoin(now);
+      await this.persist();
+      await this.scheduleForState();
+      return json({
+        white: { code, token: whiteToken, color: 'white' },
+        black: { code, token: blackToken, color: 'black' },
+      });
+    }
+
     if (url.hostname === 'room.internal' && url.pathname === '/create' && request.method === 'POST') {
       if (this.room) return json({ error: 'Room already exists.' }, 409);
       const body = await request.json() as { code?: string; name?: string; accountId?: string | null; timeControl?: TimeControlRequest; tournamentTemplateId?: TournamentTimeTemplateId };
