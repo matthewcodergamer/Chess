@@ -58,7 +58,11 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   const headers = new Headers(init.headers);
   headers.set('content-type', 'application/json');
   const token = accountToken();
-  if (token) headers.set('authorization', `Bearer ${token}`);
+  // Public queue/presence requests intentionally work without an Authorization
+  // header so the browser can make the JSON POST without an auth preflight.
+  // Account-bound room actions still send the session token normally.
+  const publicRealtimeRequest = path.startsWith('/matchmaking/') || path.startsWith('/presence');
+  if (token && !publicRealtimeRequest) headers.set('authorization', `Bearer ${token}`);
   const response = await fetch(`${MULTIPLAYER_API}${path}`, { ...init, headers });
   const payload = await response.json().catch(() => ({})) as { error?: string } & T;
   if (!response.ok) throw new Error(payload.error || `Server returned ${response.status}.`);
@@ -190,8 +194,6 @@ export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => voi
         seenOpponentSnapshot = true;
         lastOpponentConnected = opponentConnected;
         onEvent(payload);
-        // The first authoritative snapshot is the synchronization barrier.
-        // Do not mark a socket restored merely because TCP/WebSocket opened.
         emitStatus('connected');
         if (wasReconnecting) emitLocalNotification({ kind: 'reconnected', title: 'Game restored', body: `Room ${seat.code} is synchronized with the server again.`, priority: 'normal', roomCode: seat.code });
         return;
@@ -214,9 +216,6 @@ export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => voi
     next.addEventListener('open', () => {
       if (stopped || currentGeneration !== generation || socket !== next) return;
       retryAttempt = 0;
-      // The server sends the canonical snapshot as part of the upgrade. Waiting
-      // for that snapshot prevents a browser-level open from being mistaken for
-      // a synchronized game state.
       emitStatus(isReconnect ? 'reconnecting' : 'connecting');
     });
     next.addEventListener('message', event => {
@@ -237,9 +236,6 @@ export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => voi
   };
 
   const requestSync = () => {
-    // QQURZ does not use a client-side sync command. A fresh WebSocket upgrade
-    // always receives the persisted authoritative snapshot from the room DO.
-    // This also avoids a foreground timer racing the server's realtime state.
     scheduleReconnect(true);
   };
   const onOnline = () => scheduleReconnect(true);
