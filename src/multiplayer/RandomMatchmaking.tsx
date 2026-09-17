@@ -24,6 +24,7 @@ function retryDelay(attempt: number): Promise<void> {
 }
 
 const PUBLIC_TIME_CONTROL: TimeControl = { ...TIME_CONTROL_PRESETS['10+5'] };
+const GENERIC_QUEUE_ERROR = 'No queue ticket or game room was created. The pool is quiet right now.';
 
 export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMatched, onBack }: Props) {
   const name = profileName();
@@ -76,9 +77,9 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
           if (attempt < 5) await retryDelay(attempt);
         }
       }
-      throw lastError instanceof Error ? lastError : new Error('Matchmaking failed.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'QQURZ could not join the matchmaking queue.');
+      throw lastError ?? new Error('Matchmaking failed.');
+    } catch {
+      setMessage(GENERIC_QUEUE_ERROR);
     } finally {
       setBusy(false);
     }
