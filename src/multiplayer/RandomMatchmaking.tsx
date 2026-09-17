@@ -121,7 +121,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
         {failed && !searching && (
           <div className="matchmaking-retry" role="alert">
             <span>{GENERIC_QUEUE_ERROR}</span>
-            <PrimaryButton size="sm" onClick={() => void start}>Try again</PrimaryButton>
+            <PrimaryButton size="sm" onClick={() => void start()}>Try again</PrimaryButton>
           </div>
         )}
 
