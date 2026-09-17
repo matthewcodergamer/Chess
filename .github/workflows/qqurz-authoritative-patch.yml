@@ -1,4 +1,4 @@
-# Triggered by this commit so the patch is applied by Actions rather than leaving partial source edits.
+# Second trigger: the workflow is already present on main, so this push executes it.
 name: QQURZ authoritative multiplayer patch
 
 on:
