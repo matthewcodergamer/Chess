@@ -4,6 +4,7 @@ import '@lichess-org/chessground/assets/chessground.base.css';
 import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './styles/index.css';
+import './styles/launch-fixes.css';
 import AppShell from './AppShell';
 import NotificationCenter from './notifications/NotificationCenter';
 import SocialCenter from './social/SocialCenter';
