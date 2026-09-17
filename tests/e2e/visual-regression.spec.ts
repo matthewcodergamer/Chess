@@ -300,11 +300,12 @@ test('game board', async ({ page }) => {
   await snapshotLocator(page, page.locator('.local-board-frame.match-board-frame'), 'game-board.png');
 });
 
-test('physical clock', async ({ page }) => {
+test('digital chess clock', async ({ page }) => {
   await openLocalBoard(page);
-  await expect(page.locator('.qqurz-clock-3d-view canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForTimeout(250);
-  await snapshotLocator(page, page.locator('.qqurz-physical-clock-panel'), 'clock.png');
+  const clock = page.locator('.qqurz-physical-clock-panel');
+  await expect(clock).toBeVisible();
+  await expect(clock).not.toContainText('3D');
+  await expect(page.locator('.qqurz-clock-3d-view canvas')).toHaveCount(0);
 });
 
 test('modal', async ({ page }) => {
