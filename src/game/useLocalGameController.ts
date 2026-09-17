@@ -73,14 +73,12 @@ export type LocalGameController = {
   whiteClockMs: number;
   blackClockMs: number;
   activeColor: Color | null;
-  pendingSlap: Color | null;
   fastForward: boolean;
   setFastForward: (value: boolean) => void;
   createPosition: () => void;
   boardMove: (orig: Key, dest: Key) => void;
   promote: (role: LocalPromotionRole) => void;
   startNow: () => void;
-  slapClock: () => void;
   agreeDraw: (by: Color) => void;
   resign: (by: Color) => void;
   playerName: (color: Color) => string;
@@ -123,7 +121,6 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
   const turn = session.sideToMove as Color;
   const moves = session.movesSan;
   const activeColor = clockOwner(session) as Color | null;
-  const pendingSlap = session.pendingClockPress as Color | null;
   const aiColor = mode === 'ai' && humanColor ? opposite(humanColor) : null;
   const backRank = useMemo(() => positionId === null ? '' : chess960BackRank(positionId), [positionId]);
 
@@ -335,10 +332,6 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     setFastForward(false);
   }, [dispatchSession, session.state]);
 
-  const slapClock = useCallback(() => {
-    if (!session.pendingClockPress || session.state !== 'ACTIVE') return;
-    dispatchSession({ type: 'CLOCK_TRANSFERRED' });
-  }, [dispatchSession, session.pendingClockPress, session.state]);
 
   const agreeDraw = useCallback((by: Color) => {
     if (session.state !== 'ACTIVE') return;
@@ -396,14 +389,12 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     whiteClockMs: session.clocks.whiteMs,
     blackClockMs: session.clocks.blackMs,
     activeColor,
-    pendingSlap,
     fastForward,
     setFastForward,
     createPosition,
     boardMove,
     promote,
     startNow,
-    slapClock,
     agreeDraw,
     resign,
     playerName,
