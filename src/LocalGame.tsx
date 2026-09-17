@@ -52,6 +52,6 @@ export default function LocalGame({ initialMode }: Props) {
 
   if (game.phase === 'setup') return <LocalGameSetup game={game} />;
 
-  const board = <ChessBoardSurface instanceKey={game.positionId ?? 'local'} config={boardConfig} ariaLabel="Interactive Chess960 board" />;
+  const board = <ChessBoardSurface instanceKey={`${game.positionId ?? 'local'}:${game.fen}`} config={boardConfig} ariaLabel="Interactive Chess960 board" />;
   return <><LocalMatchChrome game={game} board={board} optionsOpen={optionsOpen} onToggleOptions={() => setOptionsOpen(value => !value)} /><LocalPromotionDialog game={game} /></>;
 }
