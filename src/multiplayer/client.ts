@@ -37,11 +37,7 @@ export type MatchmakingSnapshot = {
   ratingDeviation: number;
   provisional: boolean;
   criteria: MatchmakingCriteria;
-  search: {
-    waitedMs: number;
-    ratingRange: number;
-    estimatedLatencyMs: number | null;
-  };
+  search: { waitedMs: number; ratingRange: number; estimatedLatencyMs: number | null };
   onlinePlayers: number;
   presence?: PresenceCounts;
 };
@@ -58,20 +54,12 @@ let currentPresence: PresenceIdentity | null = null;
 let presenceLifecycleInstalled = false;
 
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if (!MULTIPLAYER_API) {
-    throw new Error('The live multiplayer server has not been connected yet.');
-  }
-
+  if (!MULTIPLAYER_API) throw new Error('The live multiplayer server has not been connected yet.');
   const headers = new Headers(init.headers);
   headers.set('content-type', 'application/json');
   const token = accountToken();
   if (token) headers.set('authorization', `Bearer ${token}`);
-
-  const response = await fetch(`${MULTIPLAYER_API}${path}`, {
-    ...init,
-    headers,
-  });
-
+  const response = await fetch(`${MULTIPLAYER_API}${path}`, { ...init, headers });
   const payload = await response.json().catch(() => ({})) as { error?: string } & T;
   if (!response.ok) throw new Error(payload.error || `Server returned ${response.status}.`);
   return payload;
@@ -84,23 +72,17 @@ function inferredPresenceState(): PresenceState {
 }
 
 function sendPresence(identity: PresenceIdentity, state: PresenceState, keepalive = false): Promise<PresenceSnapshot> {
-  return requestJson<PresenceSnapshot>('/presence/ping', {
-    method: 'POST',
-    keepalive,
-    body: JSON.stringify({ ...identity, state }),
-  });
+  return requestJson<PresenceSnapshot>('/presence/ping', { method: 'POST', keepalive, body: JSON.stringify({ ...identity, state }) });
 }
 
 function installPresenceLifecycle(): void {
   if (presenceLifecycleInstalled || typeof window === 'undefined' || typeof document === 'undefined') return;
   presenceLifecycleInstalled = true;
-
   document.addEventListener('visibilitychange', () => {
     if (!currentPresence || !multiplayerConfigured) return;
     const state: PresenceState = document.visibilityState === 'hidden' ? 'away' : inferredPresenceState();
     void sendPresence(currentPresence, state, true).catch(() => undefined);
   });
-
   window.addEventListener('pagehide', () => {
     if (!currentPresence || !multiplayerConfigured) return;
     void sendPresence(currentPresence, 'offline', true).catch(() => undefined);
@@ -112,9 +94,7 @@ export function getPresenceId(): string {
   try {
     const existing = localStorage.getItem(key);
     if (existing && existing.length >= 8) return existing;
-    const next = typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID().replaceAll('-', '')
-      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+    const next = typeof crypto.randomUUID === 'function' ? crypto.randomUUID().replaceAll('-', '') : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
     localStorage.setItem(key, next);
     return next;
   } catch {
@@ -127,27 +107,13 @@ export async function pingPresence(name: string, presenceId: string, state?: Pre
   installPresenceLifecycle();
   return sendPresence(currentPresence, state ?? inferredPresenceState(), keepalive);
 }
-
-export async function loadPresence(): Promise<PresenceSnapshot> {
-  return requestJson<PresenceSnapshot>('/presence');
-}
-
+export async function loadPresence(): Promise<PresenceSnapshot> { return requestJson<PresenceSnapshot>('/presence'); }
 export async function enqueueMatch(name: string, presenceId: string, criteria: MatchmakingCriteria): Promise<MatchmakingSnapshot> {
-  return requestJson<MatchmakingSnapshot>('/matchmaking/enqueue', {
-    method: 'POST',
-    body: JSON.stringify({ name, presenceId, ...criteria }),
-  });
+  return requestJson<MatchmakingSnapshot>('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name, presenceId, ...criteria }) });
 }
-
-export async function loadMatch(ticket: string): Promise<MatchmakingSnapshot> {
-  return requestJson<MatchmakingSnapshot>(`/matchmaking/status?ticket=${encodeURIComponent(ticket)}`);
-}
-
+export async function loadMatch(ticket: string): Promise<MatchmakingSnapshot> { return requestJson<MatchmakingSnapshot>(`/matchmaking/status?ticket=${encodeURIComponent(ticket)}`); }
 export async function cancelMatch(ticket: string): Promise<{ cancelled: boolean; onlinePlayers: number; presence?: PresenceCounts }> {
-  return requestJson<{ cancelled: boolean; onlinePlayers: number; presence?: PresenceCounts }>('/matchmaking/cancel', {
-    method: 'POST',
-    body: JSON.stringify({ ticket }),
-  });
+  return requestJson('/matchmaking/cancel', { method: 'POST', body: JSON.stringify({ ticket }) });
 }
 
 function selectedTournamentId(tournamentTemplateId?: TournamentTimeTemplateId): string | undefined {
@@ -160,37 +126,23 @@ function selectedTournamentId(tournamentTemplateId?: TournamentTimeTemplateId): 
     return id;
   } catch { return undefined; }
 }
-
 export async function createRoom(name: string, timeControl?: TimeControl, tournamentTemplateId?: TournamentTimeTemplateId): Promise<RoomSeat> {
-  return requestJson<RoomSeat>('/rooms', {
-    method: 'POST',
-    body: JSON.stringify({ name, timeControl, tournamentTemplateId, tournamentId: selectedTournamentId(tournamentTemplateId) }),
-  });
+  return requestJson('/rooms', { method: 'POST', body: JSON.stringify({ name, timeControl, tournamentTemplateId, tournamentId: selectedTournamentId(tournamentTemplateId) }) });
 }
-
 export async function joinRoom(code: string, name: string): Promise<RoomSeat> {
-  return requestJson<RoomSeat>(`/rooms/${encodeURIComponent(code.toUpperCase())}/join`, {
-    method: 'POST',
-    body: JSON.stringify({ name }),
-  });
+  return requestJson(`/rooms/${encodeURIComponent(code.toUpperCase())}/join`, { method: 'POST', body: JSON.stringify({ name }) });
 }
 
 const RECONNECT_DELAYS_MS = [300, 650, 1200, 2200, 3500, 5000, 7000, 9000] as const;
 const FOREGROUND_SYNC_TIMEOUT_MS = 1600;
 
-export function connectRoom(
-  seat: RoomSeat,
-  onEvent: (event: ServerEvent) => void,
-  onStatus: (status: RoomConnectionStatus) => void,
-): RoomConnection {
+export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => void, onStatus: (status: RoomConnectionStatus) => void): RoomConnection {
   if (!MULTIPLAYER_API) throw new Error('The live multiplayer server has not been connected yet.');
-
   const wsBase = MULTIPLAYER_API.replace(/^http/i, 'ws');
   const url = `${wsBase}/rooms/${encodeURIComponent(seat.code)}/ws?token=${encodeURIComponent(seat.token)}`;
   let socket: WebSocket | null = null;
   let stopped = false;
   let retryTimer: number | null = null;
-  let syncTimer: number | null = null;
   let retryAttempt = 0;
   let generation = 0;
   let status: RoomConnectionStatus = 'connecting';
@@ -203,46 +155,20 @@ export function connectRoom(
     status = next;
     onStatus(next);
     if (previous === 'connected' && next === 'reconnecting') {
-      emitLocalNotification({
-        kind: 'reconnect_warning',
-        title: 'Connection interrupted',
-        body: `Trying to reconnect to room ${seat.code}. Your authoritative clock and game state stay on the server.`,
-        priority: 'important',
-        roomCode: seat.code,
-      });
+      emitLocalNotification({ kind: 'reconnect_warning', title: 'Connection interrupted', body: `Trying to reconnect to room ${seat.code}. Your authoritative clock and game state stay on the server.`, priority: 'important', roomCode: seat.code });
     } else if (previous === 'reconnecting' && next === 'connected') {
-      emitLocalNotification({
-        kind: 'reconnected',
-        title: 'Back online',
-        body: `Room ${seat.code} is synchronized with the server again.`,
-        priority: 'normal',
-        roomCode: seat.code,
-      });
+      emitLocalNotification({ kind: 'reconnected', title: 'Back online', body: `Room ${seat.code} is synchronized with the server again.`, priority: 'normal', roomCode: seat.code });
     }
   };
-
-  const clearRetry = () => {
-    if (retryTimer !== null) window.clearTimeout(retryTimer);
-    retryTimer = null;
-  };
-
-  const clearSyncTimeout = () => {
-    if (syncTimer !== null) window.clearTimeout(syncTimer);
-    syncTimer = null;
-  };
-
+  const clearRetry = () => { if (retryTimer !== null) window.clearTimeout(retryTimer); retryTimer = null; };
   const scheduleReconnect = (immediate = false) => {
     if (stopped) return;
     clearRetry();
-    clearSyncTimeout();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { emitStatus('reconnecting'); return; }
     emitStatus('reconnecting');
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     const delay = immediate ? 0 : RECONNECT_DELAYS_MS[Math.min(retryAttempt, RECONNECT_DELAYS_MS.length - 1)];
     if (!immediate) retryAttempt += 1;
-    retryTimer = window.setTimeout(() => {
-      retryTimer = null;
-      openSocket(true);
-    }, delay);
+    retryTimer = window.setTimeout(() => { retryTimer = null; openSocket(true); }, delay);
   };
 
   const handlePayload = (raw: unknown, current: WebSocket) => {
@@ -254,21 +180,21 @@ export function connectRoom(
       }
       if (payload.type === 'move_ack') return;
       if (payload.type === 'snapshot') {
-        clearSyncTimeout();
+        const wasReconnecting = status === 'reconnecting';
         const opponentColor = seat.color === 'white' ? 'black' : 'white';
         const opponent = payload.room.players[opponentColor];
         const opponentConnected = Boolean(opponent?.connected);
         if (opponentConnected && (!seenOpponentSnapshot || !lastOpponentConnected)) {
-          emitLocalNotification({
-            kind: 'opponent_connected',
-            title: 'Opponent connected',
-            body: `${opponent?.name || 'Your opponent'} is connected to room ${seat.code}.`,
-            priority: 'normal',
-            roomCode: seat.code,
-          });
+          emitLocalNotification({ kind: 'opponent_connected', title: 'Opponent connected', body: `${opponent?.name || 'Your opponent'} is connected to room ${seat.code}.`, priority: 'normal', roomCode: seat.code });
         }
         seenOpponentSnapshot = true;
         lastOpponentConnected = opponentConnected;
+        onEvent(payload);
+        // The first authoritative snapshot is the synchronization barrier.
+        // Do not mark a socket restored merely because TCP/WebSocket opened.
+        emitStatus('connected');
+        if (wasReconnecting) emitLocalNotification({ kind: 'reconnected', title: 'Game restored', body: `Room ${seat.code} is synchronized with the server again.`, priority: 'normal', roomCode: seat.code });
+        return;
       }
       onEvent(payload);
     } catch {
@@ -279,28 +205,19 @@ export function connectRoom(
   const openSocket = (isReconnect: boolean) => {
     if (stopped) return;
     clearRetry();
-    clearSyncTimeout();
     const currentGeneration = ++generation;
-    if (isReconnect) emitStatus('reconnecting');
-    else emitStatus('connecting');
-
+    emitStatus(isReconnect ? 'reconnecting' : 'connecting');
     let next: WebSocket;
     try { next = new WebSocket(url); }
-    catch {
-      emitStatus('error');
-      scheduleReconnect();
-      return;
-    }
+    catch { emitStatus('error'); scheduleReconnect(); return; }
     socket = next;
-
     next.addEventListener('open', () => {
       if (stopped || currentGeneration !== generation || socket !== next) return;
       retryAttempt = 0;
-      emitStatus('connected');
-      // Ask for one canonical snapshot immediately. The authoritative room also
-      // returns its pre-toss color gate here, so reconnects never guess whether
-      // the free toss has been unlocked.
-      try { next.send(JSON.stringify({ type: 'sync_request' })); } catch { /* close handler will recover */ }
+      // The server sends the canonical snapshot as part of the upgrade. Waiting
+      // for that snapshot prevents a browser-level open from being mistaken for
+      // a synchronized game state.
+      emitStatus(isReconnect ? 'reconnecting' : 'connecting');
     });
     next.addEventListener('message', event => {
       if (stopped || currentGeneration !== generation || socket !== next) return;
@@ -309,10 +226,7 @@ export function connectRoom(
     next.addEventListener('close', () => {
       if (currentGeneration !== generation || socket !== next) return;
       socket = null;
-      if (stopped) {
-        emitStatus('closed');
-        return;
-      }
+      if (stopped) { emitStatus('closed'); return; }
       scheduleReconnect();
     });
     next.addEventListener('error', () => {
@@ -323,58 +237,31 @@ export function connectRoom(
   };
 
   const requestSync = () => {
-    if (stopped) return;
-    const current = socket;
-    if (!current || current.readyState !== WebSocket.OPEN) {
-      scheduleReconnect(true);
-      return;
-    }
-    clearSyncTimeout();
-    try { current.send(JSON.stringify({ type: 'sync_request' })); }
-    catch {
-      try { current.close(); } catch { scheduleReconnect(true); }
-      return;
-    }
-    syncTimer = window.setTimeout(() => {
-      syncTimer = null;
-      if (stopped || socket !== current) return;
-      emitStatus('reconnecting');
-      try { current.close(); } catch { scheduleReconnect(true); }
-    }, FOREGROUND_SYNC_TIMEOUT_MS);
+    // QQURZ does not use a client-side sync command. A fresh WebSocket upgrade
+    // always receives the persisted authoritative snapshot from the room DO.
+    // This also avoids a foreground timer racing the server's realtime state.
+    scheduleReconnect(true);
   };
-
   const onOnline = () => scheduleReconnect(true);
-  const onVisibility = () => {
-    if (document.visibilityState === 'visible') requestSync();
-  };
+  const onVisibility = () => { if (document.visibilityState === 'visible') requestSync(); };
   const onPageShow = () => requestSync();
-  const onOffline = () => {
-    clearRetry();
-    clearSyncTimeout();
-    if (!stopped) emitStatus('reconnecting');
-  };
-
+  const onOffline = () => { clearRetry(); if (!stopped) emitStatus('reconnecting'); };
   window.addEventListener('online', onOnline);
   window.addEventListener('offline', onOffline);
   window.addEventListener('pageshow', onPageShow);
   document.addEventListener('visibilitychange', onVisibility);
-
   onStatus('connecting');
   openSocket(false);
 
   return {
     get readyState() { return socket?.readyState ?? WebSocket.CLOSED; },
-    send(data: string) {
-      if (socket?.readyState !== WebSocket.OPEN) return;
-      try { socket.send(data); } catch { scheduleReconnect(true); }
-    },
+    send(data: string) { if (socket?.readyState !== WebSocket.OPEN) return; try { socket.send(data); } catch { scheduleReconnect(true); } },
     requestSync,
     close() {
       if (stopped) return;
       stopped = true;
       generation += 1;
       clearRetry();
-      clearSyncTimeout();
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('pageshow', onPageShow);
