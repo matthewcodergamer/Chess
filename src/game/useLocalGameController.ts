@@ -198,6 +198,10 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
       check: pos.isCheck(),
       checkmate: pos.isCheckmate(),
     });
+    // Local AI has no physical/slap clock. Transfer the clock immediately so
+    // Stockfish can start on the new side without waiting on a presentation
+    // layer or a delayed clock interaction.
+    if (mode === 'ai') dispatchSession({ type: 'CLOCK_TRANSFERRED' });
     setLastMove([orig, dest]);
     const ending = adjudicateChess(pos, positionHistory.current);
     if (ending) {
@@ -288,7 +292,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
 
   useEffect(() => {
     const pos = position.current;
-    if (session.state !== 'ACTIVE' || mode !== 'ai' || !aiColor || !pos || session.pendingClockPress || session.sideToMove !== aiColor || session.result) return;
+    if (session.state !== 'ACTIVE' || mode !== 'ai' || !aiColor || !pos || session.sideToMove !== aiColor || session.result) return;
     let cancelled = false;
     const snapshot = session.fen;
     const run = async () => {
@@ -314,14 +318,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     };
     void run();
     return () => { cancelled = true; engine.current?.cancelSearch(); };
-  }, [aiColor, difficulty, ensureEngine, finishMove, mode, session.fen, session.pendingClockPress, session.result, session.sideToMove, session.state]);
-
-  useEffect(() => {
-    if (session.state !== 'ACTIVE' || mode !== 'ai' || !aiColor || !session.pendingClockPress) return;
-    const delay = session.pendingClockPress === aiColor ? 220 : 120;
-    const timer = window.setTimeout(() => dispatchSession({ type: 'CLOCK_TRANSFERRED' }), delay);
-    return () => window.clearTimeout(timer);
-  }, [aiColor, dispatchSession, mode, session.pendingClockPress, session.state]);
+  }, [aiColor, difficulty, ensureEngine, finishMove, mode, session.fen, session.result, session.sideToMove, session.state]);
 
   useEffect(() => () => engine.current?.destroy(), []);
 
