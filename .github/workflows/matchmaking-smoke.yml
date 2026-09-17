@@ -1,0 +1,64 @@
+name: QQURZ production matchmaking smoke
+
+on:
+  workflow_run:
+    workflows: ["Deploy QQURZ API environment"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Exercise the production matchmaking queue
+        shell: bash
+        env:
+          API: https://qqurz-chess-api.gamerstriper.workers.dev
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const api = process.env.API;
+          const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const base = {
+            variant: 'chess960',
+            ratingRange: 600,
+            timeControl: { id: '10+5', baseMs: 600000, incrementMs: 5000 },
+            regionPreference: 'global',
+            maxLatencyMs: 300,
+          };
+          async function request(path, init = {}) {
+            const response = await fetch(`${api}${path}`, {
+              ...init,
+              headers: { 'content-type': 'application/json', ...(init.headers || {}) },
+              cache: 'no-store',
+            });
+            const text = await response.text();
+            let body = {};
+            try { body = JSON.parse(text); } catch {}
+            if (!response.ok) throw new Error(`${init.method || 'GET'} ${path} -> HTTP ${response.status}: ${text}`);
+            return body;
+          }
+          const a = await request('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name: `Smoke-A-${suffix}`, presenceId: `smokea-${suffix}`, ...base }) });
+          if (!a.ticket) throw new Error(`First enqueue returned no ticket: ${JSON.stringify(a)}`);
+          const b = await request('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name: `Smoke-B-${suffix}`, presenceId: `smokeb-${suffix}`, ...base }) });
+          if (!b.ticket) throw new Error(`Second enqueue returned no ticket: ${JSON.stringify(b)}`);
+          let first = a;
+          let second = b;
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            first = await request(`/matchmaking/status?ticket=${encodeURIComponent(a.ticket)}`);
+            second = await request(`/matchmaking/status?ticket=${encodeURIComponent(b.ticket)}`);
+            if (first.status === 'matched' && second.status === 'matched') break;
+            await new Promise(resolve => setTimeout(resolve, 250));
+          }
+          if (first.status !== 'matched' || second.status !== 'matched') {
+            throw new Error(`Players did not match. first=${JSON.stringify(first)} second=${JSON.stringify(second)}`);
+          }
+          if (!first.seat?.code || first.seat.code !== second.seat?.code) {
+            throw new Error(`Players did not receive the same authoritative room: first=${JSON.stringify(first.seat)} second=${JSON.stringify(second.seat)}`);
+          }
+          console.log(`Production matchmaking matched both players into room ${first.seat.code}.`);
+          NODE
