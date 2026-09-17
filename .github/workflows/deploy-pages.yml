@@ -131,6 +131,7 @@ jobs:
           VITE_MULTIPLAYER_API="$api" VITE_DEPLOYMENT_ENV="$TARGET" VITE_RELEASE_ID="$RELEASE_ID" npm run build:artifact
           npm run check:bundle
 
+      # Atomically deploy immutable frontend artifact.
       - name: Configure GitHub Pages
         if: needs.resolve.outputs.target == 'production'
         uses: actions/configure-pages@v5
