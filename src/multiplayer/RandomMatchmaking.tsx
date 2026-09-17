@@ -11,7 +11,6 @@ import {
   multiplayerConfigured,
   type MatchmakingCriteria,
   type MatchmakingSnapshot,
-  type RegionPreference,
 } from './client';
 import type { RoomSeat } from './types';
 
@@ -40,12 +39,6 @@ function rememberSeat(seat: RoomSeat): void {
   }
 }
 
-function regionLabel(value: RegionPreference): string {
-  if (value === 'nearest') return 'Nearest';
-  if (value === 'global') return 'Worldwide';
-  return 'Regional';
-}
-
 export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMatched, onBack }: Props) {
   const [name, setName] = useState(profileName);
   const [ticket, setTicket] = useState('');
@@ -53,10 +46,7 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [latest, setLatest] = useState<MatchmakingSnapshot | null>(null);
-  const [ratingRange, setRatingRange] = useState(200);
   const [timeControl, setTimeControl] = useState<TimeControl>(() => ({ ...TIME_CONTROL_PRESETS['10+5'] }));
-  const [regionPreference, setRegionPreference] = useState<RegionPreference>('regional');
-  const [maxLatencyMs, setMaxLatencyMs] = useState(140);
   const waitingRef = useRef(false);
   const presenceId = useRef(getPresenceId()).current;
 
@@ -82,10 +72,12 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
     setOpponent(null);
     const criteria: MatchmakingCriteria = {
       variant: 'chess960',
-      ratingRange,
+      // Public play is deliberately broad. The server still keeps the match
+      // compatible by variant/time control while progressively widening rating.
+      ratingRange: 600,
       timeControl,
-      regionPreference,
-      maxLatencyMs,
+      regionPreference: 'global',
+      maxLatencyMs: 300,
     };
     try {
       const match = await enqueueMatch(name.trim() || 'Guest', presenceId, criteria);
@@ -93,7 +85,7 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
       waitingRef.current = true;
       setTicket(match.ticket);
     } catch {
-      setMessage('QQURZ could not join the matchmaking queue. No queue ticket or game room was created.');
+      setMessage('QQURZ could not start matchmaking. No queue ticket or game room was created.');
     } finally {
       setBusy(false);
     }
@@ -139,7 +131,6 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
     if (waitingRef.current && ticket) void cancelMatch(ticket).catch(() => undefined);
   }, [ticket]);
 
-  const activeRange = latest?.search.ratingRange ?? ratingRange;
   const waitedSeconds = Math.floor((latest?.search.waitedMs ?? 0) / 1000);
 
   return (
@@ -148,8 +139,8 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
         <div className="matchmaking-presence"><span className="presence-dot" /> <b>{onlinePlayers ?? '—'}</b> players online</div>
         <span className="matchmaking-eyebrow">PUBLIC MATCHMAKING</span>
-        <h1>Find the right game.</h1>
-        <p>Choose the match you want. QQURZ checks your rating on the server, chooses the opponent, and creates the game room.</p>
+        <h1>Find an opponent.</h1>
+        <p>Choose your time control. QQURZ finds an available Chess960 player automatically and creates the game for both of you.</p>
 
         <label className="matchmaking-name">
           <span>Playing as</span>
@@ -161,43 +152,14 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
             <div className="matchmaking-filter matchmaking-variant">
               <span>Variant</span>
               <b>Chess960</b>
-              <small>Current competitive pool</small>
+              <small>Automatic public pool</small>
             </div>
-            <label className="matchmaking-filter">
-              <span>Starting rating range</span>
-              <select value={ratingRange} onChange={event => setRatingRange(Number(event.target.value))}>
-                <option value={100}>±100</option>
-                <option value={200}>±200</option>
-                <option value={350}>±350</option>
-                <option value={500}>±500</option>
-              </select>
-              <small>Widens automatically while you wait</small>
-            </label>
-            <label className="matchmaking-filter">
-              <span>Region</span>
-              <select value={regionPreference} onChange={event => setRegionPreference(event.target.value as RegionPreference)}>
-                <option value="nearest">Nearest</option>
-                <option value="regional">Regional</option>
-                <option value="global">Worldwide</option>
-              </select>
-              <small>{regionLabel(regionPreference)} search preference</small>
-            </label>
-            <label className="matchmaking-filter">
-              <span>Latency budget</span>
-              <select value={maxLatencyMs} onChange={event => setMaxLatencyMs(Number(event.target.value))}>
-                <option value={80}>Up to ~80 ms</option>
-                <option value={140}>Up to ~140 ms</option>
-                <option value={220}>Up to ~220 ms</option>
-                <option value={300}>Up to ~300 ms</option>
-              </select>
-              <small>Server-estimated route constraint</small>
-            </label>
           </div>
           <TimeControlPicker value={timeControl} onChange={setTimeControl} allowCustom={false} label="Time control" />
         </fieldset>
 
         {!ticket ? (
-          <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured} loading={busy} loadingLabel="Joining queue">
+          <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured} loading={busy} loadingLabel="Finding opponent">
             Find an opponent
           </PrimaryButton>
         ) : (
@@ -205,7 +167,7 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
             <span className="matchmaking-spinner" aria-hidden="true" />
             <div>
               <b>Looking for a player…</b>
-              <small>±{activeRange} rating · {timeControl.label} · {regionLabel(regionPreference)}{waitedSeconds ? ` · ${waitedSeconds}s` : ''}</small>
+              <small>Chess960 · {timeControl.label}{waitedSeconds ? ` · ${waitedSeconds}s` : ''}</small>
             </div>
             <SecondaryButton size="sm" onClick={cancel}>Cancel</SecondaryButton>
           </div>
@@ -214,20 +176,20 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         {latest && (
           <div className="matchmaking-search-meta" aria-label="Server matchmaking status">
             <span><small>Your server rating</small><b>{Math.round(latest.rating)}{latest.provisional ? '?' : ''}</b></span>
-            <span><small>Current range</small><b>±{latest.search.ratingRange}</b></span>
-            <span><small>Latency</small><b>{latest.search.estimatedLatencyMs === null ? 'Checking' : `~${latest.search.estimatedLatencyMs} ms`}</b></span>
+            <span><small>Search</small><b>Automatic</b></span>
+            <span><small>Route</small><b>{latest.search.estimatedLatencyMs === null ? 'Checking' : `~${latest.search.estimatedLatencyMs} ms`}</b></span>
           </div>
         )}
 
         {opponent && <p className="matchmaking-found">Matched with {opponent}{latest?.opponentRating ? ` · ${Math.round(latest.opponentRating)}` : ''}.</p>}
         {message && <StateNotice className="compact" tone="warning" icon="↻" title="Matchmaking stopped" body={<p>{message}</p>} actions={[{ label: 'Try again', onClick: () => void start(), primary: true }]} />}
         {!multiplayerConfigured && <StateNotice className="compact" tone="warning" icon="!" title="Live matchmaking isn’t connected" body={<p>This build does not have a realtime server configured. Local human and AI chess still work.</p>} actions={[{ label: 'Back to local modes', onClick: onBack }]} />}
-        {multiplayerConfigured && !ticket && !message && onlinePlayers !== null && onlinePlayers <= 1 && <StateNotice className="compact" tone="neutral" icon="♙" title="The pool is quiet right now" body={<p>You can still search. QQURZ will gradually widen the rating range while it waits for another compatible player.</p>} live="off" />}
+        {multiplayerConfigured && !ticket && !message && onlinePlayers !== null && onlinePlayers <= 1 && <StateNotice className="compact" tone="neutral" icon="♙" title="The pool is quiet right now" body={<p>You can still search. QQURZ will keep looking for an available Chess960 player.</p>} live="off" />}
 
         <div className="matchmaking-rules">
-          <span><i>960</i><b>Variant + time matched</b></span>
-          <span><i>↗</i><b>Rating range expands</b></span>
-          <span><i>✓</i><b>Server picks & records</b></span>
+          <span><i>960</i><b>Chess960</b></span>
+          <span><i>↗</i><b>Automatic search</b></span>
+          <span><i>✓</i><b>Server creates the game</b></span>
         </div>
       </div>
     </section>
