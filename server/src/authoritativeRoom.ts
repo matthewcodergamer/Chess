@@ -9,6 +9,18 @@ type MoveEnvelope = {
 
 type SeatAttachment = { token?: unknown };
 
+type RoomWithClock = {
+  room: {
+    session: {
+      pendingClockPress: 'white' | 'black' | null;
+      clocks: { whiteMs: number; blackMs: number; incrementMs: number; startedAt: number | null };
+    };
+  } | null;
+  persist: () => Promise<void>;
+  scheduleForState: () => Promise<void>;
+  broadcast: () => void;
+};
+
 const MAX_WS_MESSAGE_BYTES = 4 * 1024;
 const REPLAY_CACHE_LIMIT = 64;
 const UCI_MOVE = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
@@ -34,12 +46,28 @@ async function replayStorageKey(token: string): Promise<string> {
  *
  * The base room remains the single source of truth for chessops legality,
  * side-to-move checks, clocks, FEN/SAN, result adjudication and broadcasting.
- * This wrapper adds at-most-once move command handling and guarantees that an
- * optimistic client receives a canonical snapshot after any rejected move.
+ * This wrapper adds at-most-once move command handling, automatic clock
+ * transfer after every accepted move, and canonical snapshots after rejects.
+ * The former physical clock/slap interaction is no longer part of play.
  */
 export class AuthoritativeChessRoom extends BaseChessRoom {
   private roomContext(): DurableObjectState {
     return (this as unknown as { ctx: DurableObjectState }).ctx;
+  }
+
+  private roomInternals(): RoomWithClock {
+    return this as unknown as RoomWithClock;
+  }
+
+  private autoTransferClockAfterMove(): void {
+    const internals = this.roomInternals();
+    const room = internals.room;
+    if (!room?.session.pendingClockPress) return;
+    const mover = room.session.pendingClockPress;
+    const key = mover === 'white' ? 'whiteMs' : 'blackMs';
+    room.session.clocks[key] += room.session.clocks.incrementMs;
+    room.session.pendingClockPress = null;
+    room.session.clocks.startedAt = Date.now();
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -61,9 +89,6 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
   }
 
   private canonicalSnapshot(ws: WebSocket, token: string): void {
-    // sendSnapshot is intentionally private in the base room. This wrapper is
-    // kept at the transport boundary and invokes it only for reconciliation or
-    // an explicit reconnect resync; it never mutates canonical state.
     const room = this as unknown as { sendSnapshot: (socket: WebSocket, seatToken: string) => void };
     try { room.sendSnapshot(ws, token); } catch { /* socket closing */ }
   }
@@ -101,9 +126,6 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
         protocolError(ws, 'Your room seat is no longer valid.');
         return;
       }
-      // One atomic room snapshot is enough to recover an iOS/backgrounded
-      // client: session carries FEN, clocks, SAN history, draw offers,
-      // connection state, terminal result and winner information.
       this.canonicalSnapshot(ws, token);
       return;
     }
@@ -131,9 +153,6 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
       return;
     }
 
-    // The exact client command is an idempotency key. It survives WebSocket
-    // reconnects and Durable Object hibernation, while allowing a freshly
-    // generated command after a reload because clientSentAt changes.
     const replayKey = `${Number(sequence)}:${Math.trunc(Number(sentAt))}:${uci}`;
     const storageKey = await replayStorageKey(token);
     const ctx = this.roomContext();
@@ -144,14 +163,27 @@ export class AuthoritativeChessRoom extends BaseChessRoom {
     }
     await ctx.storage.put(storageKey, [...recent, replayKey].slice(-REPLAY_CACHE_LIMIT));
 
-    // Chessground animates the drop immediately. The base room now decides
-    // whether it is canonical. If it rejects the move, force a snapshot so the
-    // board/FEN/turn/clocks snap back to the server truth immediately.
+    // A legacy room can contain a pending physical-clock transfer. Resolve it
+    // before accepting a new move so old rooms migrate cleanly to automatic
+    // clock transfer instead of remaining permanently blocked.
+    const beforeLegacy = this.roomInternals().room?.session.pendingClockPress;
+    if (beforeLegacy) this.autoTransferClockAfterMove();
+
     const internalBefore = this as unknown as { room: { session?: { moveNumber?: number } } | null };
     const beforeMoveNumber = internalBefore.room?.session?.moveNumber ?? -1;
     await super.webSocketMessage(ws, text);
     const internalAfter = this as unknown as { room: { session?: { moveNumber?: number } } | null };
     const afterMoveNumber = internalAfter.room?.session?.moveNumber ?? -1;
-    if (afterMoveNumber === beforeMoveNumber) this.canonicalSnapshot(ws, token);
+
+    if (afterMoveNumber === beforeMoveNumber) {
+      this.canonicalSnapshot(ws, token);
+      return;
+    }
+
+    this.autoTransferClockAfterMove();
+    const internals = this.roomInternals();
+    await internals.persist();
+    await internals.scheduleForState();
+    internals.broadcast();
   }
 }
