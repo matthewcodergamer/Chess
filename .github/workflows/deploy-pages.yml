@@ -1,7 +1,9 @@
 name: Deploy QQURZ frontend environment
 
 on:
-  push:
+  workflow_run:
+    workflows: ["QQURZ automated quality gates"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -21,11 +23,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: frontend-${{ github.ref_name }}
+  group: frontend-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   resolve:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       target: ${{ steps.resolve.outputs.target }}
@@ -38,14 +41,17 @@ jobs:
         env:
           REQUESTED: ${{ inputs.deployment_environment }}
           REQUESTED_REF: ${{ inputs.source_ref }}
-          TRIGGER_BRANCH: ${{ github.ref_name }}
-          TRIGGER_SHA: ${{ github.sha }}
+          TRIGGER_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+          TRIGGER_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             target="$REQUESTED"
           else
-            target=production
+            case "$TRIGGER_BRANCH" in
+              main) target=production ;;
+              *) echo "Unsupported deployment branch" >&2; exit 1 ;;
+            esac
           fi
 
           case "$target" in
@@ -172,4 +178,4 @@ jobs:
             echo "- Frontend host: **Cloudflare Pages**" >> "$GITHUB_STEP_SUMMARY"
             echo "- Cloudflare Pages project: \`${{ needs.resolve.outputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "- Production deployment runs directly from main and performs its own release checks before publishing." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production deployment waits for the completed QQURZ quality workflow and publishes an immutable Pages artifact." >> "$GITHUB_STEP_SUMMARY"
