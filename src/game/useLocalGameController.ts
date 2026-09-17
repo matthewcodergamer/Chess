@@ -181,7 +181,11 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
 
   const finishMove = useCallback((move: Move, orig: Key, dest: Key) => {
     const pos = position.current;
-    if (!pos || !canColorMove(session, pos.turn) || !pos.isLegal(move)) return false;
+    const sessionCanMove = session.state === 'ACTIVE'
+      && !session.pendingClockPress
+      && !session.result
+      && session.sideToMove === pos?.turn;
+    if (!pos || !sessionCanMove || !pos.isLegal(move)) return false;
     const movingColor = pos.turn;
     const san = makeSan(pos, move);
     pos.play(move);
@@ -204,7 +208,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
       engine.current?.cancelSearch();
     }
     return true;
-  }, [dispatchSession, humanColor, mode, session]);
+  }, [dispatchSession, humanColor, mode, session.pendingClockPress, session.result, session.sideToMove, session.state]);
 
   const boardMove = useCallback((orig: Key, dest: Key) => {
     const pos = position.current;
