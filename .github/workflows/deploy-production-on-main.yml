@@ -12,6 +12,9 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+env:
+  CLOUDFLARE_ACCOUNT_ID: 753e873c467138b2ff2ddf3432e7affc
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -55,25 +58,21 @@ jobs:
           VITE_MULTIPLAYER_API="$api" npm run build:artifact
           npm run check:bundle
 
-      - name: Require Cloudflare credentials
+      - name: Require Cloudflare API token
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing production CLOUDFLARE_API_TOKEN.' >&2; exit 1; }
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing production CLOUDFLARE_ACCOUNT_ID.' >&2; exit 1; }
 
       - name: Deploy production realtime API
         working-directory: server
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy --env production --var "RELEASE_ID:${{ github.sha }}"
 
       - name: Deploy production frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler pages deploy dist --project-name qqurz-chess-web-production --branch main
 
       - name: Verify production API release
