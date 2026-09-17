@@ -27,7 +27,7 @@ function json(data: unknown, status = 200): Response {
 }
 
 export class TournamentChessRoom extends SpectatorChessRoom {
-  private roomInternals(): {
+  private tournamentRoomInternals(): {
     room: InternalRoom | null;
     ctx: DurableObjectState;
     persist: () => Promise<void>;
@@ -46,11 +46,11 @@ export class TournamentChessRoom extends SpectatorChessRoom {
   }
 
   private async control(): Promise<EngineControl> {
-    return (await this.roomInternals().ctx.storage.get<EngineControl>(CONTROL_KEY)) ?? { directStart: false };
+    return (await this.tournamentRoomInternals().ctx.storage.get<EngineControl>(CONTROL_KEY)) ?? { directStart: false };
   }
 
   private async activateIfReady(): Promise<void> {
-    const internal = this.roomInternals();
+    const internal = this.tournamentRoomInternals();
     const room = internal.room;
     if (!room || room.session.state !== 'READY' || !(await this.control()).directStart) return;
     const connected = internal.connectedColors();
@@ -68,7 +68,7 @@ export class TournamentChessRoom extends SpectatorChessRoom {
 
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const internal = this.roomInternals();
+    const internal = this.tournamentRoomInternals();
 
     if (url.hostname === 'room.internal' && url.pathname === '/engine-tournament-link' && request.method === 'POST') {
       if (!internal.room?.players.black) return json({ error: 'Tournament room is not ready to link.' }, 409);
