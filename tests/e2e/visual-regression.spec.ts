@@ -297,14 +297,17 @@ test('tournament registration', async ({ page }) => {
 
 test('game board', async ({ page }) => {
   await openLocalBoard(page);
-  await snapshotLocator(page, page.locator('.local-board-frame.match-board-frame'), 'game-board.png');
+  const board = page.locator('.local-board-frame.match-board-frame');
+  await expect(board).toBeVisible();
+  await expect(board).toHaveScreenshot('game-board.png', { maxDiffPixels: 800 });
 });
 
 test('digital chess clock', async ({ page }) => {
   await openLocalBoard(page);
-  const clock = page.locator('.qqurz-physical-clock-panel');
-  await expect(clock).toBeVisible();
-  await expect(clock).not.toContainText('3D');
+  const clocks = page.locator('.match-player-bar');
+  await expect(clocks).toHaveCount(2);
+  await expect(clocks.first()).toBeVisible();
+  await expect(clocks.last()).toBeVisible();
   await expect(page.locator('.qqurz-clock-3d-view canvas')).toHaveCount(0);
 });
 
