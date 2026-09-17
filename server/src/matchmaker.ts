@@ -402,7 +402,7 @@ private async tryMatch(ticket: TicketRecord, now: number): Promise<void> {
   await run;
 }
 
-async fetch(async fetch(request: Request): Promise<Response> {
+async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const now = Date.now();
     this.prune(now);
