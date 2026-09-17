@@ -10,6 +10,13 @@ type MoveTiming = { moveNumber: number; clientSequence: number | null; clientSen
 type RoomSnapshot = { code: string; session: GameSessionModel; lastMoveTiming: MoveTiming | null; createdAt: number; lastActivityAt: number; players: { white: Seat; black: Seat | null } };
 type GameProjectionEnv = DataModelEnv & Record<string, unknown>;
 
+type ClockInternals = {
+  room: RoomSnapshot | null;
+  persist: () => Promise<void>;
+  scheduleForState: () => Promise<void>;
+  broadcast: () => void;
+};
+
 function terminal(state: string): boolean { return ['CHECKMATE','DRAW','RESIGN','TIMEOUT','FINAL'].includes(state); }
 function status(session: GameSessionModel): CanonicalGame['status'] { if(terminal(session.state)) return 'completed'; if(session.state==='PAUSED'||session.state==='RECONNECTING') return 'paused'; if(session.state==='ACTIVE') return 'active'; return 'created'; }
 function initialFen(session: GameSessionModel): string | null { return Number.isInteger(session.positionId) ? chess960Fen(session.positionId!) : null; }
@@ -33,6 +40,18 @@ function roomGame(room: RoomSnapshot, latestMove?: { uci: string; moverColor: 'w
 
 export class CanonicalChessRoom extends NotifyingChessRoom {
   private canonicalInternals(): { ctx: DurableObjectState; env: GameProjectionEnv; room: RoomSnapshot | null } { return this as unknown as { ctx: DurableObjectState; env: GameProjectionEnv; room: RoomSnapshot | null }; }
+  private clockInternals(): ClockInternals { return this as unknown as ClockInternals; }
+
+  private autoTransferClock(): void {
+    const room = this.clockInternals().room;
+    const pending = room?.session.pendingClockPress;
+    if (!pending) return;
+    const key = pending === 'white' ? 'whiteMs' : 'blackMs';
+    room.session.clocks[key] += room.session.clocks.incrementMs;
+    room.session.pendingClockPress = null;
+    room.session.clocks.startedAt = Date.now();
+  }
+
   private async project(room: RoomSnapshot | null, latestMove?: { uci: string; moverColor:'white'|'black'; clientSentAt:number|null; timing:MoveTiming }): Promise<void> {
     if(!room) return; const {ctx,env}=this.canonicalInternals();
     await queueCanonicalProjection(ctx.storage,env,[{type:'record_game',game:roomGame(room,latestMove)}],`room:${room.code}:${crypto.randomUUID()}`);
@@ -44,10 +63,25 @@ export class CanonicalChessRoom extends NotifyingChessRoom {
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     const before=this.canonicalInternals().room; const beforeMove=before?.session.moveNumber ?? 0; const beforeColor=before?.session.sideToMove ?? 'white';
     let payload:Record<string,any>|null=null; try { payload=JSON.parse(typeof message==='string'?message:new TextDecoder().decode(message)); } catch { /* base class handles malformed input */ }
+
+    // Migrate any room that still has the old physical-clock handshake. New
+    // moves never leave the session waiting for a manual press.
+    if (payload?.type === 'move') this.autoTransferClock();
+
     await super.webSocketMessage(ws,message);
     const room=this.canonicalInternals().room; const timing=room?.lastMoveTiming ?? null;
     const accepted=payload !== null && payload.type==='move'&&room&&timing&&room.session.moveNumber===beforeMove+1&&timing.moveNumber===room.session.moveNumber;
     const movePayload = accepted ? payload : null;
+    if (accepted) {
+      // The legacy reducer records the mover as pending until CLOCK_TRANSFERRED.
+      // Resolve that transfer immediately so the opponent clock starts without
+      // any physical-clock UI or extra client command.
+      this.autoTransferClock();
+      const internals = this.clockInternals();
+      await internals.persist();
+      await internals.scheduleForState();
+      internals.broadcast();
+    }
     await this.project(room,movePayload&&timing?{uci:String(movePayload.uci ?? '').toLowerCase(),moverColor:beforeColor,clientSentAt:Number.isFinite(movePayload.clientSentAt)?Number(movePayload.clientSentAt):null,timing}:undefined).catch(()=>undefined);
   }
   override async alarm(): Promise<void> { await super.alarm(); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
