@@ -112,6 +112,19 @@ async function json(route: Route, body: unknown, status = 200) {
 
 async function seedApp(page: Page) {
   await page.addInitScript(({ now }) => {
+    // Keep time-dependent UI deterministic for canonical visual snapshots.
+    const RealDate = Date;
+    class FixedDate extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date>) {
+        super(...(args.length ? args : [now]));
+      }
+
+      static now() {
+        return now;
+      }
+    }
+    window.Date = FixedDate as DateConstructor;
+
     localStorage.setItem('qqurz:onboarding-v1', JSON.stringify({
       version: 1,
       completedAt: now,
