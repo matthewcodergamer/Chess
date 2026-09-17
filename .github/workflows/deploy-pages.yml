@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["QQURZ automated quality gates"]
     types: [completed]
-    branches: [develop, staging, main]
   workflow_dispatch:
     inputs:
       deployment_environment:
@@ -28,7 +27,7 @@ concurrency:
 
 jobs:
   resolve:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     outputs:
       target: ${{ steps.resolve.outputs.target }}
@@ -48,12 +47,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             target="$REQUESTED"
           else
-            case "$TRIGGER_BRANCH" in
-              develop) target=development ;;
-              staging) target=staging ;;
-              main) target=production ;;
-              *) echo "Unsupported deployment branch" >&2; exit 1 ;;
-            esac
+            target=production
           fi
 
           case "$target" in
@@ -131,7 +125,6 @@ jobs:
           VITE_MULTIPLAYER_API="$api" VITE_DEPLOYMENT_ENV="$TARGET" VITE_RELEASE_ID="$RELEASE_ID" npm run build:artifact
           npm run check:bundle
 
-      # Atomically deploy immutable frontend artifact.
       - name: Configure GitHub Pages
         if: needs.resolve.outputs.target == 'production'
         uses: actions/configure-pages@v5
