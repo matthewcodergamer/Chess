@@ -1,7 +1,4 @@
-import { lazy, Suspense } from 'react';
 import type { QuarterFace } from './Quarter3D';
-
-const Quarter3D = lazy(() => import('./Quarter3D'));
 
 type Props = {
   result: QuarterFace | null;
@@ -10,14 +7,14 @@ type Props = {
 };
 
 /**
- * Keeps Three.js out of the OnlineArena static dependency closure. The fallback
- * reserves the coin's visual slot while the decorative renderer downloads;
- * room state, Chessground and move controls stay interactive independently.
+ * Compatibility wrapper retained for existing imports. The multiplayer game
+ * screen no longer loads Three.js or renders a 3D object; the shared quarter
+ * visual is intentionally a lightweight 2D element.
  */
-export default function LazyQuarter3D(props: Props) {
+export default function LazyQuarter3D({ result, className = '' }: Props) {
   return (
-    <Suspense fallback={<div className="qqurz-quarter-wrap"><div className="qqurz-quarter-3d loading" aria-hidden="true" /></div>}>
-      <Quarter3D {...props} />
-    </Suspense>
+    <div className={`qqurz-quarter-wrap qqurz-quarter-2d ${className}`.trim()} aria-label={result ? `Quarter: ${result}` : 'Quarter toss'}>
+      <div className="qqurz-quarter-face" aria-hidden="true">{result ? result.toUpperCase() : '●'}</div>
+    </div>
   );
 }
