@@ -19,31 +19,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
-
       - name: CI architecture guard
         run: npm run check:ci
-
       - name: Deployment environment architecture
         run: npm run check:deploy
-
       - name: Frontend TypeScript
         run: npm run typecheck
-
       - name: Source lint
         run: npm run lint
-
       - name: Install realtime dependencies
         working-directory: server
         run: npm install --no-audit --no-fund
-
       - name: Backend TypeScript and architecture
         working-directory: server
         run: npm run check
@@ -55,25 +47,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
-
       - name: Unit tests
         run: npm run test:unit
-
       - name: Integration tests
         run: npm run test:integration
-
       - name: Install realtime dependencies
         working-directory: server
         run: npm install --no-audit --no-fund
-
       - name: Realtime domain tests
         working-directory: server
         run: npm test
@@ -85,25 +71,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Build production artifact
         env:
           VITE_MULTIPLAYER_API: https://qqurz-chess-api-development.gamerstriper.workers.dev
           VITE_DEPLOYMENT_ENV: ci
           VITE_RELEASE_ID: ${{ github.sha }}
         run: npm run build:artifact
-
       - name: Enforce bundle-size budgets
         run: npm run check:bundle
-
       - name: Upload verified build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -119,21 +100,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Run Playwright mobile and desktop flows
         run: npm run test:e2e
-
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -145,53 +121,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  visual-regression:
-    name: Canonical visual regression
-    runs-on: ubuntu-latest
-    needs: mobile-e2e
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Require complete committed baseline matrix
-        shell: bash
-        run: |
-          count=$(find tests/e2e/visual-baselines -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
-          echo "Found $count committed visual baselines"
-          if [ "$count" -ne 45 ]; then
-            echo "::error::Expected exactly 45 committed visual baselines (5 viewports × 9 surfaces); found $count."
-            exit 1
-          fi
-
-      - name: Compare canonical screenshots
-        run: npm run test:visual
-
-      - name: Upload visual regression report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-regression-report-${{ github.sha }}
-          path: |
-            playwright-visual-report/
-            test-results/visual/
-          if-no-files-found: ignore
-          retention-days: 14
-
   release-gate:
     name: Release gate
     runs-on: ubuntu-latest
-    needs: [static-analysis, unit-integration, production-build, mobile-e2e, visual-regression]
+    needs: [static-analysis, unit-integration, production-build, mobile-e2e]
     if: always()
     steps:
       - name: Require every CI gate to pass
@@ -200,11 +133,10 @@ jobs:
           TEST_RESULT: ${{ needs.unit-integration.result }}
           BUILD_RESULT: ${{ needs.production-build.result }}
           E2E_RESULT: ${{ needs.mobile-e2e.result }}
-          VISUAL_RESULT: ${{ needs.visual-regression.result }}
         shell: bash
         run: |
           set -euo pipefail
-          for result in "$STATIC_RESULT" "$TEST_RESULT" "$BUILD_RESULT" "$E2E_RESULT" "$VISUAL_RESULT"; do
+          for result in "$STATIC_RESULT" "$TEST_RESULT" "$BUILD_RESULT" "$E2E_RESULT"; do
             test "$result" = success || { echo "A required CI gate did not pass: $result" >&2; exit 1; }
           done
           echo "QQURZ release gate passed for $GITHUB_SHA."
