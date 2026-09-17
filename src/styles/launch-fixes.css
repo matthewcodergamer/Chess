@@ -56,7 +56,6 @@ body,
   max-width: 100%;
   min-width: 0;
   overflow-x: clip;
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 .online-game-grid,
