@@ -24,3 +24,7 @@ Track concurrent WebSockets, messages/second, queue depth, active games, broadca
 5. Only change Cloudflare plan/resources after metrics show a real account, CPU, request, or storage limit.
 
 Cloudflare documents Durable Objects as independently scalable actors and recommends hibernatable WebSockets for long-lived realtime connections. The hibernation API permits up to 32,768 WebSocket connections per Durable Object, while CPU/memory/workload can be the practical limit. Cloudflare also recommends designing around the logical coordination unit and sharding across objects when a single object becomes a bottleneck.
+
+## Release rule
+
+A production release must use the exact tested commit SHA. Frontend and realtime deployment workflows run only after the complete QQURZ quality-gates workflow succeeds; deployment credentials are environment-scoped and are not committed to the repository.
