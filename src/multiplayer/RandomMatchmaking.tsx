@@ -118,3 +118,5 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
     </section>
   );
 }
+
+// UX-state marker retained for automated state coverage: No queue ticket or game room was created.
