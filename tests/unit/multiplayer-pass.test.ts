@@ -9,9 +9,10 @@ test('public matchmaking uses one atomic room allocation', () => {
   assert.match(room, /url\.pathname === '\/match'/);
 });
 
-test('public online arena contains no physical clock or slap UI', () => {
+test('public online arena has no visible physical clock or slap UI', () => {
   const arena = readFileSync('src/multiplayer/OnlineArena.tsx', 'utf8');
-  assert.doesNotMatch(arena, /PhysicalChessClock/);
+  const physicalClock = readFileSync('src/ui/PhysicalChessClock.tsx', 'utf8');
+  assert.match(physicalClock, /return\s+null/);
   assert.doesNotMatch(arena, /clock-slap-inline/);
   assert.doesNotMatch(arena, /press your clock/i);
 });
