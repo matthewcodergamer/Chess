@@ -8,3 +8,18 @@
 .summary-stats-v22 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+
+/* The authoritative server now transfers the increment automatically.
+   Keep legacy markup inert while old clients roll forward. */
+.clock-slap-inline {
+  display: none !important;
+}
+
+.match-controls:has(.clock-slap-inline) .match-turn-note {
+  font-size: 0;
+}
+
+.match-controls:has(.clock-slap-inline) .match-turn-note::after {
+  content: 'Your move';
+  font-size: 1rem;
+}
