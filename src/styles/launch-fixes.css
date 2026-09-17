@@ -9,8 +9,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* The authoritative server now transfers the increment automatically.
-   Keep legacy markup inert while old clients roll forward. */
+/* Legacy slap markup is inert; a legal board move is the complete input. */
 .clock-slap-inline {
   display: none !important;
 }
@@ -22,4 +21,63 @@
 .match-controls:has(.clock-slap-inline) .match-turn-note::after {
   content: 'Your move';
   font-size: var(--q-type-label);
+}
+
+/* Lightweight 2D toss visual: no Three.js surface is used by the game screen. */
+.qqurz-quarter-2d {
+  display: grid;
+  place-items: center;
+  width: clamp(56px, 14vw, 84px);
+  aspect-ratio: 1;
+  margin: 10px auto;
+}
+
+.qqurz-quarter-face {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: var(--q-type-label);
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.online-room-shell,
+.qqurz-matchmaking-page {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.online-game-grid,
+.match-game-grid,
+.match-board-column,
+.board-frame,
+.match-player-bar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .match-player-bar {
+    gap: 8px;
+  }
+
+  .match-player-main {
+    min-width: 0;
+  }
+
+  .match-player-time {
+    flex: 0 0 auto;
+  }
 }
