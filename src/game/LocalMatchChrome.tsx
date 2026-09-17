@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Color } from '@lichess-org/chessground/types';
 import MatchPlayerBar from '../ui/MatchPlayerBar';
 import StateNotice from '../ui/StateNotice';
@@ -19,11 +19,6 @@ export default function LocalMatchChrome({ game, board, optionsOpen, onToggleOpt
   const clockFor = (color: Color) => formatLocalClockMs(color === 'white' ? game.whiteClockMs : game.blackClockMs);
   const engineFailed = game.mode === 'ai' && game.engineStatus === 'error';
 
-  // The game now uses ordinary 2D player clocks. Increment transfer happens
-  // immediately after a move; there is no physical-clock/slap interaction.
-  useEffect(() => {
-    if (game.session.state === 'ACTIVE' && game.pendingSlap) game.slapClock();
-  }, [game.moves.length, game.pendingSlap, game.session.state, game.slapClock]);
 
   return <section className="local-fast-shell local-chess-layout" data-game-state={game.session.state}><div className="match-board-stack">
     <div className="match-game-meta"><b>Chess960 · #{game.positionId}</b><span>{game.mode === 'ai' ? `You vs ${LOCAL_DIFFICULTIES[game.difficulty].label} Stockfish` : 'Same-device game'} · {game.timeControl.label}</span></div>
