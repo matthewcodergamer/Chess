@@ -1,3 +1,4 @@
+# Trigger final cleanup pass.
 name: QQURZ final multiplayer cleanup
 on:
   push:
@@ -16,15 +17,10 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
           def replace(path, old, new):
-              p = Path(path)
-              s = p.read_text()
-              if old not in s:
-                  raise SystemExit(f'Missing expected block in {path}: {old[:100]}')
-              p.write_text(s.replace(old, new, 1))
-
-          # Public matchmaking games start directly from the authoritative board.
+              p=Path(path); s=p.read_text()
+              if old not in s: raise SystemExit(f'Missing expected block in {path}: {old[:100]}')
+              p.write_text(s.replace(old,new,1))
           replace('server/src/index.ts', """        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen, sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'CONNECTED', now }),""", """        session: createGameSession({ id: `room-${code}`, state: 'ACTIVE', positionId, fen, sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'CONNECTED', clockStartedAt: now, now }),""")
           replace('server/src/index.ts', """      this.prepareCoin(now);
       await this.persist();
@@ -32,15 +28,13 @@ jobs:
       return json({""", """      await this.persist();
       await this.scheduleForState();
       return json({""")
-
-          # Remove the retired physical/3D clock and make the existing player bars the clock UI.
           replace('src/multiplayer/OnlineArena.tsx', "import Quarter3D from '../ui/LazyQuarter3D';\n", '')
           replace('src/multiplayer/OnlineArena.tsx', "import PhysicalChessClock from '../ui/PhysicalChessClock';\n", '')
           replace('src/multiplayer/OnlineArena.tsx', "import { clockVisible, setClockVisible, subscribeClockVisible } from '../ui/clockPreference';\n", '')
           replace('src/multiplayer/OnlineArena.tsx', "  const [showClock, setShowClock] = useState(clockVisible);\n", '')
           replace('src/multiplayer/OnlineArena.tsx', "  useEffect(() => subscribeClockVisible(setShowClock), []);\n\n", '')
           replace('src/multiplayer/OnlineArena.tsx', "<Quarter3D result={snapshot.coin.result} flippedAt={snapshot.coin.flippedAt}/>", "<div className=\"coin-visual-2d\" aria-hidden=\"true\">{snapshot.coin.result ? snapshot.coin.result.toUpperCase() : '●'}</div>")
-          old_clock = '''          <PhysicalChessClock
+          old='''          <PhysicalChessClock
             whiteSeconds={whiteMs / 1000}
             blackSeconds={blackMs / 1000}
             activeColor={activeColor}
@@ -54,28 +48,18 @@ jobs:
           />
 
 '''
-          replace('src/multiplayer/OnlineArena.tsx', old_clock, '')
+          replace('src/multiplayer/OnlineArena.tsx', old, '')
           replace('src/multiplayer/OnlineArena.tsx', "gameSession?.pendingClockPress === seat.color ? 'Move made — press your clock' : gameSession?.pendingClockPress ? 'Opponent is pressing their clock' :", "gameSession?.pendingClockPress ? 'Synchronizing move state…' :")
           replace('src/multiplayer/OnlineArena.tsx', "            {gameSession?.pendingClockPress === seat.color && !showClock && <button className={`clock-slap-inline ${seat.color}`} onClick={() => send({ type: 'clock_slap' })} disabled={!connectedToRoom}>Slap clock</button>}\n", '')
-
-          # Avoid an unused client constant after foreground sync became reconnect-by-snapshot.
           replace('src/multiplayer/client.ts', 'const FOREGROUND_SYNC_TIMEOUT_MS = 1600;\n', '')
-
-          # Add a compact mobile-safe 2D coin visual only; clocks remain in MatchPlayerBar.
           with Path('src/styles/launch-fixes.css').open('a') as f:
-              f.write('''\n\n.coin-visual-2d {\n  display: grid;\n  place-items: center;\n  width: clamp(56px, 14vw, 84px);\n  aspect-ratio: 1;\n  margin: 10px auto;\n  border: 2px solid currentColor;\n  border-radius: 50%;\n  font-size: var(--q-type-label);\n  font-weight: 800;\n  letter-spacing: .08em;\n}\n\nhtml, body, #root { max-width: 100%; overflow-x: clip; }\n.online-room-shell, .qqurz-matchmaking-page { max-width: 100%; min-width: 0; overflow-x: clip; padding-bottom: max(16px, env(safe-area-inset-bottom)); }\n.online-game-grid, .match-game-grid, .match-board-column, .board-frame, .match-player-bar { min-width: 0; max-width: 100%; }\n@media (max-width: 640px) {\n  .match-player-bar { gap: 8px; }\n  .match-player-main { min-width: 0; }\n  .match-player-time { flex: 0 0 auto; }\n}\n''')
-
-          # Guard the source tree against accidental public fee copy.
-          for root in (Path('src'), Path('public')):
+              f.write('''\n\n.coin-visual-2d { display:grid; place-items:center; width:clamp(56px,14vw,84px); aspect-ratio:1; margin:10px auto; border:2px solid currentColor; border-radius:50%; font-size:var(--q-type-label); font-weight:800; letter-spacing:.08em; }\nhtml, body, #root { max-width:100%; overflow-x:clip; }\n.online-room-shell, .qqurz-matchmaking-page { max-width:100%; min-width:0; overflow-x:clip; padding-bottom:max(16px, env(safe-area-inset-bottom)); }\n.online-game-grid, .match-game-grid, .match-board-column, .board-frame, .match-player-bar { min-width:0; max-width:100%; }\n@media (max-width:640px) { .match-player-bar { gap:8px; } .match-player-main { min-width:0; } .match-player-time { flex:0 0 auto; } }\n''')
+          for root in (Path('src'),Path('public')):
               if root.exists():
                   for p in root.rglob('*'):
-                      if p.is_file() and p.suffix in {'.ts', '.tsx', '.css', '.html', '.json'}:
-                          text = p.read_text(errors='ignore')
-                          if '20%' in text:
-                              raise SystemExit(f'Public fee string remains in {p}')
-
+                      if p.is_file() and p.suffix in {'.ts','.tsx','.css','.html','.json'} and '20%' in p.read_text(errors='ignore'):
+                          raise SystemExit(f'Public fee string remains in {p}')
       - name: Commit final pass
-        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
