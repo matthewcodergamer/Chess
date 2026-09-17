@@ -58,12 +58,8 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   const headers = new Headers(init.headers);
   headers.set('content-type', 'application/json');
   const token = accountToken();
-  // Public queue/presence requests intentionally work without an Authorization
-  // header so the browser can make the JSON POST without an auth preflight.
-  // Account-bound room actions still send the session token normally.
-  const publicRealtimeRequest = path.startsWith('/matchmaking/') || path.startsWith('/presence');
-  if (token && !publicRealtimeRequest) headers.set('authorization', `Bearer ${token}`);
-  const response = await fetch(`${MULTIPLAYER_API}${path}`, { ...init, headers });
+  if (token) headers.set('authorization', `Bearer ${token}`);
+  const response = await fetch(`${MULTIPLAYER_API}${path}`, { ...init, headers, cache: 'no-store' });
   const payload = await response.json().catch(() => ({})) as { error?: string } & T;
   if (!response.ok) throw new Error(payload.error || `Server returned ${response.status}.`);
   return payload;
@@ -138,7 +134,6 @@ export async function joinRoom(code: string, name: string): Promise<RoomSeat> {
 }
 
 const RECONNECT_DELAYS_MS = [300, 650, 1200, 2200, 3500, 5000, 7000, 9000] as const;
-const FOREGROUND_SYNC_TIMEOUT_MS = 1600;
 
 export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => void, onStatus: (status: RoomConnectionStatus) => void): RoomConnection {
   if (!MULTIPLAYER_API) throw new Error('The live multiplayer server has not been connected yet.');
@@ -235,9 +230,7 @@ export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => voi
     });
   };
 
-  const requestSync = () => {
-    scheduleReconnect(true);
-  };
+  const requestSync = () => scheduleReconnect(true);
   const onOnline = () => scheduleReconnect(true);
   const onVisibility = () => { if (document.visibilityState === 'visible') requestSync(); };
   const onPageShow = () => requestSync();
