@@ -6,45 +6,36 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const errors = [];
 
 const physicalPath = 'src/ui/PhysicalChessClock.tsx';
-const viewPath = 'src/ui/ChessClock3DView.tsx';
-const modelPath = 'src/premium/chessClock3D.ts';
 const localPath = 'src/LocalGame.tsx';
 const localChromePath = 'src/game/LocalMatchChrome.tsx';
 const localControllerPath = 'src/game/useLocalGameController.ts';
 const onlinePath = 'src/multiplayer/OnlineArena.tsx';
 const premiumPath = 'src/premium/PremiumBoard3D.tsx';
 
-for (const file of [physicalPath, viewPath, modelPath, localPath, localChromePath, localControllerPath, onlinePath, premiumPath]) {
+for (const file of [physicalPath, localPath, localChromePath, localControllerPath, onlinePath, premiumPath]) {
   if (!fs.existsSync(path.join(root, file))) errors.push(`Missing clock-system file: ${file}`);
 }
 
 if (!errors.length) {
   const physical = read(physicalPath);
-  const view = read(viewPath);
-  const model = read(modelPath);
   const local = read(localPath);
   const localChrome = read(localChromePath);
   const localController = read(localControllerPath);
   const online = read(onlinePath);
   const premium = read(premiumPath);
 
+  // The physical/3D clock and slap interaction are retired. Keep the shim file
+  // so old imports cannot accidentally resurrect the interface, but require it
+  // to remain inert.
+  if (!/return\s+null\s*;/.test(physical)) errors.push('PhysicalChessClock must remain an inert compatibility shim.');
+
   for (const [label, source] of [['LocalMatchChrome', localChrome], ['OnlineArena', online], ['PremiumBoard3D', premium]]) {
-    if (!source.includes('PhysicalChessClock')) errors.push(`${label} must render PhysicalChessClock.`);
-    if (source.includes('ChessClock3DView')) errors.push(`${label} must not render ChessClock3DView directly.`);
-    if (source.includes('ChessClock2D')) errors.push(`${label} must not use the legacy ChessClock2D wrapper.`);
-    if (source.includes('createChessClock3D')) errors.push(`${label} must not instantiate the physical 3D clock model directly.`);
-    if (source.includes("playChessSound('clock')") || source.includes("playChessSound('slap')")) errors.push(`${label} must not play the clock sound directly; PhysicalChessClock owns acknowledged transfer audio.`);
-    if (/\.clock\.slap\s*\(/.test(source)) errors.push(`${label} must not drive rocker animation directly.`);
+    if (source.includes('ChessClock3DView')) errors.push(`${label} must not render ChessClock3DView.`);
+    if (source.includes('createChessClock3D')) errors.push(`${label} must not instantiate the 3D clock model.`);
+    if (source.includes('PhysicalChessClock')) errors.push(`${label} must not render the retired PhysicalChessClock/slap interface.`);
+    if (/pendingSlap\s*=/.test(source) || /onSlap\s*=/.test(source)) errors.push(`${label} must not expose slap-to-move controls.`);
   }
 
-  if (!view.includes('createChessClock3D')) errors.push('ChessClock3DView must be the single renderer that instantiates the clock model.');
-  if (!view.includes('slapColor') || !view.includes('slapNonce')) errors.push('ChessClock3DView must receive explicit authoritative slap events.');
-  if (!physical.includes("playChessSound('clock')")) errors.push('PhysicalChessClock must own the recorded physical clock sound.');
-  if (!physical.includes('previous && !pendingSlap && activeColor && activeColor !== previous')) errors.push('PhysicalChessClock must gate audible clock feedback on an acknowledged clock transfer.');
-  if (!physical.includes("{ haptic: true, sound: false }")) errors.push('PhysicalChessClock must keep local press haptics separate from authoritative transfer audio.');
-
-  const sharedDualSlap = localController.includes('session.pendingClockPress === aiColor ? 220 : 120') || localController.includes('pendingSlap === aiColor ? 220 : 120');
-  if (!sharedDualSlap) errors.push('Shared local game controller must auto-ack both human and Stockfish physical clock presses.');
   if (!local.includes('useLocalGameController')) errors.push('AI 2D play must consume the shared local clock/game controller.');
   if (!premium.includes('useLocalGameController')) errors.push('Premium AI play must consume the same shared local clock/game controller.');
 
@@ -53,9 +44,8 @@ if (!errors.length) {
     && online.includes('clockOwner(gameSession)')
     && online.includes('gameSession.clocks.whiteMs')
     && online.includes('gameSession.clocks.blackMs')
-    && online.includes('activeColor={activeColor}')
-    && /pendingSlap=\{gameSession\?\.pendingClockPress(?:\s*\?\?\s*null)?\}/.test(online);
-  if (!onlineUsesAuthoritativeSession) errors.push('Online clock must consume active side, pending press and remaining time from the authoritative GameSessionModel.');
+    && online.includes('activeColor={activeColor}');
+  if (!onlineUsesAuthoritativeSession) errors.push('Online clock must consume active side and remaining time from the authoritative GameSessionModel.');
 
   const forbiddenLegacyOnlineClockReads = [
     'snapshot.activeClock',
@@ -67,44 +57,15 @@ if (!errors.length) {
     errors.push(`Online clock must not derive state from legacy room aliases: ${forbiddenLegacyOnlineClockReads.join(', ')}.`);
   }
 
-  if (!model.includes('let size = 210')) errors.push('Physical clock LCD must keep the enlarged timer digit target.');
-  if (!model.includes('ROCKER_PRESS')) errors.push('Physical clock model must retain a real rocker press angle.');
-  if (!model.includes('optimizedForMobile = true')) errors.push('Physical clock model must retain the mobile-geometry optimization marker.');
-  if (!model.includes("pendingSlap === 'white' ? ledOn") && !model.includes("pendingSlap === 'white' ?")) {
-    if (!model.includes("activeColor === 'white' || pendingSlap === 'white'")) errors.push('White LED must be derived from authoritative active/pending state.');
-  }
-  if (!model.includes("activeColor === 'black' || pendingSlap === 'black'")) errors.push('Black LED must be derived from authoritative active/pending state.');
-
-  const srcRoot = path.join(root, 'src');
-  const sourceFiles = [];
-  const walk = directory => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const full = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (/\.tsx?$/.test(entry.name)) sourceFiles.push(full);
-    }
-  };
-  walk(srcRoot);
-
-  const directSoundOwners = sourceFiles
-    .filter(file => fs.readFileSync(file, 'utf8').includes("playChessSound('clock')"))
-    .map(file => path.relative(root, file).replaceAll('\\', '/'));
-  if (directSoundOwners.length !== 1 || directSoundOwners[0] !== physicalPath) {
-    errors.push(`Recorded clock sound must have one owner (${physicalPath}); found: ${directSoundOwners.join(', ') || 'none'}.`);
-  }
-
-  const modelImporters = sourceFiles
-    .filter(file => file !== path.join(root, modelPath) && fs.readFileSync(file, 'utf8').includes('createChessClock3D'))
-    .map(file => path.relative(root, file).replaceAll('\\', '/'));
-  if (modelImporters.length !== 1 || modelImporters[0] !== viewPath) {
-    errors.push(`Clock 3D model must have one renderer (${viewPath}); found: ${modelImporters.join(', ') || 'none'}.`);
+  if (localController.includes('pendingClockPress')) {
+    errors.push('Local game controller must not require a manual clock press to complete a move.');
   }
 }
 
 if (errors.length) {
-  console.error('\nQQURZ physical-clock check failed:\n');
+  console.error('\nQQURZ clock-system check failed:\n');
   for (const error of errors) console.error(` - ${error}`);
   process.exit(1);
 }
 
-console.log('QQURZ physical clock OK: one renderer/component, one recorded clock-audio owner, shared local controller, authoritative online timing.');
+console.log('QQURZ clock system OK: 2D player clocks, authoritative online timing, no 3D clock, no slap-to-move interaction.');
