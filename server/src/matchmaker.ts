@@ -16,7 +16,8 @@ type PresenceCounts = { online: number; away: number; game: number };
 type TrustedAccountPayload = { account?: { id?: string; displayName?: string; chess960Ratings?: Record<string, { rating?: number; deviation?: number; provisional?: boolean }> } };
 export type MatchmakerEnv = AccountEnv & { MATCHMAKER: DurableObjectNamespace<Matchmaker>; ROOMS: DurableObjectNamespace };
 const PRESENCE_TTL_MS = 75_000;
-const QUEUE_TTL_MS = 10 * 60_000;
+// An active queue ticket is retained until it matches or the client explicitly cancels it.
+const QUEUE_TTL_MS = Number.POSITIVE_INFINITY;
 const MATCH_TTL_MS = 20 * 60_000;
 const RATING_EXPAND_EVERY_MS = 10_000;
 const RATING_EXPAND_STEP = 75;
