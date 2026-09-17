@@ -129,6 +129,7 @@ jobs:
         if: needs.resolve.outputs.target == 'production'
         uses: actions/configure-pages@v5
 
+      # Atomically deploy immutable frontend artifact to GitHub Pages.
       - name: Upload GitHub Pages artifact
         if: needs.resolve.outputs.target == 'production'
         uses: actions/upload-pages-artifact@v4
