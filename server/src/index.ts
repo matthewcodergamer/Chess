@@ -684,16 +684,8 @@ export class ChessRoom extends DurableObject<Env> {
     this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TICK', elapsedMs: chargedElapsedMs, at: now });
     return { chargedElapsedMs, latencyCreditMs };
   }
-  private async handleClockSlap(ws: WebSocket, token: string, color: Color): Promise<void> {
-    if (!this.room || this.room.session.state !== 'ACTIVE' || this.room.session.result) return this.sendError(ws, 'The clock is not accepting presses.');
-    if (this.room.session.pendingClockPress !== color) return this.sendError(ws, 'Make your move before pressing your clock.');
-    const now = Date.now(); this.settleActiveClock(now, token);
-    if (this.room.session.resultKind === 'TIMEOUT') {
-      this.room.lastActivityAt = now; await this.persist(); await this.ctx.storage.deleteAlarm(); this.broadcast(); return;
-    }
-    this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TRANSFERRED', at: now });
-    this.room.lastActivityAt = now;
-    await this.persist(); await this.scheduleForState(); this.broadcast();
+  private async handleClockSlap(ws: WebSocket, _token: string, _color: Color): Promise<void> {
+    return this.sendError(ws, 'The clock is automatic. Make your move to start your opponent’s clock.');
   }
   private async handleDrawOffer(ws: WebSocket, color: Color): Promise<void> {
     if (!this.room || this.room.session.state !== 'ACTIVE') return this.sendError(ws, 'Draw offers are only available during active play.');
@@ -734,7 +726,7 @@ export class ChessRoom extends DurableObject<Env> {
   }
   private async handleMove(ws: WebSocket, token: string, color: Color, payload: Extract<ClientMessage, { type: 'move' }>): Promise<void> {
     if (!this.room) return;
-    if (!canColorMove(this.room.session, color)) return this.sendError(ws, this.room.session.pendingClockPress ? 'The previous move is waiting for a clock press.' : 'The game is not accepting that move.');
+    if (!canColorMove(this.room.session, color)) return this.sendError(ws, 'The game is not accepting that move.');
     const serverReceivedAt = Date.now();
     // A move does not receive lag credit because the physical clock keeps
     // running until its authoritative clock press. Credit is applied once, at
@@ -756,6 +748,10 @@ export class ChessRoom extends DurableObject<Env> {
       type: 'MOVE_COMMITTED', fen: makeFen(position.toSetup()), sideToMove: position.turn, mover: color, san,
       check: position.isCheck(), checkmate: position.isCheckmate(), at: serverReceivedAt,
     });
+    // A legal move transfers the clock immediately. The client never presses a
+    // clock: the server applies the increment exactly once and starts the
+    // opponent's clock from the authoritative commit timestamp.
+    this.room.session = reduceGameSession(this.room.session, { type: 'CLOCK_TRANSFERRED', at: serverReceivedAt });
     const serverCommittedAt = Date.now();
     this.room.session.clocks.startedAt = serverCommittedAt;
     const timing: MoveTiming = {

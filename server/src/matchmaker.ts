@@ -373,7 +373,10 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     presence.lastSeen = now;
   }
 
-  private async tryMatch(ticket: TicketRecord, now: number): Promise<void> {
+  private matchSerial: Promise<void> = Promise.resolve();
+
+private async tryMatch(ticket: TicketRecord, now: number): Promise<void> {
+  const run = this.matchSerial.then(async () => {
     if (ticket.status !== 'waiting') return;
     const opponent = this.pickOpponent(ticket, now);
     if (!opponent) return;
@@ -394,9 +397,12 @@ export class Matchmaker extends DurableObject<MatchmakerEnv> {
     this.markInGame(opponent, seats.first.code, now);
     this.markInGame(ticket, seats.second.code, now);
     this.state.queue = this.state.queue.filter(item => item !== opponent.id && item !== ticket.id);
-  }
+  });
+  this.matchSerial = run.catch(() => undefined);
+  await run;
+}
 
-  async fetch(request: Request): Promise<Response> {
+async fetch(async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const now = Date.now();
     this.prune(now);
