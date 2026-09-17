@@ -4,6 +4,7 @@
  * Ordering is deliberate: foundations -> components -> feature areas -> accessibility -> motion -> responsive.
  */
 @import './tokens.css';
+@import './fonts.css';
 @import './typography.css';
 @import './buttons.css';
 @import './navigation.css';
