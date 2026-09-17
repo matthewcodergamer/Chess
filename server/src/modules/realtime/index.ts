@@ -95,11 +95,13 @@ async function routed(request: Request, env: RealtimeGatewayEnv): Promise<Respon
   const identity = await handleIdentityRequest(request, env);
   if (identity) return identity;
 
-  const competitiveGate = await guardCompetitiveRequest(request, env);
-  if (competitiveGate) return competitiveGate;
-
+  // Public matchmaking is intentionally available from the single Find-an-opponent flow.
+  // Keep it ahead of the competitive fair-play gate so guests can queue and be matched.
   const matchmaking = await handleMatchmakingRequest(request, env);
   if (matchmaking) return matchmaking;
+
+  const competitiveGate = await guardCompetitiveRequest(request, env);
+  if (competitiveGate) return competitiveGate;
 
   const tournament = await handleTournamentModuleRequest(request, env);
   if (tournament) return tournament;
