@@ -1,3 +1,4 @@
+# Triggered by this commit so the patch is applied by Actions rather than leaving partial source edits.
 name: QQURZ authoritative multiplayer patch
 
 on:
