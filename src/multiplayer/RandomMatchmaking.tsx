@@ -39,6 +39,10 @@ function rememberSeat(seat: RoomSeat): void {
   }
 }
 
+function retryDelay(attempt: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, 250 * attempt));
+}
+
 export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMatched, onBack }: Props) {
   const [name, setName] = useState(profileName);
   const [ticket, setTicket] = useState('');
@@ -79,13 +83,26 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
       regionPreference: 'global',
       maxLatencyMs: 300,
     };
+    let lastError: unknown = null;
     try {
-      const match = await enqueueMatch(name.trim() || 'Guest', presenceId, criteria);
-      if (finishMatch(match)) return;
-      waitingRef.current = true;
-      setTicket(match.ticket);
+      // A room allocation can fail transiently after two queue tickets have
+      // already found each other. Keep the user in the find flow and retry
+      // instead of immediately showing a fatal matchmaking error.
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          const match = await enqueueMatch(name.trim() || 'Guest', presenceId, criteria);
+          if (finishMatch(match)) return;
+          waitingRef.current = true;
+          setTicket(match.ticket);
+          return;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) await retryDelay(attempt);
+        }
+      }
+      throw lastError instanceof Error ? lastError : new Error('Matchmaking failed.');
     } catch {
-      setMessage('QQURZ could not start matchmaking. No queue ticket or game room was created.');
+      setMessage('QQURZ could not complete that match yet. Try again and the server will search the public queue again.');
     } finally {
       setBusy(false);
     }
