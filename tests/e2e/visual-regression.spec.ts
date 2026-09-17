@@ -314,7 +314,7 @@ test('game board', async ({ page }) => {
   await expect(board).toBeVisible();
   // The pre-game clock can cross a one-second boundary while the board screenshot
   // is captured; tolerate only the measured digit-level drift (662 pixels).
-  await expect(board).toHaveScreenshot('game-board.png', { maxDiffPixels: 700 });
+  await expect(board).toHaveScreenshot('game-board.png', { maxDiffPixels: 700, maxDiffPixelRatio: 0.01 });
 });
 
 test('digital chess clock', async ({ page }) => {
