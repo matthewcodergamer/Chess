@@ -19,6 +19,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: frontend-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
@@ -57,7 +59,7 @@ jobs:
           case "$target" in
             development) required_branch=develop; project=qqurz-chess-web-development ;;
             staging) required_branch=staging; project=qqurz-chess-web-staging ;;
-            production) required_branch=main; project=qqurz-chess-web-production ;;
+            production) required_branch=main; project=github-pages ;;
             *) echo "Unsupported deployment environment: $target" >&2; exit 1 ;;
           esac
 
@@ -76,7 +78,7 @@ jobs:
     needs: resolve
     runs-on: ubuntu-latest
     environment:
-      name: ${{ needs.resolve.outputs.target }}
+      name: ${{ needs.resolve.outputs.target == 'production' && 'github-pages' || needs.resolve.outputs.target }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@v4
@@ -129,7 +131,23 @@ jobs:
           VITE_MULTIPLAYER_API="$api" VITE_DEPLOYMENT_ENV="$TARGET" VITE_RELEASE_ID="$RELEASE_ID" npm run build:artifact
           npm run check:bundle
 
+      - name: Configure GitHub Pages
+        if: needs.resolve.outputs.target == 'production'
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        if: needs.resolve.outputs.target == 'production'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Deploy production frontend to GitHub Pages
+        if: needs.resolve.outputs.target == 'production'
+        id: deployment
+        uses: actions/deploy-pages@v4
+
       - name: Require Cloudflare deployment credentials
+        if: needs.resolve.outputs.target != 'production'
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -138,7 +156,8 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment-scoped CLOUDFLARE_API_TOKEN.' >&2; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing environment-scoped CLOUDFLARE_ACCOUNT_ID.' >&2; exit 1; }
 
-      - name: Atomically deploy immutable frontend artifact
+      - name: Deploy non-production frontend to Cloudflare Pages
+        if: needs.resolve.outputs.target != 'production'
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -153,5 +172,11 @@ jobs:
           echo "### QQURZ frontend deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: **${{ needs.resolve.outputs.target }}**" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release: \`${{ steps.source.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Cloudflare Pages project: \`${{ needs.resolve.outputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ needs.resolve.outputs.target }}" = "production" ]; then
+            echo "- Frontend host: **GitHub Pages**" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Custom domain: **qqurzchess.com**" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Frontend host: **Cloudflare Pages**" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Cloudflare Pages project: \`${{ needs.resolve.outputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "- Normal branch deployment was released only after the complete quality workflow succeeded." >> "$GITHUB_STEP_SUMMARY"
