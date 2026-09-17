@@ -1,0 +1,16 @@
+/* Public tournament cards show the player-facing economics only.
+   The platform fee remains an internal/server-side ledger value and is not
+   presented as a public tournament statistic. */
+.summary-stats-v22 > div:nth-child(4) {
+  display: none;
+}
+
+.summary-stats-v22 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 560px) {
+  .summary-stats-v22 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
