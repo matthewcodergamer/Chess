@@ -1,0 +1,4 @@
+/* QQURZ brand lockup: lowercase wordmark with no legacy uppercase mark. */
+.qqurz-wordmark .wordmark-piece{display:none}
+.qqurz-wordmark .wordmark-copy b{font-size:0}
+.qqurz-wordmark .wordmark-copy b::after{content:'qqurzchess';font-family:'MADE Okine Sans PERSONAL USE',var(--chess-ui);font-size:var(--q-type-action-lg);font-weight:800;letter-spacing:-.035em}
