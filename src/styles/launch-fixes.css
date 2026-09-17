@@ -29,7 +29,7 @@
   place-items: center;
   width: clamp(56px, 14vw, 84px);
   aspect-ratio: 1;
-  margin: 10px auto;
+  margin: var(--q-space-8) auto;
 }
 
 .qqurz-quarter-face {
@@ -66,18 +66,4 @@ body,
 .match-player-bar {
   min-width: 0;
   max-width: 100%;
-}
-
-@media (max-width: 640px) {
-  .match-player-bar {
-    gap: 8px;
-  }
-
-  .match-player-main {
-    min-width: 0;
-  }
-
-  .match-player-time {
-    flex: 0 0 auto;
-  }
 }
