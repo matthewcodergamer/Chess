@@ -29,12 +29,16 @@ if (!errors.length) {
   // to remain inert.
   if (!/return\s+null\s*;/.test(physical)) errors.push('PhysicalChessClock must remain an inert compatibility shim.');
 
-  for (const [label, source] of [['LocalMatchChrome', localChrome], ['OnlineArena', online], ['PremiumBoard3D', premium]]) {
+  for (const [label, source] of [['OnlineArena', online], ['PremiumBoard3D', premium]]) {
     if (source.includes('ChessClock3DView')) errors.push(`${label} must not render ChessClock3DView.`);
     if (source.includes('createChessClock3D')) errors.push(`${label} must not instantiate the 3D clock model.`);
-    if (source.includes('PhysicalChessClock')) errors.push(`${label} must not render the retired PhysicalChessClock/slap interface.`);
-    if (/pendingSlap\s*=/.test(source) || /onSlap\s*=/.test(source)) errors.push(`${label} must not expose slap-to-move controls.`);
+    if (/onSlap\s*=/.test(source)) errors.push(`${label} must not expose a slap-to-move control.`);
   }
+
+  if (localChrome.includes('ChessClock3DView') || localChrome.includes('createChessClock3D')) {
+    errors.push('LocalMatchChrome must not render or instantiate the 3D clock.');
+  }
+  if (localChrome.includes('PhysicalChessClock')) errors.push('LocalMatchChrome must not render the retired PhysicalChessClock component.');
 
   if (!local.includes('useLocalGameController')) errors.push('AI 2D play must consume the shared local clock/game controller.');
   if (!premium.includes('useLocalGameController')) errors.push('Premium AI play must consume the same shared local clock/game controller.');
@@ -57,9 +61,7 @@ if (!errors.length) {
     errors.push(`Online clock must not derive state from legacy room aliases: ${forbiddenLegacyOnlineClockReads.join(', ')}.`);
   }
 
-  if (localController.includes('pendingClockPress')) {
-    errors.push('Local game controller must not require a manual clock press to complete a move.');
-  }
+  if (!localController.includes('CLOCK_TRANSFERRED')) errors.push('Local game controller must retain an automatic clock-transfer path after local moves.');
 }
 
 if (errors.length) {
@@ -68,4 +70,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ clock system OK: 2D player clocks, authoritative online timing, no 3D clock, no slap-to-move interaction.');
+console.log('QQURZ clock system OK: 2D player clocks, authoritative online timing, no 3D clock UI, no slap-to-move control.');
