@@ -3,45 +3,13 @@ import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl
 import TimeControlPicker from '../ui/TimeControlPicker';
 import StateNotice from '../ui/StateNotice';
 import { IconButton, PrimaryButton, SecondaryButton } from '../ui/controls';
-import {
-  cancelMatch,
-  enqueueMatch,
-  getPresenceId,
-  loadMatch,
-  multiplayerConfigured,
-  type MatchmakingCriteria,
-  type MatchmakingSnapshot,
-} from './client';
+import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, multiplayerConfigured, type MatchmakingCriteria, type MatchmakingSnapshot } from './client';
 import type { RoomSeat } from './types';
 
-type Props = {
-  onlinePlayers: number | null;
-  onOnlinePlayers: (count: number) => void;
-  onMatched: (seat: RoomSeat) => void;
-  onBack: () => void;
-};
-
-function profileName(): string {
-  try {
-    const raw = localStorage.getItem('qqurz:profile');
-    const value = raw ? JSON.parse(raw) as { username?: string } : null;
-    return value?.username?.trim() || 'Guest';
-  } catch {
-    return 'Guest';
-  }
-}
-
-function rememberSeat(seat: RoomSeat): void {
-  try {
-    sessionStorage.setItem(`qqurz:room-seat:${seat.code.toUpperCase()}`, JSON.stringify(seat));
-  } catch {
-    // Session persistence is helpful but the match can still continue without it.
-  }
-}
-
-function retryDelay(attempt: number): Promise<void> {
-  return new Promise(resolve => window.setTimeout(resolve, 250 * attempt));
-}
+type Props = { onlinePlayers: number | null; onOnlinePlayers: (count: number) => void; onMatched: (seat: RoomSeat) => void; onBack: () => void };
+function profileName(): string { try { const raw = localStorage.getItem('qqurz:profile'); const value = raw ? JSON.parse(raw) as { username?: string } : null; return value?.username?.trim() || 'Guest'; } catch { return 'Guest'; } }
+function rememberSeat(seat: RoomSeat): void { try { sessionStorage.setItem(`qqurz:room-seat:${seat.code.toUpperCase()}`, JSON.stringify(seat)); } catch { /* optional */ } }
+function retryDelay(attempt: number): Promise<void> { return new Promise(resolve => window.setTimeout(resolve, 250 * attempt)); }
 
 export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMatched, onBack }: Props) {
   const [name, setName] = useState(profileName);
@@ -70,24 +38,10 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
 
   const start = async () => {
     if (!multiplayerConfigured || busy || ticket) return;
-    setBusy(true);
-    setMessage('');
-    setLatest(null);
-    setOpponent(null);
-    const criteria: MatchmakingCriteria = {
-      variant: 'chess960',
-      // Public play is deliberately broad. The server still keeps the match
-      // compatible by variant/time control while progressively widening rating.
-      ratingRange: 600,
-      timeControl,
-      regionPreference: 'global',
-      maxLatencyMs: 300,
-    };
+    setBusy(true); setMessage(''); setLatest(null); setOpponent(null);
+    const criteria: MatchmakingCriteria = { variant: 'chess960', ratingRange: 600, timeControl, regionPreference: 'global', maxLatencyMs: 300 };
     let lastError: unknown = null;
     try {
-      // A room allocation can fail transiently after two queue tickets have
-      // already found each other. Keep the user in the find flow and retry
-      // instead of immediately showing a fatal matchmaking error.
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
           const match = await enqueueMatch(name.trim() || 'Guest', presenceId, criteria);
@@ -103,24 +57,14 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
       throw lastError instanceof Error ? lastError : new Error('Matchmaking failed.');
     } catch {
       setMessage('QQURZ could not complete that match yet. Try again and the server will search the public queue again.');
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const cancel = async () => {
     const current = ticket;
-    waitingRef.current = false;
-    setTicket('');
-    setOpponent(null);
-    setLatest(null);
+    waitingRef.current = false; setTicket(''); setOpponent(null); setLatest(null);
     if (!current) return;
-    try {
-      const result = await cancelMatch(current);
-      onOnlinePlayers(result.onlinePlayers);
-    } catch {
-      // The queue entry also expires server-side, so cancellation is best effort.
-    }
+    try { const result = await cancelMatch(current); onOnlinePlayers(result.onlinePlayers); } catch { /* queue expiry is server-side */ }
   };
 
   useEffect(() => {
@@ -132,11 +76,10 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         if (stopped) return;
         finishMatch(match);
       } catch {
-        if (stopped) return;
-        waitingRef.current = false;
-        setTicket('');
-        setLatest(null);
-        setMessage('That matchmaking search ended before a match was found. No game room was created; you can start a fresh search.');
+        // A status request can fail because the browser, route, or server is
+        // briefly unavailable. The ticket remains authoritative on the server;
+        // never throw the player out of the queue because of one missed poll.
+        if (!stopped) setMessage('Still looking for an opponent…');
       }
     };
     void check();
@@ -144,10 +87,7 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
     return () => { stopped = true; window.clearInterval(timer); };
   }, [ticket]);
 
-  useEffect(() => () => {
-    if (waitingRef.current && ticket) void cancelMatch(ticket).catch(() => undefined);
-  }, [ticket]);
-
+  useEffect(() => () => { if (waitingRef.current && ticket) void cancelMatch(ticket).catch(() => undefined); }, [ticket]);
   const waitedSeconds = Math.floor((latest?.search.waitedMs ?? 0) / 1000);
 
   return (
@@ -158,56 +98,22 @@ export default function RandomMatchmaking({ onlinePlayers, onOnlinePlayers, onMa
         <span className="matchmaking-eyebrow">PUBLIC MATCHMAKING</span>
         <h1>Find an opponent.</h1>
         <p>Choose your time control. QQURZ finds an available Chess960 player automatically and creates the game for both of you.</p>
-
-        <label className="matchmaking-name">
-          <span>Playing as</span>
-          <input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Guest" disabled={Boolean(ticket)} />
-        </label>
-
+        <label className="matchmaking-name"><span>Playing as</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Guest" disabled={Boolean(ticket)} /></label>
         <fieldset className="matchmaking-filters" disabled={Boolean(ticket)}>
-          <div className="matchmaking-filter-grid">
-            <div className="matchmaking-filter matchmaking-variant">
-              <span>Variant</span>
-              <b>Chess960</b>
-              <small>Automatic public pool</small>
-            </div>
-          </div>
+          <div className="matchmaking-filter-grid"><div className="matchmaking-filter matchmaking-variant"><span>Variant</span><b>Chess960</b><small>Automatic public pool</small></div></div>
           <TimeControlPicker value={timeControl} onChange={setTimeControl} allowCustom={false} label="Time control" />
         </fieldset>
-
         {!ticket ? (
-          <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured} loading={busy} loadingLabel="Finding opponent">
-            Find an opponent
-          </PrimaryButton>
+          <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured} loading={busy} loadingLabel="Finding opponent">Find an opponent</PrimaryButton>
         ) : (
-          <div className="matchmaking-searching" role="status" aria-live="polite">
-            <span className="matchmaking-spinner" aria-hidden="true" />
-            <div>
-              <b>Looking for a player…</b>
-              <small>Chess960 · {timeControl.label}{waitedSeconds ? ` · ${waitedSeconds}s` : ''}</small>
-            </div>
-            <SecondaryButton size="sm" onClick={cancel}>Cancel</SecondaryButton>
-          </div>
+          <div className="matchmaking-searching" role="status" aria-live="polite"><span className="matchmaking-spinner" aria-hidden="true" /><div><b>Looking for a player…</b><small>Chess960 · {timeControl.label}{waitedSeconds ? ` · ${waitedSeconds}s` : ''}</small></div><SecondaryButton size="sm" onClick={cancel}>Cancel</SecondaryButton></div>
         )}
-
-        {latest && (
-          <div className="matchmaking-search-meta" aria-label="Server matchmaking status">
-            <span><small>Your server rating</small><b>{Math.round(latest.rating)}{latest.provisional ? '?' : ''}</b></span>
-            <span><small>Search</small><b>Automatic</b></span>
-            <span><small>Route</small><b>{latest.search.estimatedLatencyMs === null ? 'Checking' : `~${latest.search.estimatedLatencyMs} ms`}</b></span>
-          </div>
-        )}
-
+        {latest && <div className="matchmaking-search-meta" aria-label="Server matchmaking status"><span><small>Your server rating</small><b>{Math.round(latest.rating)}{latest.provisional ? '?' : ''}</b></span><span><small>Search</small><b>Automatic</b></span><span><small>Route</small><b>{latest.search.estimatedLatencyMs === null ? 'Checking' : `~${latest.search.estimatedLatencyMs} ms`}</b></span></div>}
         {opponent && <p className="matchmaking-found">Matched with {opponent}{latest?.opponentRating ? ` · ${Math.round(latest.opponentRating)}` : ''}.</p>}
-        {message && <StateNotice className="compact" tone="warning" icon="↻" title="Matchmaking stopped" body={<p>{message}</p>} actions={[{ label: 'Try again', onClick: () => void start(), primary: true }]} />}
+        {message && <StateNotice className="compact" tone="warning" icon="↻" title="Matchmaking notice" body={<p>{message}</p>} actions={ticket ? undefined : [{ label: 'Try again', onClick: () => void start(), primary: true }]} />}
         {!multiplayerConfigured && <StateNotice className="compact" tone="warning" icon="!" title="Live matchmaking isn’t connected" body={<p>This build does not have a realtime server configured. Local human and AI chess still work.</p>} actions={[{ label: 'Back to local modes', onClick: onBack }]} />}
         {multiplayerConfigured && !ticket && !message && onlinePlayers !== null && onlinePlayers <= 1 && <StateNotice className="compact" tone="neutral" icon="♙" title="The pool is quiet right now" body={<p>You can still search. QQURZ will keep looking for an available Chess960 player.</p>} live="off" />}
-
-        <div className="matchmaking-rules">
-          <span><i>960</i><b>Chess960</b></span>
-          <span><i>↗</i><b>Automatic search</b></span>
-          <span><i>✓</i><b>Server creates the game</b></span>
-        </div>
+        <div className="matchmaking-rules"><span><i>960</i><b>Chess960</b></span><span><i>↗</i><b>Automatic search</b></span><span><i>✓</i><b>Server creates the game</b></span></div>
       </div>
     </section>
   );
