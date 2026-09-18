@@ -68,7 +68,7 @@ test('mobile navigation drawer remains contained', async ({ page }) => {
 test('virtual keyboard compression keeps the room-code input reachable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 664 });
   await gotoAudit(page);
-  await page.getByRole('button', { name: 'Play a Friend', exact: true }).click();
+  await page.getByRole('button', { name: 'Play a friend', exact: true }).click();
   await expect(page.locator('.online-lobby-panel')).toBeVisible();
   const input = page.getByPlaceholder('ROOM CODE');
   await input.focus();
@@ -81,7 +81,7 @@ test('virtual keyboard compression keeps the room-code input reachable', async (
 test('landscape local board respects side safe areas', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
   await gotoAudit(page, '/', LANDSCAPE_SAFE_AREA);
-  await page.getByRole('button', { name: 'Same Device', exact: true }).click();
+  await page.getByRole('button', { name: 'Same device', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Play together.' })).toBeVisible();
   await page.getByRole('button', { name: 'Start game', exact: true }).click();
   await expect(page.locator('.local-board-frame.match-board-frame')).toBeVisible();
