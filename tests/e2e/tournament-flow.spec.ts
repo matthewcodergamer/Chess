@@ -94,8 +94,18 @@ async function json(route: Route, body: unknown, status = 200) {
 
 async function activate(page: Page, name: string | RegExp) {
   const button = page.getByRole('button', { name });
-  await expect(button).toBeVisible();
-  await button.dispatchEvent('click');
+  if (await button.isVisible().catch(() => false)) {
+    await button.dispatchEvent('click');
+    return;
+  }
+  if (/Tournaments/i.test(String(name))) {
+    await page.locator('.mobile-menu-button').click();
+    const mobileButton = page.getByRole('button', { name: 'Play a tournament', exact: true });
+    await expect(mobileButton).toBeVisible();
+    await mobileButton.dispatchEvent('click');
+    return;
+  }
+  throw new Error(`Required control is not visible: ${name}`);
 }
 
 async function installApi(page: Page) {
