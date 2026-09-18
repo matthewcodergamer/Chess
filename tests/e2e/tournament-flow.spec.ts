@@ -141,7 +141,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Home → Tournament → Register → assigned game launch', async ({ page }) => {
   await page.goto('/');
-  await activate(page, /^Tournaments$/);
+  await activate(page, /^(Tournaments|Play a tournament)$/);
   await expect(page.getByRole('heading', { name: 'QQURZ Automated Swiss' })).toBeVisible();
 
   const register = page.getByRole('button', { name: 'Register', exact: true });
