@@ -51,8 +51,12 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
     return status?.textContent?.includes('Stockfish ready');
   }, null, { timeout: 20_000 });
 
-  // Start game uses a short countdown; do not attempt the move until the
-  // authoritative local session has entered ACTIVE and it is actually our turn.
+  // Chess960 opens with a short strategy phase. Confirm the engine is ready,
+  // then use the real board control to enter the active clock phase.
+  const strategyStart = page.locator('.local-board-overlay .primary-black');
+  if (await strategyStart.isVisible().catch(() => false)) {
+    await strategyStart.click();
+  }
   await expect(page.locator('.match-turn-note')).toContainText('Your move', { timeout: 20_000 });
 
   // The production navigation must expose only the lowercase brand, with no legacy QQURZ mark or subtitle.
