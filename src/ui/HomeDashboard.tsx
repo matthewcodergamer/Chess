@@ -76,7 +76,7 @@ export default function HomeDashboard({
           <span className="home-player-avatar" aria-hidden="true">{profile.avatar}</span>
           <span>
             <small>Player</small>
-            <b>{profile.username}</b>
+            <span className="home-player-name">{profile.username}</span>
           </span>
         </button>
         <div className="home-online-wrap" ref={onlineWrapRef}>
