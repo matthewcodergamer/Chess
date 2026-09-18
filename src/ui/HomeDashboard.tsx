@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { OnlinePlayer } from '../multiplayer/client';
 import { PrimaryButton, SecondaryButton } from './controls';
 import HomeBoardPreview from './HomeBoardPreview';
 
@@ -6,6 +7,7 @@ import HomeBoardPreview from './HomeBoardPreview';
 
 type Props = {
   onlineLabel: string;
+  onlinePlayers: OnlinePlayer[];
   onProfile: () => void;
   onTournament: () => void;
   onFriend: () => void;
@@ -37,6 +39,7 @@ function loadProfile(): Required<HomeProfile> {
 
 export default function HomeDashboard({
   onlineLabel,
+  onlinePlayers,
   onProfile,
   onTournament,
   onFriend,
@@ -46,6 +49,7 @@ export default function HomeDashboard({
   onAI,
 }: Props) {
   const profile = useMemo(loadProfile, []);
+  const [onlineListOpen, setOnlineListOpen] = useState(false);
 
   return (
     <div className="qqurz-home-v24 home-dashboard">
@@ -57,10 +61,18 @@ export default function HomeDashboard({
             <b>{profile.username}</b>
           </span>
         </button>
-        <button className="home-online-status" onClick={onMatchmaking} aria-label={`${onlineLabel}. Find an opponent.`}>
-          <span className="presence-dot" />
-          <span><b>{onlineLabel}</b><small>Chess960 players</small></span>
-        </button>
+        <div className="home-online-wrap">
+          <button className="home-online-status" onClick={() => setOnlineListOpen(value => !value)} aria-label={`${onlineLabel}. Show online players.`} aria-expanded={onlineListOpen} aria-controls="home-online-player-list">
+            <span className="presence-dot" />
+            <span><b>{onlineLabel}</b><small>Chess960 players</small></span>
+            <span className="home-online-chevron" aria-hidden="true">⌄</span>
+          </button>
+          {onlineListOpen && <div id="home-online-player-list" className="home-online-popover" role="region" aria-label="Online players">
+            <div className="home-online-popover-head"><b>Online players</b><span>{onlinePlayers.length}</span></div>
+            {onlinePlayers.length ? <ul>{onlinePlayers.map(player => <li key={`${player.name}-${player.state}`}><span className={`presence-dot presence-dot--${player.state}`} /><span>{player.name}</span><small>{player.state === 'game' ? 'In a game' : player.state === 'away' ? 'Away' : 'Online'}</small></li>)}</ul> : <p>No other players are currently visible.</p>}
+            <button className="home-online-find" onClick={onMatchmaking}>Find an opponent</button>
+          </div>}
+        </div>
       </section>
 
       <section className="home-play-panel" aria-labelledby="home-play-heading">
