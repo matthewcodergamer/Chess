@@ -148,7 +148,7 @@ export default function AppNavigation({
           <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
         </div>
         <nav className="drawer-links" aria-label="Chess menu" onKeyDown={moveFocus}>
-          <button onClick={() => run(onTournaments)} {...intent('tournaments')}><span aria-hidden="true">♛</span><div><b>Play a tournament</b><small>QQURZ competitive events</small></div></button>
+          <button onClick={() => run(onTournaments)} {...intent('tournaments')}><span aria-hidden="true">♛</span><div><b>Play a tournament</b><small>Competitive Chess960 events</small></div></button>
           <button onClick={() => run(onFriends)} {...intent('online')}><span aria-hidden="true">♘</span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
           <button onClick={() => run(onSameDevice)} {...intent('local')}><span aria-hidden="true">♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
           <button onClick={() => run(onPremium3D)} {...intent('3d')}><span aria-hidden="true">♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
@@ -156,7 +156,7 @@ export default function AppNavigation({
           <button className="drawer-ai-choice" onClick={() => run(onAI)} {...intent('local')}><span aria-hidden="true">♞</span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
         </nav>
         <div className="drawer-live-match">
-          <div><span className="presence-dot" aria-hidden="true"/><b>{onlineLabel}</b><small>Players seen on QQURZ recently</small></div>
+          <div><span className="presence-dot" aria-hidden="true"/><b>{onlineLabel}</b><small>Players seen recently</small></div>
           <button onClick={() => run(onMatchmaking)} {...intent('matchmaking')}>Find an opponent</button>
         </div>
         <div className="drawer-settings" aria-label="Preferences and settings">
