@@ -27,7 +27,7 @@ export function authoritativeRoomSession(snapshot: RoomSnapshot): GameSessionMod
     const session = snapshot.session;
     if (session.winner || (!session.resultKind && !session.resignedBy && !/resign/i.test(session.result ?? ''))) return session;
     const inferred = session.winner
-      ?? session.resignedBy && (session.resignedBy === 'white' ? 'black' : 'white')
+      ?? (session.resignedBy ? (session.resignedBy === 'white' ? 'black' : 'white') : null)
       ?? (/^White\b/i.test(session.result ?? '') ? 'white' : /^Black\b/i.test(session.result ?? '') ? 'black' : null);
     if (!inferred) return session;
     return {
