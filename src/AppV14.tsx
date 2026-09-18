@@ -89,6 +89,16 @@ function fontScaleLabel(value: FontScale): string {
   return 'Default';
 }
 
+function PawnMark({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <circle cx="24" cy="12" r="7.5" fill="currentColor" />
+      <path d="M18 20h12l-2.25 7.25 6.75 9.25H13.5l6.75-9.25L18 20Z" fill="currentColor" />
+      <path d="M11 39h26v4H11z" fill="currentColor" />
+    </svg>
+  );
+}
+
 function LoadingView() {
   return (
     <div className="qqurz-loading chess-loading" role="status" aria-live="polite">
@@ -255,7 +265,7 @@ export default function AppV14() {
     );
   }
 
-  const onlineLabel = onlineCount === null ? 'Connecting…' : `${onlineCount.toLocaleString()} online`;
+  const onlineLabel = onlineCount === null ? 'Online' : `${onlineCount.toLocaleString()} online`;
 
   return (
     <main className="qqurz-app-v14 qqurz-app-v22 qqurz-app-v24 qqurz-product-system">
@@ -263,7 +273,7 @@ export default function AppV14() {
         <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
 
         <button className="qqurz-wordmark" onClick={goHome} aria-label="qqurzchess home">
-          <span className="wordmark-copy"><b>qqurzchess</b></span>
+          <span className="wordmark-pawn" aria-hidden="true"><PawnMark /></span><span className="wordmark-copy"><b>qqurzchess</b></span>
         </button>
 
         <nav className="desktop-chess-nav" aria-label="Primary navigation">
