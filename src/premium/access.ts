@@ -1,5 +1,5 @@
 export const PREMIUM_3D_ENTITLEMENT_KEY = 'qqurz:premium3d-session-v1';
-export const PREMIUM_3D_PAYMENT_URL = 'https://buy.stripe.com/test_dRm5kF3zt1yf1JXb6A14403';
+export const PREMIUM_3D_PAYMENT_URL = 'https://buy.stripe.com/5kQ4gB7Px0Qf3sGfPU2ZO00';
 
 export function premium3DReceipt(): string {
   try { return window.localStorage.getItem(PREMIUM_3D_ENTITLEMENT_KEY)?.trim() ?? ''; }
