@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { OnlinePlayer } from '../multiplayer/client';
 import { PrimaryButton, SecondaryButton } from './controls';
-import HomeBoardPreview from './HomeBoardPreview';
+const HomeBoardPreview = lazy(() => import('./HomeBoardPreview'));
 
 type HomeIconName = 'chevron' | 'pawn' | 'knight' | 'rook' | 'queen' | 'king';
 
@@ -139,7 +139,7 @@ export default function HomeDashboard({
           <div><span className="chess-eyebrow">Board</span><h2>Ready position</h2></div>
           <SecondaryButton size="sm" onClick={onMatchmaking}>Play anyone</SecondaryButton>
         </div>
-        <HomeBoardPreview playerName={profile.username} />
+        <Suspense fallback={<div className="home-live-board-shell" aria-label="Chess960 board preview loading" />}>\n          <HomeBoardPreview playerName={profile.username} />\n        </Suspense>
       </section>
 
       <section className="home-activity-grid" aria-label="Chess activity">
