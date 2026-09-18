@@ -38,8 +38,15 @@ code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,mo
   font-weight: 550;
   text-transform: none;
 }
-.qqurz-product-system button { font-weight: 650; }
-.qqurz-product-system .qqurz-button { font-weight: 700; }
+.qqurz-product-system button { font-weight: 600; }
+.qqurz-product-system .qqurz-button { font-weight: 650; }
+.qqurz-product-system .qqurz-button--lg,
+.qqurz-product-system .online-primary { font-weight: 700; }
+.qqurz-product-system strong,
+.qqurz-product-system b { font-weight: 650; }
+.qqurz-product-system h1 { font-weight: 800; }
+.qqurz-product-system h2 { font-weight: 700; }
+.qqurz-product-system h3 { font-weight: 650; }
 
 
 /* Intentional emphasis scale: body is quiet; only headings, key facts and actions get heavier. */
