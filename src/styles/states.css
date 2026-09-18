@@ -56,3 +56,5 @@
 .reconnect-countdown::before{content:'';inline-size:var(--q-space-8);block-size:var(--q-space-8);border-radius:var(--q-radius-pill);background:var(--q-warning);box-shadow:0 0 0 var(--q-space-4) var(--q-warning-soft);}
 .match-reconnect-countdown{display:inline-flex;align-items:center;gap:var(--q-space-4);color:var(--q-warning);font-variant-numeric:tabular-nums;font-weight:700;}
 .match-reconnect-countdown::before{content:'↻';font-size:var(--q-type-caption);}
+
+.qqurz-service-status-page{padding-top:var(--q-space-16);padding-bottom:var(--q-space-8)}.service-unavailable-notice{width:min(760px,100%);margin-inline:auto}.service-unavailable-notice .state-notice-icon{color:var(--q-warning);background:var(--q-warning-soft)}.service-unavailable-notice .state-notice-copy{display:grid;gap:var(--q-space-4)}.service-unavailable-notice .state-notice-copy h3{margin:0}.service-unavailable-notice .state-notice-body{max-width:640px}.service-unavailable-notice .state-notice-body p{margin:0}.service-unavailable-notice .state-notice-actions{margin-top:var(--q-space-12)}
