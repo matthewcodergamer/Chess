@@ -306,7 +306,7 @@ export default function AppV14() {
         <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
           <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="qqurzchess menu" onPointerDown={event => event.stopPropagation()}>
             <div className="drawer-head">
-              <button className="qqurz-wordmark" onClick={goHome}><span className="wordmark-piece">♞</span><span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span></button>
+              <button className="qqurz-wordmark" onClick={goHome} aria-label="qqurzchess home"><span className="wordmark-copy"><b>qqurzchess</b></span></button>
               <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
             </div>
             <nav className="drawer-links" aria-label="Chess menu">
