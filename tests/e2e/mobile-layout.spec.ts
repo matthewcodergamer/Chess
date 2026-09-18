@@ -42,7 +42,7 @@ test.beforeEach(async ({ page }) => {
 test('home is playable and never overflows an iPhone viewport', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Play chess.' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Find an opponent', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Find an opponent', exact: true }).first()).toBeVisible();
   const board = page.locator('[data-board-renderer="chessground"].home-live-board');
   await expect(board).toBeVisible();
   await expect(board).toHaveAttribute('data-piece-set', 'cburnett-svg');
