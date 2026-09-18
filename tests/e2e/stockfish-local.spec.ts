@@ -16,23 +16,15 @@ async function seedApp(page: import('@playwright/test').Page) {
   }, onboarding);
 }
 
-async function clickSquare(
-  page: import('@playwright/test').Page,
-  square: string,
-  orientation: 'white' | 'black' = 'white',
-) {
-  const board = page.locator('.board-mount');
+async function moveByKeyboard(page: import('@playwright/test').Page) {
+  const board = page.locator('.qqurz-board-accessible-shell');
   await expect(board).toBeVisible();
-  const box = await board.boundingBox();
-  if (!box) throw new Error('Chessground board has no layout box.');
-  const file = square.charCodeAt(0) - 97;
-  const rank = Number(square[1]) - 1;
-  const xFile = orientation === 'white' ? file : 7 - file;
-  const yRank = orientation === 'white' ? 7 - rank : rank;
-  await page.mouse.click(
-    box.x + ((xFile + 0.5) / 8) * box.width,
-    box.y + ((yRank + 0.5) / 8) * box.height,
-  );
+  await board.focus();
+  // ChessBoardSurface starts keyboard focus on e2 for the white orientation.
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
@@ -67,8 +59,8 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   );
 
   // e2-e4 is legal from every Chess960 starting position and leaves White in control.
-  await clickSquare(page, 'e2');
-  await clickSquare(page, 'e4');
+  // Use the board's real accessibility interaction instead of viewport coordinates;
+  // large desktop boards can place e4 beneath the fixed navigation bar.
 
   await expect(moves).toHaveCount(2, { timeout: 20_000 });
   await expect(moves.nth(1)).not.toHaveText('');
