@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlinePlayer } from '../multiplayer/client';
 import { PrimaryButton, SecondaryButton } from './controls';
 import HomeBoardPreview from './HomeBoardPreview';
@@ -50,6 +50,24 @@ export default function HomeDashboard({
 }: Props) {
   const profile = useMemo(loadProfile, []);
   const [onlineListOpen, setOnlineListOpen] = useState(false);
+  const onlineWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onlineListOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !onlineWrapRef.current?.contains(target)) setOnlineListOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOnlineListOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onlineListOpen]);
 
   return (
     <div className="qqurz-home-v24 home-dashboard">
@@ -61,7 +79,7 @@ export default function HomeDashboard({
             <b>{profile.username}</b>
           </span>
         </button>
-        <div className="home-online-wrap">
+        <div className="home-online-wrap" ref={onlineWrapRef}>
           <button className="home-online-status" onClick={() => setOnlineListOpen(value => !value)} aria-label={`${onlineLabel}. Show online players.`} aria-expanded={onlineListOpen} aria-controls="home-online-player-list">
             <span className="presence-dot" />
             <span><b>{onlineLabel}</b><small>Chess960 players</small></span>
