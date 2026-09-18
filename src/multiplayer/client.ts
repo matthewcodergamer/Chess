@@ -212,6 +212,9 @@ export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => voi
       if (stopped || currentGeneration !== generation || socket !== next) return;
       retryAttempt = 0;
       emitStatus(isReconnect ? 'reconnecting' : 'connecting');
+      // Request the authoritative snapshot after the WebSocket handshake so
+      // browsers never depend on a snapshot sent before the 101 response is live.
+      try { next.send(JSON.stringify({ type: 'sync' })); } catch { scheduleReconnect(true); }
     });
     next.addEventListener('message', event => {
       if (stopped || currentGeneration !== generation || socket !== next) return;
