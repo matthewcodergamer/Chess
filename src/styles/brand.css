@@ -1,5 +1,8 @@
-/* QQURZ brand lockup: lowercase product name only. */
-.qqurz-wordmark .wordmark-piece{display:none}
+/* QQURZ brand lockup: the product name is the complete visible logo. */
+.qqurz-wordmark .wordmark-copy{
+  display:inline-flex;
+  align-items:center;
+}
 .qqurz-wordmark .wordmark-copy b{
   font-family:var(--chess-ui);
   font-size:var(--q-type-action-lg);
@@ -10,3 +13,4 @@
   -webkit-text-stroke:0;
   text-shadow:none;
 }
+.qqurz-wordmark .wordmark-copy small{display:none}
