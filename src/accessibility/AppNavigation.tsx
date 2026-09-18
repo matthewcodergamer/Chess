@@ -109,8 +109,7 @@ export default function AppNavigation({
       <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
 
       <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="qqurzchess home">
-        <span className="wordmark-piece" aria-hidden="true">♞</span>
-        <span className="wordmark-copy"><b>qqurzchess</b><small>Competitive Chess960</small></span>
+        <span className="wordmark-copy"><b>qqurzchess</b></span>
       </button>
 
       <nav className="desktop-chess-nav" aria-label="Primary navigation" onKeyDown={moveFocus}>
@@ -145,7 +144,7 @@ export default function AppNavigation({
     {menuOpen && <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
       <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="qqurzchess menu" onPointerDown={event => event.stopPropagation()}>
         <div className="drawer-head">
-          <button className="qqurz-wordmark" onClick={() => run(onHome)}><span className="wordmark-piece" aria-hidden="true">♞</span><span className="wordmark-copy"><b>qqurzchess</b><small>Chess960</small></span></button>
+          <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="qqurzchess home"><span className="wordmark-copy"><b>qqurzchess</b></span></button>
           <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
         </div>
         <nav className="drawer-links" aria-label="Chess menu" onKeyDown={moveFocus}>
