@@ -70,12 +70,12 @@
   --q-line-strong:rgba(255,255,255,.16);
 
   /* Primary green action system. */
-  --q-action:#709b45;
-  --q-action-hover:#7faa52;
-  --q-action-active:#638d3d;
-  --q-action-strong:#8fbd59;
+  --q-action:#668f42;
+  --q-action-hover:#739f4b;
+  --q-action-active:#5b8039;
+  --q-action-strong:#86ad52;
   --q-action-ink:#17200f;
-  --q-action-soft:rgba(112,155,69,.14);
+  --q-action-soft:rgba(102,143,66,.13);
   --q-focus-ring:color-mix(in srgb,var(--q-action) 68%,white);
 
   /* Semantic states. */
