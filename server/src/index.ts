@@ -841,12 +841,14 @@ export class ChessRoom extends DurableObject<Env> {
       // acceptance begin only after both matched players are in the same room.
       this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
-    } else if (this.room.session.state === 'ACTIVE' && !both) {
-      this.settleActiveClock(now);
-      if (this.room.session.state === 'ACTIVE') this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'RECONNECTING', white, black, at: now });
+    } else if (this.room.session.state === 'ACTIVE') {
+      // Keep a matched room in ACTIVE state even while one socket is reconnecting.
+      // The game already exists; connection status is the liveness signal and the
+      // authoritative board must not fall back to a pre-game state.
+      const status = both ? 'CONNECTED' : 'RECONNECTING';
+      this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status, white, black, at: now });
     } else if (this.room.session.state === 'RECONNECTING' && both) {
-      this.settleActiveClock(now);
-      if (this.room.session.state === 'RECONNECTING') this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
+      this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
     } else {
       const status = both ? 'CONNECTED' : 'DISCONNECTED';
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status, white, black, at: now });
