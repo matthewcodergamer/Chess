@@ -50,8 +50,11 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
     return status?.textContent?.includes('Stockfish ready');
   }, null, { timeout: 20_000 });
 
-  // The production navigation must expose only the lowercase brand.
-  await expect(page.locator('.qqurz-wordmark .wordmark-copy b').first()).toHaveText('qqurzchess');
+  // The production navigation must expose only the lowercase brand, with no legacy QQURZ mark or subtitle.
+  const wordmark = page.locator('.qqurz-wordmark').first();
+  await expect(wordmark).toHaveText('qqurzchess');
+  await expect(wordmark.locator('.wordmark-piece')).toHaveCount(0);
+  await expect(wordmark.locator('.wordmark-copy small')).toHaveCount(0);
 
   // Keep the move list open so the browser test can verify the AI reply as well as engine state.
   await page.getByRole('button', { name: 'Options' }).click();
