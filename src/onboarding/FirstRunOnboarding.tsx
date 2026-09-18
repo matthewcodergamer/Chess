@@ -87,12 +87,12 @@ export default function FirstRunOnboarding({
   };
 
   return (
-    <main className="qqurz-onboarding" aria-label="QQURZ first-run setup">
+    <main className="qqurz-onboarding" aria-label="qqurzchess first-run setup">
       <section className="onboarding-shell">
         <header className="onboarding-header">
-          <div className="onboarding-brand" aria-label="QQURZ Chess">
+          <div className="onboarding-brand" aria-label="qqurzchess">
             <span aria-hidden="true">♞</span>
-            <div><b>QQURZ</b><small>Competitive Chess960</small></div>
+            <div><b>qqurzchess</b><small>Competitive Chess960</small></div>
           </div>
           <span className="onboarding-step-label">Step {step + 1} of 4</span>
         </header>

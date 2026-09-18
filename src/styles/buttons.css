@@ -1,7 +1,8 @@
 /* Shared button system. React controls in ui/controls.tsx own semantics; this file owns their physics and appearance. */
 .qqurz-product-system button{transition:transform var(--q-motion-press) var(--q-ease-standard),background-color var(--q-motion-fast) var(--q-ease-standard),border-color var(--q-motion-fast) var(--q-ease-standard),box-shadow var(--q-motion-fast) var(--q-ease-standard),opacity var(--q-motion-fast) var(--q-ease-standard)}
 .qqurz-product-system button:active:not(:disabled){transform:translateY(1px) scale(.995)}
-.qqurz-product-system button:focus-visible,.qqurz-product-system input:focus-visible,.qqurz-product-system select:focus-visible,.qqurz-product-system textarea:focus-visible{outline:3px solid var(--q-focus-ring);outline-offset:3px}
+.qqurz-product-system button:focus-visible,.qqurz-product-system a[href]:focus-visible{outline:2px solid var(--q-focus-ring);outline-offset:2px}
+.qqurz-product-system input:focus-visible,.qqurz-product-system select:focus-visible,.qqurz-product-system textarea:focus-visible{outline:none}
 
 .qqurz-button{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:0;padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-pill);font-size:var(--q-type-body);font-weight:700;line-height:1.1;text-align:center;text-decoration:none;white-space:normal;user-select:none;-webkit-user-select:none;isolation:isolate}
 .qqurz-button--sm{min-height:var(--q-control-sm);padding-inline:var(--q-space-12);font-size:var(--q-type-label)}
@@ -12,10 +13,10 @@
 .qqurz-button-label{min-width:0}
 .qqurz-button-icon{display:inline-grid;place-items:center;flex:0 0 auto;line-height:1}.qqurz-button-icon svg{width:var(--q-space-20);height:var(--q-space-20);display:block}
 .qqurz-button--primary{border-color:transparent;background:var(--q-action);color:var(--q-action-ink);box-shadow:none}
-.qqurz-button--primary:hover:not(:disabled){background:var(--q-action-hover)}
-.qqurz-button--primary:active:not(:disabled){background:var(--q-action-active);box-shadow:none}
-.qqurz-button--secondary{border-color:var(--q-line-strong);background:color-mix(in srgb,var(--q-surface-2) 72%,transparent);color:var(--q-text);box-shadow:none}
-.qqurz-button--secondary:hover:not(:disabled){border-color:color-mix(in srgb,var(--q-action) 35%,var(--q-line-strong));background:var(--q-surface-3)}
+.qqurz-button--primary:hover:not(:disabled){background:var(--q-action-hover);transform:translateY(-1px);box-shadow:var(--q-elevation-1)}
+.qqurz-button--primary:active:not(:disabled){background:var(--q-action-active);box-shadow:none;transform:translateY(1px) scale(.995)}
+.qqurz-button--secondary{border-color:var(--q-line-strong);background:var(--q-surface-2);color:var(--q-text);box-shadow:none}
+.qqurz-button--secondary:hover:not(:disabled){border-color:color-mix(in srgb,var(--q-action) 35%,var(--q-line-strong));background:var(--q-surface-3);transform:translateY(-1px)}
 .qqurz-button--destructive{border-color:color-mix(in srgb,var(--q-danger) 48%,var(--q-line));background:var(--q-danger-soft);color:var(--q-danger-strong);box-shadow:none}
 .qqurz-button--destructive:hover:not(:disabled){border-color:var(--q-danger);background:color-mix(in srgb,var(--q-danger-soft) 78%,var(--q-surface-2))}
 .qqurz-button:disabled{opacity:.48;filter:saturate(.62);box-shadow:none;transform:none}

@@ -14,3 +14,10 @@
   text-shadow:none;
 }
 .qqurz-wordmark .wordmark-copy small{display:none}
+
+.qqurz-app-icon{display:block;width:var(--q-space-20);height:var(--q-space-20);flex:0 0 auto}
+.qqurz-icon-pad{width:var(--q-space-32);height:var(--q-space-32);display:grid;place-items:center;flex:0 0 auto;border-radius:var(--q-radius-sm);background:var(--q-action-soft);color:var(--q-action-strong)}
+.qqurz-icon-pad .qqurz-app-icon{width:var(--q-space-20);height:var(--q-space-20)}
+.qqurz-icon-pad--action{background:color-mix(in srgb,var(--q-action-ink) 16%,transparent);color:var(--q-action-ink)}
+.qqurz-icon-pad--muted{background:var(--q-surface-2);color:var(--q-muted)}
+.home-play-mode--primary .qqurz-icon-pad--action{background:color-mix(in srgb,var(--q-action-ink) 18%,transparent);color:var(--q-action-ink)}

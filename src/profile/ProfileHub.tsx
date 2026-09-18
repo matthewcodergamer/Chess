@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DestructiveButton, PrimaryButton, SecondaryButton, SegmentedControl } from '../ui/controls';
 import { ProfilePageSkeleton } from '../ui/Skeletons';
+import { AppIconPad } from '../ui/AppIcons';
+import CountrySelect, { flagFor, countryName } from '../ui/CountrySelect';
 import RatingIdentity from './RatingIdentity';
 import {
   accountToken,
@@ -20,7 +22,6 @@ import {
   revokeOtherSessions,
   consumeSocialLoginToken,
   socialAuthUrl,
-  socialProviderStatus,
   unblockPlayer,
   updateAccountNotifications,
   updateAccountPrivacy,
@@ -36,11 +37,6 @@ const AVATARS = ['♟', '♞', '♜', '♝', '♛', '♚', '960', 'Q'] as const;
 type Props = { onBack: () => void };
 type AccountTab = 'overview' | 'history' | 'tournaments' | 'settings' | 'privacy' | 'sessions';
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
-
-function flagFor(code: string): string {
-  if (!/^[A-Z]{2}$/.test(code)) return '🌐';
-  return String.fromCodePoint(...[...code].map(letter => 127397 + letter.charCodeAt(0)));
-}
 
 function GoogleIcon() {
   return <svg className="account-social-icon google" viewBox="0 0 24 24" aria-hidden="true">
@@ -125,7 +121,6 @@ export default function ProfileHub({ onBack }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [socialStatus, setSocialStatus] = useState({ google: false, apple: false, ordinaryAuthRequired: true });
 
   const setMessage = (message: string) => { setError(''); setNotice(message); };
   const setFailure = (value: unknown) => { setNotice(''); setError(value instanceof Error ? value.message : 'Something went wrong.'); };
@@ -152,7 +147,6 @@ export default function ProfileHub({ onBack }: Props) {
   };
 
   useEffect(() => {
-    void socialProviderStatus().then(setSocialStatus).catch(() => undefined);
     if (query.get('social') === 'error') {
       setFailure(new Error(query.get('reason')?.replaceAll('+', ' ') || 'Social sign-in was cancelled.'));
     }
@@ -231,8 +225,8 @@ export default function ProfileHub({ onBack }: Props) {
         <section className="account-auth-shell">
           <div className="account-auth-top"><SecondaryButton size="sm" leadingIcon="←" onClick={onBack}>Home</SecondaryButton><span className="qqurz-kicker">qqurzchess</span></div>
           <div className="account-auth-heading">
-            <span className="account-auth-mark" aria-hidden="true">♞</span>
-            <div><h1>{authMode === 'register' ? 'Create your player account.' : authMode === 'forgot' ? 'Recover your account.' : authMode === 'reset' ? 'Choose a new password.' : 'Sign in to qqurzchess.'}</h1><p>Use email, Google, or Apple. Same player account either way.</p></div>
+            <AppIconPad name="knight" tone="soft" className="account-auth-mark" />
+            <div><h1>{authMode === 'register' ? 'Create your player account.' : authMode === 'forgot' ? 'Recover your account.' : authMode === 'reset' ? 'Choose a new password.' : 'Sign in to qqurzchess.'}</h1><p>Email, Google, or Apple — same player account either way.</p></div>
           </div>
 
           {notice && <div className="account-message success" role="status">{notice}</div>}
@@ -242,7 +236,7 @@ export default function ProfileHub({ onBack }: Props) {
             <form className="account-form" onSubmit={submitLogin}>
               <label><span>Email or username</span><input required autoComplete="username" value={identifier} onChange={event => setIdentifier(event.target.value)} /></label>
               <label><span>Password</span><input required type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-              <PrimaryButton type="submit" size="lg" fullWidth loading={busy} loadingLabel="Signing in">Sign in</PrimaryButton>
+              <PrimaryButton type="submit" size="md" fullWidth loading={busy} loadingLabel="Signing in">Sign in</PrimaryButton>
               <div className="account-form-links"><button type="button" onClick={() => setAuthMode('forgot')}>Forgot password?</button><button type="button" onClick={() => setAuthMode('register')}>Create account</button></div>
             </form>
           )}
@@ -255,11 +249,11 @@ export default function ProfileHub({ onBack }: Props) {
               </div>
               <div className="account-form-grid">
                 <label><span>Display name</span><input maxLength={40} value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder={username || 'Your name'} /></label>
-                <label><span>Country code</span><div className="account-country-input"><span>{flagFor(countryCode.toUpperCase())}</span><input maxLength={2} value={countryCode} onChange={event => setCountryCode(event.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} placeholder="JM" /></div></label>
+                <CountrySelect value={countryCode} onChange={setCountryCode} />
               </div>
               <label><span>Password</span><input required minLength={10} type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /><small>At least 10 characters with letters and numbers.</small></label>
               <div className="account-avatar-picker"><span>Starting avatar</span><SegmentedControl value={avatar} options={AVATARS.map(value => ({ value, label: value, ariaLabel: `Use ${value} avatar` }))} onChange={setAvatar} ariaLabel="Account avatar" size="sm" /></div>
-              <PrimaryButton type="submit" size="lg" fullWidth loading={busy} loadingLabel="Creating account">Create account</PrimaryButton>
+              <PrimaryButton type="submit" size="md" fullWidth loading={busy} loadingLabel="Creating account">Create account</PrimaryButton>
               <SecondaryButton fullWidth onClick={() => setAuthMode('login')}>I already have an account</SecondaryButton>
             </form>
           )}
@@ -284,11 +278,11 @@ export default function ProfileHub({ onBack }: Props) {
             <div className="account-social-actions">
               <button type="button" className="account-social-button" onClick={() => { window.location.assign(socialAuthUrl('google')); }} aria-label="Sign up with Google">
                 <GoogleIcon />
-                <span><b>Sign up with Google</b><small>{socialStatus.google ? 'Continue with Google' : 'Needs Google setup'}</small></span>
+                <span><b>Sign up with Google</b><small>Continue with Google</small></span>
               </button>
               <button type="button" className="account-social-button" onClick={() => { window.location.assign(socialAuthUrl('apple')); }} aria-label="Sign up with Apple">
                 <AppleIcon />
-                <span><b>Sign up with Apple</b><small>{socialStatus.apple ? 'Continue with Apple' : 'Needs Apple setup'}</small></span>
+                <span><b>Sign up with Apple</b><small>Continue with Apple</small></span>
               </button>
             </div>
             <p>Email/password still works. Google and Apple create or reopen the same qqurzchess player account.</p>
@@ -304,7 +298,7 @@ export default function ProfileHub({ onBack }: Props) {
         <SecondaryButton size="sm" leadingIcon="←" onClick={onBack}>Home</SecondaryButton>
         <div className="account-identity">
           <Avatar account={account} large />
-          <div><span className="qqurz-kicker">CHESS960 PLAYER</span><h1>{account.displayName}</h1><p>@{account.username} · {flagFor(account.countryCode)} {account.countryCode || 'Country not set'}</p></div>
+          <div><span className="qqurz-kicker">CHESS960 PLAYER</span><h1>{account.displayName}</h1><p>@{account.username} · {flagFor(account.countryCode)} {countryName(account.countryCode) || account.countryCode || 'Country not set'}</p></div>
         </div>
         <SecondaryButton size="sm" onClick={doLogout} loading={busy}>Log out</SecondaryButton>
       </header>
@@ -336,7 +330,7 @@ export default function ProfileHub({ onBack }: Props) {
               <label><span>Username</span><input value={username} maxLength={20} onChange={event => setUsername(event.target.value)} /></label>
               <label><span>Display name</span><input value={displayName} maxLength={40} onChange={event => setDisplayName(event.target.value)} /></label>
             </div>
-            <label><span>Country code</span><div className="account-country-input"><span>{flagFor(countryCode)}</span><input value={countryCode} maxLength={2} onChange={event => setCountryCode(event.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} placeholder="JM" /></div></label>
+            <CountrySelect value={countryCode} onChange={setCountryCode} />
             <div className="account-avatar-picker"><span>Chess avatar</span><SegmentedControl value={avatar} options={AVATARS.map(value => ({ value, label: value, ariaLabel: `Use ${value} avatar` }))} onChange={value => { setAvatar(value); setAvatarImage(null); }} ariaLabel="Chess avatar" size="sm" /></div>
             <PrimaryButton fullWidth onClick={saveProfile} loading={busy} loadingLabel="Saving profile">Save profile</PrimaryButton>
           </section>

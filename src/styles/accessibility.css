@@ -1,7 +1,8 @@
 /* Cross-cutting accessibility guarantees. Viewport media rules stay in responsive.css. */
 .qqurz-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 
-button:focus-visible,a[href]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--q-focus-ring);outline-offset:3px}
+button:focus-visible,a[href]:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--q-focus-ring);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;border-color:var(--q-action);box-shadow:0 0 0 1px var(--q-action-soft)}
 button{min-width:var(--q-control-sm);min-height:var(--q-control-sm)}
 input,select,textarea,[contenteditable='true']{scroll-margin-block-start:calc(var(--q-header-h) + var(--q-space-16));scroll-margin-block-end:calc(var(--q-space-64) + env(safe-area-inset-bottom))}
 

@@ -1,23 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlinePlayer } from '../multiplayer/client';
-import { PrimaryButton, SecondaryButton } from './controls';
+import { SecondaryButton } from './controls';
+import { AppIcon, AppIconPad, type AppIconName } from './AppIcons';
 const HomeBoardPreview = lazy(() => import('./HomeBoardPreview'));
-
-type HomeIconName = 'chevron' | 'pawn' | 'knight' | 'rook' | 'queen' | 'king';
-
-function HomeIcon({ name }: { name: HomeIconName }) {
-  const paths: Record<HomeIconName, ReactNode> = {
-    chevron: <path d="m7 9 5 6 5-6" />,
-    pawn: <><circle cx="12" cy="6.5" r="3" /><path d="M8.5 10h7l-1.5 5 3 4H7l3-4-1.5-5Z" /><path d="M6 21h12" /></>,
-    knight: <path d="M7 20h11M8 20c.5-3 1.7-4.8 3.8-6.2 1.7-1 2.7-2.1 2.7-4.2 0-1.8-.9-3.2-2.5-4.1.1 1.3-.5 2.2-1.8 2.6-1.2.4-2.4.1-3.2-.8.1 2.1.9 3.5 2.4 4.4-2.2 1.3-3.4 3.6-3.4 6.3M15 5.7c1.8.3 3 1.5 3.3 3.4" />,
-    rook: <><path d="M7 5v4M11 5v4M15 5v4M19 5v4M6 9h13l-1 3H7zM9 12l-1 6h8l-1-6M6 20h12" /></>,
-    queen: <><path d="m6 7 2 5 4-6 4 6 2-5 1 10H5z" /><path d="M5 20h14" /></>,
-    king: <><path d="M12 4v5M9.5 6.5h5M8 11h8l-1 5H9zM7 20h10M9 16l-1 4M15 16l1 4" /></>,
-  };
-  return <svg className="home-ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
-}
-
-// The home route is intentionally a play-first chess dashboard, not a marketing hero.
 
 type Props = {
   onlineLabel: string;
@@ -36,10 +21,18 @@ type HomeProfile = {
   avatar?: string;
 };
 
+function avatarIcon(value: string): AppIconName | null {
+  if (value === '♟') return 'pawn';
+  if (value === '♞' || value === '♘') return 'knight';
+  if (value === '♜' || value === '♖') return 'rook';
+  if (value === '♛' || value === '♕') return 'queen';
+  if (value === '♚' || value === '♔') return 'king';
+  return null;
+}
 
 function ProfileAvatar({ value }: { value: string }) {
-  const piece: Exclude<HomeIconName, 'chevron'> | null = value === '♟' ? 'pawn' : value === '♞' || value === '♘' ? 'knight' : value === '♜' || value === '♖' ? 'rook' : value === '♛' || value === '♕' ? 'queen' : value === '♚' || value === '♔' ? 'king' : null;
-  return piece ? <HomeIcon name={piece} /> : <span>{value}</span>;
+  const icon = avatarIcon(value);
+  return icon ? <AppIcon name={icon} /> : <span>{value}</span>;
 }
 
 function loadProfile(): Required<HomeProfile> {
@@ -54,7 +47,6 @@ function loadProfile(): Required<HomeProfile> {
     return { username: 'Guest', avatar: '♞' };
   }
 }
-
 
 export default function HomeDashboard({
   onlineLabel,
@@ -102,7 +94,7 @@ export default function HomeDashboard({
           <button className="home-online-status" onClick={() => setOnlineListOpen(value => !value)} aria-label={`${onlineLabel}. Show online players.`} aria-expanded={onlineListOpen} aria-controls="home-online-player-list">
             <span className="presence-dot" aria-hidden="true" />
             <span className="home-online-copy"><b>{onlineLabel}</b><small>Chess960 players</small></span>
-            <span className="home-online-chevron"><HomeIcon name="chevron" /></span>
+            <span className="home-online-chevron"><AppIcon name="chevron" /></span>
           </button>
           {onlineListOpen && <div id="home-online-player-list" className="home-online-popover" role="region" aria-label="Online players">
             <div className="home-online-popover-head"><div><b>Online players</b><small>Players visible right now</small></div><span>{onlinePlayers.length || onlineLabel}</span></div>
@@ -120,22 +112,25 @@ export default function HomeDashboard({
           </div>
           <span className="home-variant-badge">960</span>
         </div>
-        <p className="home-play-lead">Pick a game. Friend, computer, or anyone online — then the board takes over.</p>
+        <p className="home-play-lead">Pick how you want to play. The board takes over from there.</p>
 
         <div className="home-play-modes">
-          <SecondaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="knight" />} onClick={onFriend}>
-            Play vs Friend
-          </SecondaryButton>
-          <SecondaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="pawn" />} onClick={onAI}>
-            Play vs Computer
-          </SecondaryButton>
-          <PrimaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="rook" />} onClick={onMatchmaking}>
-            Play Online
-          </PrimaryButton>
-        </div>
-        <button type="button" className="home-get-started" onClick={onMatchmaking}>Get Started</button>
-        <div className="home-secondary-play">
-          <SecondaryButton size="md" fullWidth leadingIcon={<HomeIcon name="king" />} onClick={onSameDevice}>Same device</SecondaryButton>
+          <button type="button" className="home-play-mode home-play-mode--primary" onClick={onMatchmaking} aria-label="Play Online">
+            <AppIconPad name="swords" tone="action" />
+            <span><b>Play Online</b><small>Find an opponent right now</small></span>
+          </button>
+          <button type="button" className="home-play-mode" onClick={onFriend} aria-label="Play a friend">
+            <AppIconPad name="users" />
+            <span><b>Play a friend</b><small>Private room · share a code</small></span>
+          </button>
+          <button type="button" className="home-play-mode" onClick={onAI} aria-label="Play computer">
+            <AppIconPad name="cpu" />
+            <span><b>Play computer</b><small>Stockfish on this device</small></span>
+          </button>
+          <button type="button" className="home-play-mode" onClick={onSameDevice} aria-label="Same device">
+            <AppIconPad name="board" />
+            <span><b>Same device</b><small>Two players, one screen</small></span>
+          </button>
         </div>
       </section>
 
@@ -151,32 +146,32 @@ export default function HomeDashboard({
 
       <section className="home-activity-grid" aria-label="Chess activity">
         <article className="home-activity-card live">
-          <span className="presence-dot" />
+          <AppIconPad name="swords" />
           <div><small>Live now</small><b>{onlineLabel}</b><p>Jump into random Chess960 matchmaking.</p></div>
           <SecondaryButton size="sm" onClick={onMatchmaking}>Find an opponent</SecondaryButton>
         </article>
         <article className="home-activity-card tournament">
-          <span className="home-activity-piece" aria-hidden="true"><HomeIcon name="queen" /></span>
+          <AppIconPad name="trophy" />
           <div><small>Compete</small><b>Tournament lobby</b><p>Browse fields, brackets and upcoming Chess960 events.</p></div>
           <SecondaryButton size="sm" onClick={onTournament}>Open tournaments</SecondaryButton>
         </article>
       </section>
 
       <section className="home-premium-row">
-        <span className="home-premium-piece" aria-hidden="true"><HomeIcon name="rook" /></span>
+        <AppIconPad name="cube" tone="action" />
         <div><span className="chess-eyebrow">Premium 3D</span><b>Physical board mode</b><small>Play with the table-style board and clock.</small></div>
         <SecondaryButton size="sm" onClick={onPremium3D}>Open 3D</SecondaryButton>
       </section>
 
       <section className="home-ai-row" aria-label="AI practice">
-        <span aria-hidden="true"><HomeIcon name="knight" /></span>
+        <AppIconPad name="knight" tone="muted" />
         <div><b>Practice with AI</b><small>Stockfish training stays separate from competitive play.</small></div>
         <SecondaryButton size="sm" onClick={onAI}>Practice</SecondaryButton>
       </section>
 
       <footer className="qqurz-home-footer-v24">
-        <span><HomeIcon name="king" /> qqurzchess</span>
-        <span>Competitive Chess960</span>
+        <span><AppIcon name="king" /> qqurzchess</span>
+        <span>© 2026 qqurzchess. All rights reserved.</span>
       </footer>
     </div>
   );

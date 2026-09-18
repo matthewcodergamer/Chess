@@ -68,7 +68,7 @@ test('mobile navigation drawer remains contained', async ({ page }) => {
 test('virtual keyboard compression keeps the room-code input reachable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 664 });
   await gotoAudit(page);
-  await page.getByRole('button', { name: 'Play vs Friend', exact: true }).click();
+  await page.getByRole('button', { name: 'Play a friend', exact: true }).click();
   await expect(page.locator('.online-lobby-panel')).toBeVisible();
   const input = page.getByPlaceholder('ROOM CODE');
   await input.focus();

@@ -302,14 +302,23 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not create room.'); }
     finally { setBusy(false); }
   };
-  const join = async () => {
-    const code = roomCode.trim().toUpperCase();
+  const join = async (codeOverride?: string) => {
+    const code = (codeOverride ?? roomCode).trim().toUpperCase();
     if (!code) return setMessage('Enter a room code first.');
     setBusy(true); setMessage('');
     try { const joined = await joinRoom(code, name.trim() || 'Guest'); rememberSeat(joined); setSeat(joined); setRoomUrl(joined.code); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not join room.'); }
     finally { setBusy(false); }
   };
+  const applyRoomCode = (raw: string) => {
+    const code = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    setRoomCode(code);
+    if (code.length === 6 && multiplayerConfigured && !busy) void join(code);
+  };
+  useEffect(() => {
+    if (seat || queryRoom.length !== 6 || !multiplayerConfigured) return;
+    void join(queryRoom);
+  }, []);
   const copyInvite = async () => {
     if (!seat) return;
     const value = inviteUrl(seat.code);
@@ -365,12 +374,15 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
 
   if (!seat) return (
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
-      <div className="online-lobby-heading"><div><span className="eyebrow">Online multiplayer</span><h3>{variant === 'tournament' ? 'Enter the tournament room' : 'Play across different internet connections'}</h3><p>Create or join a six-character room. The server keeps the shared Chess960 game state authoritative.</p></div><span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>{multiplayerConfigured ? 'Server configured' : 'Backend connection required'}</span></div>
+      <div className="online-lobby-heading"><div><span className="eyebrow">{variant === 'tournament' ? 'Tournament' : 'Play a friend'}</span><h3>{variant === 'tournament' ? 'Enter the tournament room' : 'Private room'}</h3><p>{variant === 'tournament' ? 'Create a room for this event, or join with a six-character code.' : 'Create a room and share the code, or join one a friend already started.'}</p></div></div>
       <WalletPanel />
-      <label className="online-field"><span>Your display name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
-      <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : undefined} allowCustom={variant !== 'tournament'} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
-      <div className="online-actions-grid"><button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy}>{busy ? 'Working…' : 'Create private room'}</button><div className="join-room-box"><input value={roomCode} onChange={event => setRoomCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} placeholder="Room code"/><button onClick={join} disabled={!multiplayerConfigured || busy}>Join</button></div></div>
-      {message && <p className="online-error">{message}</p>}<button className="online-back" onClick={onClose}>Back to match choices</button>
+      <label className="online-field"><span>Your name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
+      <details className="room-clock-details">
+        <summary>Clock · {roomTimeControl.label}</summary>
+        <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : undefined} allowCustom={variant !== 'tournament'} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
+      </details>
+      <div className="online-actions-grid"><button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy}>{busy ? 'Working…' : 'Create room'}</button><div className="join-room-box"><input value={roomCode} onChange={event => applyRoomCode(event.target.value)} placeholder="Room code" aria-label="Room code"/><button onClick={() => void join()} disabled={!multiplayerConfigured || busy}>Join</button></div></div>
+      {message && <p className="online-error">{message}</p>}<button className="online-back" onClick={onClose}>Back</button>
     </section>
   );
 
