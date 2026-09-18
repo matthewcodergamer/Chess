@@ -81,12 +81,12 @@ export default function HomeDashboard({
         </button>
         <div className="home-online-wrap" ref={onlineWrapRef}>
           <button className="home-online-status" onClick={() => setOnlineListOpen(value => !value)} aria-label={`${onlineLabel}. Show online players.`} aria-expanded={onlineListOpen} aria-controls="home-online-player-list">
-            <span className="presence-dot" />
-            <span><b>{onlineLabel}</b><small>Chess960 players</small></span>
+            <span className="presence-dot" aria-hidden="true" />
+            <span className="home-online-copy"><b>{onlineLabel}</b><small>Chess960 players</small></span>
             <span className="home-online-chevron" aria-hidden="true">⌄</span>
           </button>
           {onlineListOpen && <div id="home-online-player-list" className="home-online-popover" role="region" aria-label="Online players">
-            <div className="home-online-popover-head"><b>Online players</b><span>{onlinePlayers.length}</span></div>
+            <div className="home-online-popover-head"><div><b>Online players</b><small>Players visible right now</small></div><span>{onlinePlayers.length}</span></div>
             {onlinePlayers.length ? <ul>{onlinePlayers.map(player => <li key={`${player.name}-${player.state}`}><span className={`presence-dot presence-dot--${player.state}`} /><span>{player.name}</span><small>{player.state === 'game' ? 'In a game' : player.state === 'away' ? 'Away' : 'Online'}</small></li>)}</ul> : <p>No other players are currently visible.</p>}
             <button className="home-online-find" onClick={onMatchmaking}>Find an opponent</button>
           </div>}
