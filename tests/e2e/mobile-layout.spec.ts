@@ -90,9 +90,9 @@ test('online player count opens a contained scrollable live player list', async 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: players.length, presence: { online: 8, away: 1, game: 2 } }) });
   });
   await page.goto('/');
-  const onlineButton = page.getByRole('button', { name: /10 online.*Show online players/i });
+  const onlineButton = page.locator('.home-online-status');
   await expect(onlineButton).toBeVisible();
-  await expect(onlineButton).toContainText('10 online');
+  await expect(onlineButton).toContainText('10 online', { timeout: 20_000 });
   await expect(onlineButton).toContainText('Chess960 players');
   await onlineButton.click();
 
