@@ -870,10 +870,11 @@ export class ChessRoom extends DurableObject<Env> {
     const now = Date.now();
     if (this.room.session.state === 'READY' && both) {
       // A matchmaking room is a reserved game until both browser sockets are live.
-      // Transition to ACTIVE here so the first playable clock interval and move
-      // acceptance begin only after both matched players are in the same room.
-      this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
+      // Publish the fully connected seat state first, then atomically promote the
+      // reserved room to ACTIVE. That prevents a READY snapshot with stale
+      // connection metadata from winning a close WebSocket handshake race.
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
+      this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
     } else if (this.room.session.state === 'ACTIVE') {
       // Keep a matched room in ACTIVE state even while one socket is reconnecting.
       // Start the authoritative clock as soon as both matched players are live.
