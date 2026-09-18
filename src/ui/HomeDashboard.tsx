@@ -53,7 +53,7 @@ export default function HomeDashboard({
         <button className="home-player-identity" onClick={onProfile} aria-label={`Open ${profile.username} profile`}>
           <span className="home-player-avatar" aria-hidden="true">{profile.avatar}</span>
           <span>
-            <small>PLAYER</small>
+            <small>Player</small>
             <b>{profile.username}</b>
           </span>
         </button>
@@ -66,7 +66,7 @@ export default function HomeDashboard({
       <section className="home-play-panel" aria-labelledby="home-play-heading">
         <div className="home-play-heading">
           <div>
-            <span className="chess-eyebrow">CHESS960</span>
+            <span className="chess-eyebrow">Chess960</span>
             <h1 id="home-play-heading">Play chess.</h1>
           </div>
           <span className="home-variant-badge">960</span>
@@ -87,7 +87,7 @@ export default function HomeDashboard({
 
       <section className="home-board-area" aria-label="Chess960 board">
         <div className="home-section-heading">
-          <div><span className="chess-eyebrow">BOARD</span><h2>Ready position</h2></div>
+          <div><span className="chess-eyebrow">Board</span><h2>Ready position</h2></div>
           <SecondaryButton size="sm" onClick={onMatchmaking}>Play Anyone</SecondaryButton>
         </div>
         <HomeBoardPreview playerName={profile.username} />
@@ -96,19 +96,19 @@ export default function HomeDashboard({
       <section className="home-activity-grid" aria-label="Chess activity">
         <article className="home-activity-card live">
           <span className="presence-dot" />
-          <div><small>LIVE NOW</small><b>{onlineLabel}</b><p>Jump into random Chess960 matchmaking.</p></div>
+          <div><small>Live now</small><b>{onlineLabel}</b><p>Jump into random Chess960 matchmaking.</p></div>
           <SecondaryButton size="sm" onClick={onMatchmaking}>Find opponent</SecondaryButton>
         </article>
         <article className="home-activity-card tournament">
           <span className="home-activity-piece" aria-hidden="true">♛</span>
-          <div><small>COMPETE</small><b>Tournament lobby</b><p>Browse fields, brackets and upcoming Chess960 events.</p></div>
+          <div><small>Compete</small><b>Tournament lobby</b><p>Browse fields, brackets and upcoming Chess960 events.</p></div>
           <SecondaryButton size="sm" onClick={onTournament}>Open tournaments</SecondaryButton>
         </article>
       </section>
 
       <section className="home-premium-row">
         <span className="home-premium-piece" aria-hidden="true">♜</span>
-        <div><span className="chess-eyebrow">PREMIUM 3D</span><b>Physical board mode</b><small>Play with the table-style board and clock.</small></div>
+        <div><span className="chess-eyebrow">Premium 3D</span><b>Physical board mode</b><small>Play with the table-style board and clock.</small></div>
         <SecondaryButton size="sm" onClick={onPremium3D}>Open 3D</SecondaryButton>
       </section>
 
