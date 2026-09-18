@@ -70,12 +70,12 @@
   --q-line-strong:rgba(255,255,255,.16);
 
   /* Primary green action system. */
-  --q-action:#81b64c;
-  --q-action-hover:#91c65a;
-  --q-action-active:#74a943;
-  --q-action-strong:#9dcc68;
+  --q-action:#709b45;
+  --q-action-hover:#7faa52;
+  --q-action-active:#638d3d;
+  --q-action-strong:#8fbd59;
   --q-action-ink:#17200f;
-  --q-action-soft:rgba(129,182,76,.14);
+  --q-action-soft:rgba(112,155,69,.14);
   --q-focus-ring:color-mix(in srgb,var(--q-action) 68%,white);
 
   /* Semantic states. */
@@ -171,11 +171,11 @@
   --q-subtle:#918b82;
   --q-line:rgba(42,37,30,.10);
   --q-line-strong:rgba(42,37,30,.18);
-  --q-action:#5f8f3f;
-  --q-action-hover:#6f9f4d;
-  --q-action-active:#527c37;
-  --q-action-strong:#476c31;
-  --q-action-soft:rgba(95,143,63,.12);
+  --q-action:#547f38;
+  --q-action-hover:#639145;
+  --q-action-active:#496f31;
+  --q-action-strong:#3f622c;
+  --q-action-soft:rgba(84,127,56,.12);
   --q-success:#3e8b5f;
   --q-success-strong:#2f704b;
   --q-success-soft:rgba(62,139,95,.12);
