@@ -61,6 +61,7 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   // e2-e4 is legal from every Chess960 starting position and leaves White in control.
   // Use the board's real accessibility interaction instead of viewport coordinates;
   // large desktop boards can place e4 beneath the fixed navigation bar.
+  await moveByKeyboard(page);
 
   await expect(moves).toHaveCount(2, { timeout: 20_000 });
   await expect(moves.nth(1)).not.toHaveText('');
