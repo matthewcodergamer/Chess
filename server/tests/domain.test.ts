@@ -4,6 +4,7 @@ import { createGlicko2Rating, rateGlicko2 } from '../src/rating.ts';
 import { createTournamentDefinition, type Participant } from '../src/tournamentEngineTypes.ts';
 import { makeRound, seedPlayers } from '../src/tournamentPairing.ts';
 import { feePolicyForPurpose, platformFeeCents, verificationTierForPurpose } from '../src/paymentPolicy.ts';
+import { createGameSession, reduceGameSession } from '../../shared/gameSession.ts';
 
 function participant(id: string, rating: number, registeredAt: number): Participant {
   return {
@@ -98,4 +99,51 @@ test('competition fee policy is fixed at 20% and refund verification is intentio
   assert.equal(tournament.platformFeeBps, 2_000);
   assert.equal(platformFeeCents(12_345, tournament), 2_469);
   assert.equal(verificationTierForPurpose('refund'), 'none');
+});
+
+test('matched room becomes an active playable game only when both players connect', () => {
+  const createdAt = 1_700_000_000_000;
+  let session = createGameSession({
+    id: 'room-smoke',
+    state: 'READY',
+    positionId: 518,
+    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    clockMs: 600_000,
+    incrementMs: 5_000,
+    connectionStatus: 'DISCONNECTED',
+    now: createdAt,
+  });
+
+  session = reduceGameSession(session, {
+    type: 'SET_CONNECTION',
+    status: 'CONNECTED',
+    white: true,
+    black: true,
+    at: createdAt + 500,
+  });
+
+  assert.equal(session.state, 'READY');
+
+  session = reduceGameSession(session, {
+    type: 'TRANSITION',
+    to: 'ACTIVE',
+    at: createdAt + 500,
+  });
+
+  assert.equal(session.state, 'ACTIVE');
+  assert.equal(session.clocks.startedAt, createdAt + 500);
+  assert.equal(session.pendingClockPress, null);
+
+  const next = reduceGameSession(session, {
+    type: 'MOVE_COMMITTED',
+    fen: session.fen,
+    sideToMove: 'black',
+    mover: 'white',
+    san: 'e4',
+    at: createdAt + 1_500,
+  });
+
+  assert.equal(next.moveNumber, 1);
+  assert.equal(next.sideToMove, 'black');
+  assert.equal(next.pendingClockPress, 'white');
 });
