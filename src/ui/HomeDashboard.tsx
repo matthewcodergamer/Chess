@@ -37,6 +37,11 @@ type HomeProfile = {
 };
 
 
+function ProfileAvatar({ value }: { value: string }) {
+  const piece = value === '♟' ? 'pawn' : value === '♞' || value === '♘' ? 'knight' : value === '♜' || value === '♖' ? 'rook' : value === '♛' || value === '♕' ? 'queen' : value === '♚' || value === '♔' ? 'king' : null;
+  return piece ? <HomeIcon name={piece} /> : <span>{value}</span>;
+}
+
 function loadProfile(): Required<HomeProfile> {
   try {
     const raw = window.localStorage.getItem('qqurz:profile');
@@ -87,7 +92,7 @@ export default function HomeDashboard({
     <div className="qqurz-home-v24 home-dashboard">
       <section className="home-player-status" aria-label="Your player status">
         <button className="home-player-identity" onClick={onProfile} aria-label={`Open ${profile.username} profile`}>
-          <span className="home-player-avatar" aria-hidden="true">{profile.avatar}</span>
+          <span className="home-player-avatar" aria-hidden="true"><ProfileAvatar value={profile.avatar} /></span>
           <span>
             <small>Player</small>
             <span className="home-player-name">{profile.username}</span>
