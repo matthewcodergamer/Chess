@@ -52,7 +52,7 @@ function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
   if (params.get('verify') || params.get('reset')) return 'account';
   if (params.get('room')) return 'online';
-  const checkoutKind = params.get('kind');
+  const checkoutKind = params.get('kind') || params.get('sku');
   const checkoutState = params.get('checkout');
   if ((checkoutState === 'success' || checkoutState === 'cancel') && (checkoutKind === 'position_bid' || checkoutKind === 'color_bid')) return 'online';
   if ((checkoutState === 'success' || checkoutState === 'cancel') && checkoutKind === 'premium3d') return '3d';
@@ -159,7 +159,7 @@ export default function AppShell() {
 
   const goHome = () => {
     const url = new URL(window.location.href);
-    ['room', 'checkout', 'kind', 'item', 'session_id', 'color', 'verify', 'reset'].forEach(key => url.searchParams.delete(key));
+    ['room', 'checkout', 'kind', 'item', 'session_id', 'color', 'verify', 'reset', 'sku'].forEach(key => url.searchParams.delete(key));
     window.history.replaceState({}, '', url);
     setScreen('home');
   };
