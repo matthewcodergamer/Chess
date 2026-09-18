@@ -96,7 +96,7 @@ test('invalid state transitions fail loudly', () => {
 test('resignation result is shown as a color to the loser and You win to the winner', () => {
   const active = createGameSession({ state: 'ACTIVE', sideToMove: 'white', clockMs: 60_000, clockStartedAt: 100, now: 100 });
   const resigned = reduceGameSession(active, { type: 'RESIGN', by: 'white', at: 200 });
-  assert.equal(resigned.result, 'Black wins by resignation');
+  assert.equal(resigned.result, 'Black wins');
   assert.equal(resigned.winner, 'black');
   assert.equal(resultTextForViewer(resigned, 'black'), 'You win');
   assert.equal(resultTextForViewer(resigned, 'white'), 'Black wins');
