@@ -51,6 +51,10 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
     return status?.textContent?.includes('Stockfish ready');
   }, null, { timeout: 20_000 });
 
+  // Start game uses a short countdown; do not attempt the move until the
+  // authoritative local session has entered ACTIVE and it is actually our turn.
+  await expect(page.locator('.match-turn-note')).toContainText('Your move', { timeout: 20_000 });
+
   // The production navigation must expose only the lowercase brand, with no legacy QQURZ mark or subtitle.
   const wordmark = page.locator('.qqurz-wordmark').first();
   await expect(wordmark).toHaveText('qqurzchess');
