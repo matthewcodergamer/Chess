@@ -829,10 +829,22 @@ export class ChessRoom extends DurableObject<Env> {
   }
   private async syncConnectionState(changedColor?: Color, isConnected?: boolean): Promise<void> {
     if (!this.room) return;
-    let white = this.room.session.connection.white;
-    let black = this.room.session.connection.black;
-    if (changedColor === 'white' && typeof isConnected === 'boolean') white = isConnected;
-    if (changedColor === 'black' && typeof isConnected === 'boolean') black = isConnected;
+
+    // Derive live connection state from the Durable Object's accepted WebSockets
+    // instead of trusting only persisted booleans. This matters after hibernation
+    // or a Worker restart: both matched seats can still have live sockets while
+    // the persisted connection flags are stale.
+    const connected = new Set<Color>();
+    for (const ws of this.ctx.getWebSockets()) {
+      const attachment = ws.deserializeAttachment() as SocketAttachment | null;
+      const socketColor = attachment?.token ? colorForToken(this.room, attachment.token) : null;
+      if (socketColor) connected.add(socketColor);
+    }
+    if (changedColor && isConnected === true) connected.add(changedColor);
+    if (changedColor && isConnected === false) connected.delete(changedColor);
+
+    const white = connected.has('white');
+    const black = connected.has('black');
     const both = white && Boolean(this.room.players.black) && black;
     const now = Date.now();
     if (this.room.session.state === 'READY' && both) {
