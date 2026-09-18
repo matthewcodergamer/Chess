@@ -155,6 +155,6 @@ test('Home → Tournament → Register → assigned game launch', async ({ page 
   await expect(openGame).toBeVisible();
   await openGame.dispatchEvent('click');
 
-  await expect(page.getByText(/Tournament · ABC123/)).toBeVisible();
+  await expect(page.getByText(/Tournament game · ABC123/)).toBeVisible();
   await expect(page).toHaveURL(/room=ABC123/);
 });
