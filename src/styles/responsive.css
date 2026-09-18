@@ -57,6 +57,16 @@
 }
 
 @media (max-width:560px){
+  .qqurz-matchmaking-page{padding:var(--q-space-24) var(--q-space-12) calc(var(--q-space-32) + env(safe-area-inset-bottom))}
+  .matchmaking-card--simple{padding:var(--q-space-16);gap:var(--q-space-16);border-radius:var(--q-radius-lg)}
+  .matchmaking-simple-top{align-items:center}
+  .matchmaking-simple-copy h1{font-size:var(--q-type-title-lg)}
+  .matchmaking-simple-copy p{font-size:var(--q-type-body)}
+  .matchmaking-time-pill{font-size:var(--q-type-caption)}
+  .matchmaking-retry{align-items:stretch;flex-direction:column}
+  .matchmaking-retry .qqurz-button{width:100%}
+}
+@media (max-width:560px){
   .matchmaking-card{padding:var(--q-space-24) var(--q-space-16);border-radius:var(--q-radius-lg)}.matchmaking-searching{grid-template-columns:28px minmax(0,1fr)}.matchmaking-searching button{grid-column:1/-1;width:100%}.matchmaking-rules{gap:var(--q-space-8)}.matchmaking-rules b{font-size:var(--q-type-caption)}
   .selected-game-heading,.spectator-board-meta,.tournament-standings-head,.spectator-analysis-boundary{align-items:flex-start;flex-direction:column}.spectator-board-side{grid-template-columns:1fr}.spectator-moves{grid-column:auto}.tournament-game-picker button{min-width:190px}
 }
