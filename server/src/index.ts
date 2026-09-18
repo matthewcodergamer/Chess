@@ -848,6 +848,7 @@ export class ChessRoom extends DurableObject<Env> {
       const status = both ? 'CONNECTED' : 'RECONNECTING';
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status, white, black, at: now });
     } else if (this.room.session.state === 'RECONNECTING' && both) {
+      this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
     } else {
       const status = both ? 'CONNECTED' : 'DISCONNECTED';
