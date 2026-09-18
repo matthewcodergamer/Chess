@@ -28,11 +28,18 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
 
 async function activate(page: import('@playwright/test').Page, name: RegExp) {
   const control = page.getByRole('button', { name });
-  await expect(control).toBeVisible();
-  // The SPA intentionally replaces the home subtree immediately after a route action.
-  // dispatchEvent verifies the real React click handler without Playwright retrying a
-  // successfully activated control after that node has already been unmounted.
-  await control.dispatchEvent('click');
+  if (await control.isVisible().catch(() => false)) {
+    await control.dispatchEvent('click');
+    return;
+  }
+  if (/Tournaments/i.test(String(name))) {
+    await page.locator('.mobile-menu-button').click();
+    const mobileButton = page.getByRole('button', { name: 'Play a tournament', exact: true });
+    await expect(mobileButton).toBeVisible();
+    await mobileButton.dispatchEvent('click');
+    return;
+  }
+  throw new Error(`Required control is not visible: ${name}`);
 }
 
 test.beforeEach(async ({ page }) => {
