@@ -310,7 +310,9 @@ export class ChessRoom extends DurableObject<Env> {
         code,
         session: createGameSession({
           id: `room-${code}`,
-          state: body.matchmaking ? 'ACTIVE' : 'LOBBY',
+          // Matchmaking allocates both seats first. The game starts only after both
+          // matched players have actually connected to the authoritative room.
+          state: body.matchmaking ? 'READY' : 'LOBBY',
           positionId,
           fen,
           sideToMove: 'white',
@@ -821,7 +823,13 @@ export class ChessRoom extends DurableObject<Env> {
     const black = connected.has('black');
     const both = white && Boolean(this.room.players.black) && black;
     const now = Date.now();
-    if (this.room.session.state === 'ACTIVE' && !both) {
+    if (this.room.session.state === 'READY' && both) {
+      // A matchmaking room is a reserved game until both browser sockets are live.
+      // Transition to ACTIVE here so the first playable clock interval and move
+      // acceptance begin only after both matched players are in the same room.
+      this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
+      this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
+    } else if (this.room.session.state === 'ACTIVE' && !both) {
       this.settleActiveClock(now);
       if (this.room.session.state === 'ACTIVE') this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'RECONNECTING', white, black, at: now });
     } else if (this.room.session.state === 'RECONNECTING' && both) {
