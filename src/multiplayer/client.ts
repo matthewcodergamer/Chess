@@ -194,6 +194,12 @@ export function connectRoom(seat: RoomSeat, onEvent: (event: ServerEvent) => voi
         lastOpponentConnected = opponentConnected;
         onEvent(payload);
         emitStatus('connected');
+        // A matched room can briefly report READY while the second browser finishes
+        // its WebSocket handshake. Nudge the authoritative room to reconcile both
+        // accepted sockets instead of leaving the first player on a stale snapshot.
+        if (payload.room.session?.state === 'READY' && payload.room.players?.black && current.readyState === WebSocket.OPEN) {
+          try { current.send(JSON.stringify({ type: 'sync' })); } catch { /* reconnect path will retry */ }
+        }
         if (wasReconnecting) emitLocalNotification({ kind: 'reconnected', title: 'Game restored', body: `Room ${seat.code} is synchronized with the server again.`, priority: 'normal', roomCode: seat.code });
         return;
       }
