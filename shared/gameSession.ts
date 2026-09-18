@@ -200,6 +200,15 @@ export function canLeaveGameSession(session: GameSessionModel): boolean {
   return !isPlayGameState(session.state);
 }
 
+/** Present a terminal result from the current player's perspective. */
+export function resultTextForViewer(session: GameSessionModel, viewerColor: GameColor): string | null {
+  if (!session.result) return null;
+  if (session.resultKind !== 'RESIGN' || !session.winner) return session.result;
+  return session.winner === viewerColor
+    ? 'You win'
+    : `${session.winner === 'white' ? 'White' : 'Black'} wins`;
+}
+
 export function sessionUiPhase(session: GameSessionModel): 'setup' | 'strategy' | 'playing' | 'ended' {
   if (session.state === 'COUNTDOWN') return 'strategy';
   if (isPlayGameState(session.state)) return 'playing';
