@@ -48,7 +48,8 @@ if (!errors.length) {
     && online.includes('clockOwner(gameSession)')
     && online.includes('gameSession.clocks.whiteMs')
     && online.includes('gameSession.clocks.blackMs')
-    && online.includes('activeColor={activeColor}');
+    && online.includes('activeColor === opponentColor')
+    && online.includes('activeColor === seat.color');
   if (!onlineUsesAuthoritativeSession) errors.push('Online clock must consume active side and remaining time from the authoritative GameSessionModel.');
 
   const forbiddenLegacyOnlineClockReads = [
@@ -73,4 +74,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('QQURZ clock system OK: 2D player clocks, authoritative online timing, no visible 3D clock, no visible slap-to-move control.');
+console.log('QQURZ clock system OK: authoritative player clocks, no visible 3D clock, no visible slap-to-move control.');
