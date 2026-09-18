@@ -301,7 +301,7 @@ test('menu drawer', async ({ page }) => {
 });
 
 test('tournament registration', async ({ page }) => {
-  await page.getByRole('button', { name: 'Play Tournament', exact: true }).click();
+  await page.getByRole('button', { name: 'Tournaments', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Find a tournament and get in.' })).toBeVisible();
   await expect(page.locator('.tournament-master-grid')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'QQURZ Sunday Chess960 Open' })).toBeVisible();
