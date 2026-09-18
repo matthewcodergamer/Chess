@@ -19,13 +19,13 @@ async function seedApp(page: import('@playwright/test').Page) {
 async function moveE2ToE4(page: import('@playwright/test').Page) {
   const board = page.locator('.board-mount');
   await expect(board).toBeVisible();
+  await board.scrollIntoViewIfNeeded();
   const box = await board.boundingBox();
   if (!box) throw new Error('Chessboard bounds were unavailable.');
-  const square = box.width / 8;
-  // Chess960 keeps pawns on their home rank, so e2-e4 is legal from every position.
-  // Force the board pointer events so fixed navigation cannot intercept e4.
-  await board.click({ position: { x: square * 4.5, y: square * 6.5 }, force: true });
-  await board.click({ position: { x: square * 4.5, y: square * 4.5 }, force: true });
+  // Use the actual rendered width/height independently; WebKit can report
+  // fractional board geometry after mobile viewport scaling.
+  await page.mouse.click(box.x + box.width * 0.5625, box.y + box.height * 0.8125);
+  await page.mouse.click(box.x + box.width * 0.5625, box.y + box.height * 0.5625);
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
