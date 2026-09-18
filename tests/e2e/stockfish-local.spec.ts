@@ -17,16 +17,15 @@ async function seedApp(page: import('@playwright/test').Page) {
 }
 
 async function moveE2ToE4(page: import('@playwright/test').Page) {
-  const board = page.locator('.qqurz-board-accessible-shell');
+  const board = page.locator('.board-mount');
   await expect(board).toBeVisible();
-  await board.scrollIntoViewIfNeeded();
   const box = await board.boundingBox();
-  if (!box) throw new Error('Chessboard has no layout box.');
+  if (!box) throw new Error('Chessboard bounds were unavailable.');
   const square = box.width / 8;
-  // e2 -> e4. Scroll the board to the center first so fixed navigation cannot
-  // intercept the pointer event on the lower half of the board.
-  await page.mouse.click(box.x + square * 4.5, box.y + square * 6.5);
-  await page.mouse.click(box.x + square * 4.5, box.y + square * 4.5);
+  // Chess960 keeps pawns on their home rank, so e2-e4 is legal from every position.
+  // Force the board pointer events so fixed navigation cannot intercept e4.
+  await board.click({ position: { x: square * 4.5, y: square * 6.5 }, force: true });
+  await board.click({ position: { x: square * 4.5, y: square * 4.5 }, force: true });
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
