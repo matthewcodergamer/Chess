@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { PrimaryButton, SecondaryButton, SegmentedControl } from './controls';
+import { useMemo } from 'react';
+import { PrimaryButton, SecondaryButton } from './controls';
 import HomeBoardPreview from './HomeBoardPreview';
-import { loadOnboardingRecord } from '../onboarding/preferences';
 
 // The home route is intentionally a play-first chess dashboard, not a marketing hero.
-type QuickTime = '3+2' | '5+0' | '10+0';
 
 type Props = {
   onlineLabel: string;
@@ -22,12 +20,6 @@ type HomeProfile = {
   avatar?: string;
 };
 
-const QUICK_TIME_KEY = 'qqurz:quick-time';
-const QUICK_TIMES = [
-  { value: '3+2', label: '3 + 2', ariaLabel: '3 minutes plus 2 second increment' },
-  { value: '5+0', label: '5 min', ariaLabel: '5 minute game' },
-  { value: '10+0', label: '10 min', ariaLabel: '10 minute game' },
-] as const;
 
 function loadProfile(): Required<HomeProfile> {
   try {
@@ -42,17 +34,6 @@ function loadProfile(): Required<HomeProfile> {
   }
 }
 
-function experienceDefaultQuickTime(): QuickTime {
-  const experience = loadOnboardingRecord()?.experience;
-  if (experience === 'tournament') return '3+2';
-  if (experience === 'experienced') return '5+0';
-  return '10+0';
-}
-
-function loadQuickTime(): QuickTime {
-  const saved = window.localStorage.getItem(QUICK_TIME_KEY);
-  return saved === '3+2' || saved === '5+0' || saved === '10+0' ? saved : experienceDefaultQuickTime();
-}
 
 export default function HomeDashboard({
   onlineLabel,
@@ -65,15 +46,10 @@ export default function HomeDashboard({
   onAI,
 }: Props) {
   const profile = useMemo(loadProfile, []);
-  const [quickTime, setQuickTime] = useState<QuickTime>(loadQuickTime);
-
-  useEffect(() => {
-    window.localStorage.setItem(QUICK_TIME_KEY, quickTime);
-  }, [quickTime]);
 
   return (
     <div className="qqurz-home-v24 home-dashboard">
-      <section className="home-player-status" aria-label="Your QQURZ player status">
+      <section className="home-player-status" aria-label="Your player status">
         <button className="home-player-identity" onClick={onProfile} aria-label={`Open ${profile.username} profile`}>
           <span className="home-player-avatar" aria-hidden="true">{profile.avatar}</span>
           <span>
@@ -96,26 +72,11 @@ export default function HomeDashboard({
           <span className="home-variant-badge">960</span>
         </div>
 
-        <div className="home-time-control">
-          <div>
-            <b>Time control</b>
-            <small>Quick preference</small>
-          </div>
-          <SegmentedControl
-            value={quickTime}
-            options={QUICK_TIMES}
-            onChange={setQuickTime}
-            ariaLabel="Preferred Chess960 time control"
-            size="sm"
-            className="home-time-segments"
-          />
-        </div>
-
         <div className="home-primary-play">
-          <PrimaryButton size="lg" fullWidth leadingIcon="♛" onClick={onTournament}>
-            Play Tournament
+          <PrimaryButton size="lg" fullWidth leadingIcon="♞" onClick={onMatchmaking}>
+            Find an opponent
           </PrimaryButton>
-          <small>Competitive Chess960 · preferred {quickTime.replace('+0', ' min')}</small>
+          <small>Chess960 · automatic 10+5 matchmaking</small>
         </div>
 
         <div className="home-secondary-play">
@@ -132,7 +93,7 @@ export default function HomeDashboard({
         <HomeBoardPreview playerName={profile.username} />
       </section>
 
-      <section className="home-activity-grid" aria-label="QQURZ activity">
+      <section className="home-activity-grid" aria-label="Chess activity">
         <article className="home-activity-card live">
           <span className="presence-dot" />
           <div><small>LIVE NOW</small><b>{onlineLabel}</b><p>Jump into random Chess960 matchmaking.</p></div>
@@ -140,7 +101,7 @@ export default function HomeDashboard({
         </article>
         <article className="home-activity-card tournament">
           <span className="home-activity-piece" aria-hidden="true">♛</span>
-          <div><small>COMPETE</small><b>Tournament lobby</b><p>Browse fields, brackets and upcoming QQURZ events.</p></div>
+          <div><small>COMPETE</small><b>Tournament lobby</b><p>Browse fields, brackets and upcoming Chess960 events.</p></div>
           <SecondaryButton size="sm" onClick={onTournament}>Open tournaments</SecondaryButton>
         </article>
       </section>
@@ -158,7 +119,7 @@ export default function HomeDashboard({
       </section>
 
       <footer className="qqurz-home-footer-v24">
-        <span>♚ QQURZ Chess</span>
+        <span>♚ qqurzchess</span>
         <span>Competitive Chess960</span>
       </footer>
     </div>
