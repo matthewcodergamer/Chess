@@ -80,15 +80,15 @@ export default function HomeDashboard({
         </div>
 
         <div className="home-secondary-play">
-          <SecondaryButton size="md" fullWidth leadingIcon="♘" onClick={onFriend}>Play a Friend</SecondaryButton>
-          <SecondaryButton size="md" fullWidth leadingIcon="♟" onClick={onSameDevice}>Same Device</SecondaryButton>
+          <SecondaryButton size="md" fullWidth leadingIcon="♘" onClick={onFriend}>Play a friend</SecondaryButton>
+          <SecondaryButton size="md" fullWidth leadingIcon="♟" onClick={onSameDevice}>Same device</SecondaryButton>
         </div>
       </section>
 
       <section className="home-board-area" aria-label="Chess960 board">
         <div className="home-section-heading">
           <div><span className="chess-eyebrow">Board</span><h2>Ready position</h2></div>
-          <SecondaryButton size="sm" onClick={onMatchmaking}>Play Anyone</SecondaryButton>
+          <SecondaryButton size="sm" onClick={onMatchmaking}>Play anyone</SecondaryButton>
         </div>
         <HomeBoardPreview playerName={profile.username} />
       </section>
@@ -97,7 +97,7 @@ export default function HomeDashboard({
         <article className="home-activity-card live">
           <span className="presence-dot" />
           <div><small>Live now</small><b>{onlineLabel}</b><p>Jump into random Chess960 matchmaking.</p></div>
-          <SecondaryButton size="sm" onClick={onMatchmaking}>Find opponent</SecondaryButton>
+          <SecondaryButton size="sm" onClick={onMatchmaking}>Find an opponent</SecondaryButton>
         </article>
         <article className="home-activity-card tournament">
           <span className="home-activity-piece" aria-hidden="true">♛</span>
