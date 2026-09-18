@@ -66,21 +66,37 @@ test('home controls remain usable after scrolling and returning', async ({ page 
 });
 
 
-test('online player count opens the live player list', async ({ page }) => {
+test('online player count opens a contained scrollable live player list', async ({ page }) => {
+  const players = Array.from({ length: 10 }, (_, index) => ({
+    name: ['GreenRook475', 'Chess960', 'KnightWave', 'RookRunner', 'QuietBishop', 'CastleKing', 'OpenFile', 'RapidKnight', 'EndgameFox', 'TacticalPawn'][index],
+    state: index === 1 || index === 8 ? 'game' : index === 5 ? 'away' : 'online',
+  }));
   await page.route('**/presence*', async route => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/presence/players')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: 3, presence: { online: 2, away: 0, game: 1 }, players: [{ name: 'GreenRook475', state: 'online' }, { name: 'Chess960', state: 'game' }, { name: 'KnightWave', state: 'online' }] }) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: players.length, presence: { online: 8, away: 1, game: 2 }, players }) });
       return;
     }
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: 3, presence: { online: 2, away: 0, game: 1 } }) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: players.length, presence: { online: 8, away: 1, game: 2 } }) });
   });
   await page.goto('/');
-  const onlineButton = page.getByRole('button', { name: /3 online.*Show online players/i });
+  const onlineButton = page.getByRole('button', { name: /10 online.*Show online players/i });
   await expect(onlineButton).toBeVisible();
   await onlineButton.click();
-  await expect(page.getByRole('region', { name: 'Online players' })).toBeVisible();
-  await expect(page.getByText('GreenRook475', { exact: true })).toBeVisible();
-  await expect(page.getByText('Chess960', { exact: true })).toBeVisible();
-  await expect(page.getByText('KnightWave', { exact: true })).toBeVisible();
+
+  const popover = page.getByRole('region', { name: 'Online players' });
+  const list = popover.locator('ul');
+  await expect(popover).toBeVisible();
+  await expect(popover.getByText('GreenRook475', { exact: true })).toBeVisible();
+  await expect(popover.getByText('Chess960', { exact: true })).toBeVisible();
+  await expect(popover.getByText('KnightWave', { exact: true })).toBeVisible();
+
+  const metrics = await list.evaluate(element => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    rowCount: element.querySelectorAll(':scope > li').length,
+  }));
+  if (metrics.rowCount !== 10) throw new Error(`expected 10 player rows, got ${metrics.rowCount}`);
+  if (metrics.scrollHeight <= metrics.clientHeight) throw new Error('online player list should scroll inside the popover');
+  if (metrics.clientHeight > 260) throw new Error(`online player list exposes too many rows at once: ${metrics.clientHeight}px`);
 });
