@@ -44,9 +44,10 @@ if (/push:\s*\n\s*branches:/.test(quality)) {
 }
 
 for (const [workflow, label] of [[frontendDeploy, 'frontend'], [apiDeploy, 'API']]) {
-  requireText(workflow, 'workflow_run:', `${label} deployment must be triggered by the completed quality workflow.`);
-  requireText(workflow, 'QQURZ automated quality gates', `${label} deployment must depend on the QQURZ quality workflow.`);
-  requireText(workflow, "github.event.workflow_run.conclusion == 'success'", `${label} deployment must reject failed quality runs.`);
+  requireText(workflow, 'push:', `${label} deployment must run from a branch push.`);
+  requireText(workflow, 'workflow_dispatch:', `${label} deployment must support an explicit manual release.`);
+  requireText(workflow, 'npm run check:deploy', `${label} deployment must verify deployment architecture before publishing.`);
+  requireText(workflow, 'npm run check:ci', `${label} deployment must run the CI architecture guard before publishing.`);
 }
 
 requireText(frontendDeploy, 'Atomically deploy immutable frontend artifact', 'frontend publish must remain an atomic immutable Pages deployment.');
@@ -54,4 +55,4 @@ requireText(apiDeploy, 'Atomically deploy isolated Worker version', 'API publish
 requireText(apiDeploy, 'Roll back unhealthy Worker release', 'API deployment must attempt rollback when the post-deploy health check fails.');
 requireText(apiDeploy, 'Fail deployment after smoke-test rollback', 'an unhealthy API release must leave the workflow failed.');
 
-console.log('QQURZ CI gates OK: every push runs type/lint/test/build/bundle/E2E validation, and environment deploys wait for successful quality gates with atomic publication safeguards.');
+console.log('QQURZ CI gates OK: every push runs type/lint/test/build/bundle/E2E validation, and environment deploys wait for successful branch-triggered deployments with preflight architecture checks and atomic publication safeguards.');
