@@ -17,15 +17,13 @@ async function seedApp(page: import('@playwright/test').Page) {
 }
 
 async function moveE2ToE4(page: import('@playwright/test').Page) {
-  const board = page.locator('.board-mount');
+  const board = page.locator('.qqurz-board-accessible-shell');
   await expect(board).toBeVisible();
-  await board.scrollIntoViewIfNeeded();
-  const box = await board.boundingBox();
-  if (!box) throw new Error('Chessboard bounds were unavailable.');
-  // Use the actual rendered width/height independently; WebKit can report
-  // fractional board geometry after mobile viewport scaling.
-  await page.mouse.click(box.x + box.width * 0.5625, box.y + box.height * 0.8125);
-  await page.mouse.click(box.x + box.width * 0.5625, box.y + box.height * 0.5625);
+  await board.focus();
+  await board.press('Enter');
+  await board.press('ArrowUp');
+  await board.press('ArrowUp');
+  await board.press('Enter');
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
