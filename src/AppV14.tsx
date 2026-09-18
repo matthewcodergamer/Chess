@@ -336,6 +336,7 @@ export default function AppV14() {
       {screen === 'home' && (
         <HomeDashboard
           onlineLabel={onlineLabel}
+          onlinePlayers={onlinePlayers}
           onProfile={() => openScreen('account')}
           onTournament={() => openScreen('tournaments')}
           onFriend={openFriends}
@@ -348,7 +349,7 @@ export default function AppV14() {
 
       {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
       {screen === 'online' && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
-      {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={handleRandomMatch} onBack={goHome}/></></Suspense>}
+      {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlineCount} onOnlinePlayers={setOnlineCount} onMatched={handleRandomMatch} onBack={goHome}/></></Suspense>}
       {screen === 'tournaments' && <Suspense fallback={<TournamentPageSkeleton/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { prefetchScreen('online'); setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => { prefetchScreen('3d'); setScreen('3d'); }}/></div></Suspense>}
       {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
       {screen === 'account' && <Suspense fallback={<ProfilePageSkeleton/>}><ProfileHub onBack={goHome}/></Suspense>}
