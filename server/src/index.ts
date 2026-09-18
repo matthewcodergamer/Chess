@@ -36,7 +36,6 @@ type SocketAttachment = { token: string };
 type ClientMessage =
   | { type: 'sync' }
   | { type: 'move'; uci: string; clientSentAt?: number; clientMonotonicMs?: number; clientSequence?: number }
-  | { type: 'sync' }
   | { type: 'time_sync_ack'; nonce: string }
   | { type: 'clock_slap' }
   | { type: 'start_now' }
@@ -400,7 +399,6 @@ export class ChessRoom extends DurableObject<Env> {
     try { payload = JSON.parse(typeof message === 'string' ? message : new TextDecoder().decode(message)) as ClientMessage; }
     catch { return this.sendError(ws, 'Unreadable command.'); }
 
-    if (payload.type === 'sync') { this.sendSnapshot(ws, attachment.token); return; }
     if (payload.type === 'sync') return void this.sendSnapshot(ws, attachment.token);
     if (payload.type === 'time_sync_ack') return void this.handleTimeSyncAck(attachment.token, payload.nonce);
     if (payload.type === 'call_coin') return void await this.callCoin(ws, attachment.token, payload.face);
