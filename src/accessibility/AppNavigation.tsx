@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react';
 import { IconButton } from '../ui/controls';
 import { boardAppearanceLabel, type BoardAppearance } from '../onboarding/preferences';
 import { useAccessibilityPreferences } from './preferences';
@@ -28,15 +28,16 @@ type Props = {
   intent: (screen: Screen) => IntentHandlers;
 };
 
-type NavIconName = 'menu' | 'home' | 'trophy' | 'users' | 'cube' | 'user' | 'sun' | 'board' | 'sound' | 'type' | 'accessibility';
+type NavIconName = 'menu' | 'home' | 'trophy' | 'users' | 'cube' | 'pawn' | 'user' | 'sun' | 'board' | 'sound' | 'type' | 'accessibility';
 
 function NavIcon({ name, className = '' }: { name: NavIconName; className?: string }) {
-  const paths: Record<NavIconName, React.ReactNode> = {
+  const paths: Record<NavIconName, ReactNode> = {
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
     home: <><path d="m4 10 8-6 8 6" /><path d="M6.5 9.5V20h11V9.5M10 20v-5h4v5" /></>,
     trophy: <><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" /><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 12v4M8 20h8M9 16h6" /></>,
     users: <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M14 18a4.5 4.5 0 0 1 7 0" /></>,
     cube: <><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></>,
+    pawn: <><circle cx="12" cy="6.5" r="3" /><path d="M8.5 10h7l-1.5 5 3 4H7l3-4-1.5-5Z" /><path d="M6 21h12" /></>,
     user: <><circle cx="12" cy="8" r="3.25" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" /></>,
     board: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M4 10h16M4 16h16M10 4v16M16 4v16" /></>,
@@ -128,7 +129,7 @@ export default function AppNavigation({
       <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}><NavIcon name="menu" /></IconButton>
 
       <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="qqurzchess home">
-        <span className="wordmark-pawn" aria-hidden="true"><NavIcon name="user" /></span><span className="wordmark-copy"><b>qqurzchess</b></span>
+        <span className="wordmark-pawn" aria-hidden="true"><NavIcon name="pawn" /></span><span className="wordmark-copy"><b>qqurzchess</b></span>
       </button>
 
       <nav className="desktop-chess-nav" aria-label="Primary navigation" onKeyDown={moveFocus}>
