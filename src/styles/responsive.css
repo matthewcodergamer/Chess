@@ -1,6 +1,7 @@
 /* Every viewport override lives here. Component files remain breakpoint-free and still consume tokens. */
 @media (hover:hover){
-  .chess-secondary-action:hover,.secondary-clean:hover,.nav-account-button:hover,.display-toggle:hover,.live-presence-pill:hover{border-color:var(--q-line-strong);background:var(--q-surface-2)}
+  .chess-secondary-action:hover,.secondary-clean:hover,.display-toggle:hover,.live-presence-pill:hover{border-color:var(--q-line-strong);background:var(--q-surface-2)}
+  .nav-account-button:hover,.nav-signup-button:hover{border-color:transparent;background:var(--q-action-hover);color:var(--q-action-ink)}
   .option-pills button:hover,.seed-selector-v22 button:hover,.entry-selector-v22 button:hover{border-color:var(--q-line-strong)}
   .primary-black:hover,.chess-primary-action:hover,.matchmaking-find:hover,.qqurz-live-strip>button:hover,.online-primary:hover,.join-room-box button:hover,.local-start:hover,.home-get-started:hover{background:var(--q-action-hover)}
 }

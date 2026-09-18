@@ -263,7 +263,7 @@ async function openAccount(page: Page) {
 async function openLocalBoard(page: Page) {
   await page.getByRole('button', { name: 'Same Device', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Play together.' })).toBeVisible();
-  await page.getByRole('button', { name: 'Start game', exact: true }).click();
+  await page.getByRole('button', { name: 'New Game', exact: true }).click();
   await expect(page.locator('.local-board-frame.match-board-frame')).toBeVisible();
 }
 

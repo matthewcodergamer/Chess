@@ -11,7 +11,7 @@
 .qqurz-button-content{display:inline-flex;align-items:center;justify-content:center;gap:var(--q-space-8);min-width:0}
 .qqurz-button-label{min-width:0}
 .qqurz-button-icon{display:inline-grid;place-items:center;flex:0 0 auto;line-height:1}.qqurz-button-icon svg{width:var(--q-space-20);height:var(--q-space-20);display:block}
-.qqurz-button--primary{border-color:transparent;background:var(--q-action);color:var(--q-action-ink);box-shadow:var(--q-elevation-action)}
+.qqurz-button--primary{border-color:transparent;background:var(--q-action);color:var(--q-action-ink);box-shadow:none}
 .qqurz-button--primary:hover:not(:disabled){background:var(--q-action-hover)}
 .qqurz-button--primary:active:not(:disabled){background:var(--q-action-active);box-shadow:none}
 .qqurz-button--secondary{border-color:var(--q-line-strong);background:color-mix(in srgb,var(--q-surface-2) 72%,transparent);color:var(--q-text);box-shadow:none}
@@ -40,7 +40,7 @@
 .qqurz-segmented-option:disabled{opacity:.42}
 
 /* Legacy aliases stay visually compatible while screens are migrated onto the React primitives. */
-.primary-black,.chess-primary-action,.matchmaking-find,.qqurz-live-strip>button,.online-primary,.join-room-box button,.lock-color-bid,.settle-color-auction,.local-start{min-height:var(--q-control-md);border:1px solid transparent;border-radius:var(--q-radius-pill);background:var(--q-action);color:var(--q-action-ink);font-size:var(--q-type-action);font-weight:750;box-shadow:var(--q-elevation-action)}
+.primary-black,.chess-primary-action,.matchmaking-find,.qqurz-live-strip>button,.online-primary,.join-room-box button,.lock-color-bid,.settle-color-auction,.local-start{min-height:var(--q-control-md);border:1px solid transparent;border-radius:var(--q-radius-pill);background:var(--q-action);color:var(--q-action-ink);font-size:var(--q-type-action);font-weight:750;box-shadow:none}
 .primary-black{padding-inline:var(--q-space-24)}
 .secondary-clean,.chess-secondary-action,.online-back,.choose-pattern-button,.online-room-header button,.invite-link-button{min-height:var(--q-control-sm);padding-inline:var(--q-space-16);border:1px solid var(--q-line-strong);border-radius:var(--q-radius-pill);background:color-mix(in srgb,var(--q-surface-2) 78%,transparent);color:var(--q-text);font-size:var(--q-type-body);font-weight:650}
 .chess-primary-action,.chess-secondary-action{min-height:var(--q-control-lg);padding-inline:var(--q-space-24);display:flex;align-items:center;gap:var(--q-space-12);font-size:var(--q-type-action)}

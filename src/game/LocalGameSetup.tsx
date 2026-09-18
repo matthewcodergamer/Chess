@@ -17,7 +17,7 @@ export default function LocalGameSetup({ game }: { game: LocalGameController }) 
           <div><span>AI strength</span><div className="option-pills">{(Object.keys(LOCAL_DIFFICULTIES) as Array<keyof typeof LOCAL_DIFFICULTIES>).map(level => <button key={level} className={game.difficulty === level ? 'selected' : ''} onClick={() => game.setDifficulty(level)}><b>{LOCAL_DIFFICULTIES[level].label}</b><small>{LOCAL_DIFFICULTIES[level].note}</small></button>)}</div></div>
           <div><span>Play as</span><div className="side-pills">{(['white', 'black', 'random'] as LocalSideChoice[]).map(side => <button key={side} className={game.sideChoice === side ? 'selected' : ''} onClick={() => game.setSideChoice(side)}>{side[0].toUpperCase() + side.slice(1)}</button>)}</div></div>
         </div>}
-        <button className="primary-black local-start" onClick={game.createPosition}>Start game</button>
+        <button className="primary-black local-start" onClick={game.createPosition}>New Game</button>
       </div>
     </section>
   );

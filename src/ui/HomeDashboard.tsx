@@ -113,26 +113,29 @@ export default function HomeDashboard({
       </section>
 
       <section className="home-play-panel" aria-labelledby="home-play-heading">
-        <button type="button" className="home-get-started" onClick={onMatchmaking}>Get Started</button>
         <div className="home-play-heading">
           <div>
-            <span className="chess-eyebrow">Chess960</span>
+            <span className="chess-eyebrow">Play now</span>
             <h1 id="home-play-heading">Play chess.</h1>
           </div>
           <span className="home-variant-badge">960</span>
         </div>
-        <p className="home-play-lead">Sharpen your skills and play anyone, on any device, with a clean Chess960 board.</p>
+        <p className="home-play-lead">Pick a game. Friend, computer, or anyone online — then the board takes over.</p>
 
-        <div className="home-primary-play">
-          <PrimaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="knight" />} onClick={onMatchmaking}>
-            Find an opponent
+        <div className="home-play-modes">
+          <SecondaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="knight" />} onClick={onFriend}>
+            Play vs Friend
+          </SecondaryButton>
+          <SecondaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="pawn" />} onClick={onAI}>
+            Play vs Computer
+          </SecondaryButton>
+          <PrimaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="rook" />} onClick={onMatchmaking}>
+            Play Online
           </PrimaryButton>
-          <small>Chess960 · automatic 10+5 matchmaking</small>
         </div>
-
+        <button type="button" className="home-get-started" onClick={onMatchmaking}>Get Started</button>
         <div className="home-secondary-play">
-          <SecondaryButton size="md" fullWidth leadingIcon={<HomeIcon name="knight" />} onClick={onFriend}>Play a friend</SecondaryButton>
-          <SecondaryButton size="md" fullWidth leadingIcon={<HomeIcon name="pawn" />} onClick={onSameDevice}>Same device</SecondaryButton>
+          <SecondaryButton size="md" fullWidth leadingIcon={<HomeIcon name="king" />} onClick={onSameDevice}>Same device</SecondaryButton>
         </div>
       </section>
 

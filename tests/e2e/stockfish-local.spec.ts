@@ -43,7 +43,7 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   await page.getByRole('button', { name: 'Practice' }).click();
   await expect(page.getByRole('heading', { name: 'Play Stockfish.' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Start game' }).click();
+  await page.getByRole('button', { name: 'New Game' }).click();
   await expect(page.locator('.board-mount')).toBeVisible();
 
   await page.waitForFunction(() => {
@@ -59,9 +59,9 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   }
   await expect(page.locator('.match-turn-note')).toContainText('Your move', { timeout: 20_000 });
 
-  // The production navigation must expose only the lowercase brand, with no legacy QQURZ mark or subtitle.
+  // Chess.com-style lockup: filled green pawn badge beside the QQURZ Chess wordmark.
   const wordmark = page.locator('.qqurz-wordmark').first();
-  await expect(wordmark).toHaveText('qqurzchess');
+  await expect(wordmark).toContainText('QQURZ Chess');
   await expect(wordmark.locator('.wordmark-piece')).toHaveCount(0);
   await expect(wordmark.locator('.wordmark-copy small')).toHaveCount(0);
 

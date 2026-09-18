@@ -70,13 +70,13 @@
   --q-line:rgba(255,255,255,.09);
   --q-line-strong:rgba(255,255,255,.16);
 
-  /* Primary green action system. */
-  --q-action:#668f42;
-  --q-action-hover:#739f4b;
-  --q-action-active:#5b8039;
-  --q-action-strong:#86ad52;
-  --q-action-ink:#17200f;
-  --q-action-soft:rgba(102,143,66,.13);
+  /* Primary green action system — Chess.com play-button green, white label, flat. */
+  --q-action:#81b64c;
+  --q-action-hover:#8fbf5a;
+  --q-action-active:#6fa13e;
+  --q-action-strong:#9ed05e;
+  --q-action-ink:#ffffff;
+  --q-action-soft:rgba(129,182,76,.16);
   --q-focus-ring:color-mix(in srgb,var(--q-action) 68%,white);
 
   /* Semantic states. */
@@ -125,7 +125,7 @@
   --q-elevation-2:0 18px 50px rgba(0,0,0,.24);
   --q-elevation-3:0 24px 70px rgba(0,0,0,.28);
   --q-elevation-board:0 18px 50px rgba(0,0,0,.28);
-  --q-elevation-action:0 1px 0 color-mix(in srgb,var(--q-text-inverse) 12%,transparent);
+  --q-elevation-action:none;
 
   /* Motion. */
   --q-motion-press:100ms;
@@ -172,11 +172,12 @@
   --q-subtle:#918b82;
   --q-line:rgba(42,37,30,.10);
   --q-line-strong:rgba(42,37,30,.18);
-  --q-action:#547f38;
-  --q-action-hover:#639145;
-  --q-action-active:#496f31;
-  --q-action-strong:#3f622c;
-  --q-action-soft:rgba(84,127,56,.12);
+  --q-action:#81b64c;
+  --q-action-hover:#73a643;
+  --q-action-active:#64913b;
+  --q-action-strong:#547f38;
+  --q-action-ink:#ffffff;
+  --q-action-soft:rgba(129,182,76,.14);
   --q-success:#3e8b5f;
   --q-success-strong:#2f704b;
   --q-success-soft:rgba(62,139,95,.12);

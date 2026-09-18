@@ -54,7 +54,7 @@ test('brand and navigation stay polished on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.locator('.qqurz-wordmark .wordmark-pawn')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'qqurzchess home' })).toContainText('qqurzchess');
+  await expect(page.getByRole('button', { name: 'qqurzchess home' })).toContainText('QQURZ Chess');
   await expect(page.locator('.desktop-chess-nav')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
@@ -72,7 +72,7 @@ test('home controls remain usable after scrolling and returning', async ({ page 
   await page.waitForTimeout(100);
   await expectNoHorizontalOverflow(page);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(page.getByRole('button', { name: 'Play a friend', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play vs Friend', exact: true })).toBeVisible();
 });
 
 
