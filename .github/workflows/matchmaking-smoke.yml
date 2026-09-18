@@ -26,8 +26,8 @@ jobs:
           set -euo pipefail
           npm install --no-audit --no-fund
           npx playwright install --with-deps chromium
-          node <<'NODE'
-          const { chromium } = require('playwright');
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
           const api = process.env.API;
           const web = process.env.WEB;
           const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
