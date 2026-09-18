@@ -385,7 +385,7 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
         resignedBy: event.by,
         pendingClockPress: null,
         clocks: { ...session.clocks, startedAt: null },
-        result: event.text ?? `${winner === 'white' ? 'White' : 'Black'} wins by resignation`,
+        result: event.text ?? `${winner === 'white' ? 'White' : 'Black'} wins`,
         resultKind: 'RESIGN',
         winner,
         updatedAt: at,
