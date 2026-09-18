@@ -104,10 +104,19 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
   return (
     <section className="qqurz-matchmaking-page" aria-label="Find an opponent">
       <div className="matchmaking-card matchmaking-card--simple">
-        <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
-        <div className="matchmaking-queue-icon" aria-hidden="true">♞</div>
+        <div className="matchmaking-simple-top">
+          <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
+          <span className="matchmaking-time-pill">Chess960 · 10+5</span>
+        </div>
+
+        <div className="matchmaking-simple-copy">
+          <span className="eyebrow">QUICK MATCH</span>
+          <h1>Find an opponent.</h1>
+          <p>Join the live Chess960 queue. We’ll keep you waiting here until you’re matched or you leave.</p>
+        </div>
+
         {!searching && !failed && (
-          <PrimaryButton fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured}>
+          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured}>
             Find an opponent
           </PrimaryButton>
         )}
@@ -115,6 +124,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
         {searching && (
           <div className="matchmaking-searching matchmaking-searching--simple" role="status" aria-live="polite">
             <span className="matchmaking-spinner" aria-hidden="true" />
+            <div><b>Looking for an opponent…</b><small>Stay here — matchmaking is still active.</small></div>
           </div>
         )}
 
