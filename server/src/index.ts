@@ -843,8 +843,10 @@ export class ChessRoom extends DurableObject<Env> {
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status: 'CONNECTED', white, black, at: now });
     } else if (this.room.session.state === 'ACTIVE') {
       // Keep a matched room in ACTIVE state even while one socket is reconnecting.
-      // The game already exists; connection status is the liveness signal and the
-      // authoritative board must not fall back to a pre-game state.
+      // Start the authoritative clock as soon as both matched players are live.
+      if (both && this.room.session.clocks.startedAt === null) {
+        this.room.session = reduceGameSession(this.room.session, { type: 'TRANSITION', to: 'ACTIVE', at: now });
+      }
       const status = both ? 'CONNECTED' : 'RECONNECTING';
       this.room.session = reduceGameSession(this.room.session, { type: 'SET_CONNECTION', status, white, black, at: now });
     } else if (this.room.session.state === 'RECONNECTING' && both) {
