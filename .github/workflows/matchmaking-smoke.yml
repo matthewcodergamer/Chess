@@ -50,8 +50,10 @@ jobs:
             if (!response.ok) throw new Error(`${init.method || 'GET'} ${path} -> HTTP ${response.status}: ${text}`);
             return body;
           }
-          const a = await request('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name: `Smoke-A-${suffix}`, presenceId: `smokea-${suffix}`, ...base }) });
-          const b = await request('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name: `Smoke-B-${suffix}`, presenceId: `smokeb-${suffix}`, ...base }) });
+          const a = await request('/matchmaking/enqueue', { method: 'POST', headers: { 'x-qqurz-rating': '4000', 'x-qqurz-rating-deviation': '30', 'x-qqurz-rating-provisional': '0' },
+            body: JSON.stringify({ name: `Smoke-A-${suffix}`, presenceId: `smokea-${suffix}`, ...base }) });
+          const b = await request('/matchmaking/enqueue', { method: 'POST', headers: { 'x-qqurz-rating': '4000', 'x-qqurz-rating-deviation': '30', 'x-qqurz-rating-provisional': '0' },
+            body: JSON.stringify({ name: `Smoke-B-${suffix}`, presenceId: `smokeb-${suffix}`, ...base }) });
           if (!a.ticket || !b.ticket) throw new Error(`Matchmaking tickets missing: a=${JSON.stringify(a)} b=${JSON.stringify(b)}`);
           let first = a;
           let second = b;
