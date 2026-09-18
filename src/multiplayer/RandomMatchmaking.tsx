@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl';
 import { IconButton, PrimaryButton } from '../ui/controls';
 import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, type MatchmakingCriteria, type MatchmakingSnapshot } from './client';
@@ -24,6 +24,11 @@ function retryDelay(attempt: number): Promise<void> {
 
 const PUBLIC_TIME_CONTROL: TimeControl = { ...TIME_CONTROL_PRESETS['10+5'] };
 const GENERIC_QUEUE_ERROR = 'Could not join the matchmaking queue. Try again.';
+
+function MatchIcon({ kind }: { kind: 'back' | 'knight' }): ReactNode {
+  if (kind === 'back') return <svg className="matchmaking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>;
+  return <svg className="matchmaking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M7 20h11M8 20c.5-3 1.7-4.8 3.8-6.2 1.7-1 2.7-2.1 2.7-4.2 0-1.8-.9-3.2-2.5-4.1.1 1.3-.5 2.2-1.8 2.6-1.2.4-2.4.1-3.2-.8.1 2.1.9 3.5 2.4 4.4-2.2 1.3-3.4 3.6-3.4 6.3M15 5.7c1.8.3 3 1.5 3.3 3.4" /></svg>;
+}
 
 export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }: Props) {
   const name = profileName();
@@ -106,7 +111,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
     <section className="qqurz-matchmaking-page" aria-label="Find an opponent">
       <div className="matchmaking-card matchmaking-card--simple">
         <div className="matchmaking-simple-top">
-          <IconButton onClick={onBack} aria-label="Back to home">←</IconButton>
+          <IconButton onClick={onBack} aria-label="Back to home"><MatchIcon kind="back" /></IconButton>
           <span className="matchmaking-time-pill">Chess960 · 10+5</span>
         </div>
 
@@ -117,7 +122,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
         </div>
 
         {!searching && !failed && (
-          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon="♞" onClick={start} >
+          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon={<MatchIcon kind="knight" />} onClick={start} >
             Find an opponent
           </PrimaryButton>
         )}
