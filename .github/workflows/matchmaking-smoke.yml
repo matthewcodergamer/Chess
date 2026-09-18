@@ -18,10 +18,15 @@ jobs:
         shell: bash
         env:
           API: https://qqurz-chess-api.gamerstriper.workers.dev
+          WEB: https://qqurzchess.com
         run: |
           set -euo pipefail
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
           node <<'NODE'
+          const { chromium } = require('playwright');
           const api = process.env.API;
+          const web = process.env.WEB;
           const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           const base = {
             variant: 'chess960',
@@ -43,9 +48,8 @@ jobs:
             return body;
           }
           const a = await request('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name: `Smoke-A-${suffix}`, presenceId: `smokea-${suffix}`, ...base }) });
-          if (!a.ticket) throw new Error(`First enqueue returned no ticket: ${JSON.stringify(a)}`);
           const b = await request('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name: `Smoke-B-${suffix}`, presenceId: `smokeb-${suffix}`, ...base }) });
-          if (!b.ticket) throw new Error(`Second enqueue returned no ticket: ${JSON.stringify(b)}`);
+          if (!a.ticket || !b.ticket) throw new Error(`Matchmaking tickets missing: a=${JSON.stringify(a)} b=${JSON.stringify(b)}`);
           let first = a;
           let second = b;
           for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -54,59 +58,44 @@ jobs:
             if (first.status === 'matched' && second.status === 'matched') break;
             await new Promise(resolve => setTimeout(resolve, 250));
           }
-          if (first.status !== 'matched' || second.status !== 'matched') {
-            throw new Error(`Players did not match. first=${JSON.stringify(first)} second=${JSON.stringify(second)}`);
-          }
-          if (!first.seat?.code || first.seat.code !== second.seat?.code) {
-            throw new Error(`Players did not receive the same authoritative room: first=${JSON.stringify(first.seat)} second=${JSON.stringify(second.seat)}`);
-          }
-          console.log(`Production matchmaking matched both players into room ${first.seat.code}.`);
-          function connect(seat, label) {
-            return new Promise((resolve, reject) => {
-              const ws = new WebSocket(`${api.replace(/^http/, 'ws')}/rooms/${encodeURIComponent(seat.code)}/ws?token=${encodeURIComponent(seat.token)}`);
-              const snapshots = [];
-              const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error(`${label} did not receive a room snapshot in time.`)); }, 15000);
-              ws.addEventListener('open', () => {});
-              ws.addEventListener('message', event => {
+          if (first.status !== 'matched' || second.status !== 'matched') throw new Error(`Players did not match: first=${JSON.stringify(first)} second=${JSON.stringify(second)}`);
+          if (!first.seat?.code || first.seat.code !== second.seat?.code) throw new Error(`Players did not receive the same authoritative room: first=${JSON.stringify(first.seat)} second=${JSON.stringify(second.seat)}`);
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage();
+          await page.goto(web, { waitUntil: 'domcontentloaded' });
+          const result = await page.evaluate(async ({ api, firstSeat, secondSeat }) => {
+            function connect(seat) {
+              return new Promise((resolve, reject) => {
+                const ws = new WebSocket(`${api.replace(/^http/, 'ws')}/rooms/${encodeURIComponent(seat.code)}/ws?token=${encodeURIComponent(seat.token)}`);
+                const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('WebSocket snapshot timeout')); }, 15000);
+                ws.addEventListener('message', event => {
+                  let payload;
+                  try { payload = JSON.parse(String(event.data)); } catch { return; }
+                  if (payload.type === 'snapshot') { clearTimeout(timer); resolve({ ws, room: payload.room }); }
+                  if (payload.type === 'error') reject(new Error(payload.message));
+                });
+                ws.addEventListener('error', () => reject(new Error('WebSocket connection failed')));
+              });
+            }
+            const first = await connect(firstSeat);
+            const second = await connect(secondSeat);
+            if (first.room.session?.state !== 'ACTIVE' || second.room.session?.state !== 'ACTIVE') throw new Error(`Matched room is not active: ${first.room.session?.state}/${second.room.session?.state}`);
+            if (!first.room.players?.black || !second.room.players?.black) throw new Error('Matched room does not contain both players');
+            const move = new Promise((resolve, reject) => {
+              const timer = setTimeout(() => reject(new Error('Opponent did not receive the first move')), 15000);
+              second.ws.addEventListener('message', event => {
                 let payload;
                 try { payload = JSON.parse(String(event.data)); } catch { return; }
-                if (payload.type === 'snapshot') {
-                  snapshots.push(payload.room);
-                  if (snapshots.length === 1) {
-                    clearTimeout(timer);
-                    resolve({ ws, room: payload.room });
-                  }
-                }
-                if (payload.type === 'error') reject(new Error(`${label} room error: ${payload.message}`));
+                if (payload.type === 'snapshot' && payload.room?.session?.moveNumber === 1) { clearTimeout(timer); resolve(payload.room); }
               });
-              ws.addEventListener('error', () => reject(new Error(`${label} WebSocket failed.`)));
             });
-          }
-          const firstSocket = await connect(first.seat, 'first player');
-          const secondSocket = await connect(second.seat, 'second player');
-          if (firstSocket.room.session?.state !== 'ACTIVE' || secondSocket.room.session?.state !== 'ACTIVE') {
-            throw new Error(`Matched room is not immediately playable: first=${firstSocket.room.session?.state} second=${secondSocket.room.session?.state}`);
-          }
-          if (!firstSocket.room.players?.black || !secondSocket.room.players?.black) {
-            throw new Error(`Matched room did not contain both players: first=${JSON.stringify(firstSocket.room.players)} second=${JSON.stringify(secondSocket.room.players)}`);
-          }
-          const movePromise = new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Second player did not receive the first move.')), 15000);
-            const handler = event => {
-              let payload;
-              try { payload = JSON.parse(String(event.data)); } catch { return; }
-              if (payload.type === 'snapshot' && payload.room?.session?.moveNumber === 1) {
-                clearTimeout(timer); resolve(payload.room);
-              }
-            };
-            secondSocket.ws.addEventListener('message', handler);
-          });
-          firstSocket.ws.send(JSON.stringify({ type: 'move', uci: 'e2e4', clientSequence: 1, clientSentAt: Date.now() }));
-          const afterMove = await movePromise;
-          if (afterMove.session?.sideToMove !== 'black' || afterMove.session?.moveNumber !== 1) {
-            throw new Error(`Matched room accepted no playable move: ${JSON.stringify(afterMove.session)}`);
-          }
-          console.log(`Production matchmaking room ${first.seat.code} is active and accepted e2-e4 for the first player.`);
-          firstSocket.ws.close();
-          secondSocket.ws.close();
+            first.ws.send(JSON.stringify({ type: 'move', uci: 'e2e4', clientSequence: 1, clientSentAt: Date.now() }));
+            const after = await move;
+            first.ws.close();
+            second.ws.close();
+            return { state: after.session.state, moveNumber: after.session.moveNumber, sideToMove: after.session.sideToMove, room: firstSeat.code };
+          }, { api, firstSeat: first.seat, secondSeat: second.seat });
+          await browser.close();
+          if (result.state !== 'ACTIVE' || result.moveNumber !== 1 || result.sideToMove !== 'black') throw new Error(`Production room rejected a playable move: ${JSON.stringify(result)}`);
+          console.log(`Production matchmaking room ${result.room} is active and accepted e2-e4, with the move delivered to the opponent.`);
           NODE
