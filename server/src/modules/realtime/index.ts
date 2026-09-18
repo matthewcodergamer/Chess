@@ -115,6 +115,12 @@ async function routed(request: Request, env: RealtimeGatewayEnv): Promise<Respon
 const realtimeGateway = {
   async fetch(request: Request, env: RealtimeGatewayEnv): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env);
+    // A Durable Object WebSocket upgrade response carries the accepted socket on
+    // the Response itself. Re-wrapping a 101 response in withCors() drops that
+    // socket and leaves clients with a generic WebSocket connection failure.
+    if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+      return routed(request, env);
+    }
     return withCors(request, await routed(request, env), env);
   },
 } satisfies ExportedHandler<RealtimeGatewayEnv>;
