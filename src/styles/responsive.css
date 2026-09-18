@@ -61,6 +61,21 @@
   .selected-game-heading,.spectator-board-meta,.tournament-standings-head,.spectator-analysis-boundary{align-items:flex-start;flex-direction:column}.spectator-board-side{grid-template-columns:1fr}.spectator-moves{grid-column:auto}.tournament-game-picker button{min-width:190px}
 }
 
+@media (max-width:720px){
+  .home-player-status{display:grid;grid-template-columns:1fr;gap:var(--q-space-8);padding:var(--q-space-8)}
+  .home-player-identity{width:100%;padding-inline:var(--q-space-4)}
+  .home-online-wrap{width:100%;min-width:0}
+  .home-online-status{width:100%;justify-content:flex-start;padding-inline:var(--q-space-12)}
+  .home-online-copy{flex:1;min-width:0}
+  .home-online-chevron{margin-left:auto}
+  .home-online-popover{left:0;right:auto;width:min(360px,calc(100vw - var(--q-space-24)));max-width:calc(100vw - var(--q-space-24))}
+  .home-play-panel{padding:var(--q-space-16);gap:var(--q-space-16)}
+  .home-play-heading h1{font-size:var(--q-type-title)}
+  .home-primary-play small{font-size:var(--q-type-caption)}
+  .home-secondary-play{grid-template-columns:1fr}
+  .home-board-area{padding:var(--q-space-8)}
+  .home-section-heading{padding-inline:var(--q-space-8)}
+}
 @media (max-width:480px){
   .qqurz-home-v24{padding-inline:var(--q-space-12)}.home-live-board-shell{padding:var(--q-space-12);border-radius:var(--q-radius-md)}.home-live-board-title{min-height:var(--q-control-sm);font-size:var(--q-type-label-sm)}.home-live-board-title strong{font-size:var(--q-type-action-lg)}.home-preview-player{min-height:var(--q-control-sm);font-size:var(--q-type-label)}.home-preview-player strong{font-size:var(--q-type-action)}.chess-hero-copy h1{font-size:var(--q-type-display-hero-mobile)}.chess-hero-copy p{font-size:var(--q-type-body-lg)}.chess-mode-list>button{grid-template-columns:var(--q-control-sm) minmax(0,1fr) var(--q-space-24)}.chess-mode-list>button i{width:var(--q-space-24);overflow:hidden;color:transparent;position:relative}.chess-mode-list>button i::after{content:'›';position:absolute;inset:0;display:grid;place-items:center;color:var(--q-muted);font-size:var(--q-type-title)}
 }
