@@ -81,13 +81,17 @@ test('online player count opens a contained scrollable live player list', async 
     name: ['GreenRook475', 'Chess960', 'KnightWave', 'RookRunner', 'QuietBishop', 'CastleKing', 'OpenFile', 'RapidKnight', 'EndgameFox', 'TacticalPawn'][index],
     state: index === 1 || index === 8 ? 'game' : index === 5 ? 'away' : 'online',
   }));
-  await page.route('**/presence*', async route => {
+  await page.route('**/__qqurz_test_api/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/presence/players')) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: players.length, presence: { online: 8, away: 1, game: 2 }, players }) });
       return;
     }
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: players.length, presence: { online: 8, away: 1, game: 2 } }) });
+    if (url.pathname.endsWith('/presence/ping')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: players.length, presence: { online: 8, away: 1, game: 2 } }) });
+      return;
+    }
+    await route.continue();
   });
   await page.goto('/');
   const onlineButton = page.locator('.home-online-status');
