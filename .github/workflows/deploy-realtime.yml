@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: api-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   resolve:
@@ -258,6 +258,6 @@ jobs:
           echo "### QQURZ API deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: **${{ needs.resolve.outputs.target }}**" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release: \`${{ steps.source.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Normal branch deployment was released only after the complete quality workflow succeeded." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch pushes publish the exact immutable source commit after deployment architecture and server checks succeed." >> "$GITHUB_STEP_SUMMARY"
           echo "- Worker publication is atomic; failed post-deploy health checks request an automatic rollback." >> "$GITHUB_STEP_SUMMARY"
           echo "- Payments: nonproduction test-only; production remains fail-closed" >> "$GITHUB_STEP_SUMMARY"
