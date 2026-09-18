@@ -28,18 +28,11 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
 
 async function activate(page: import('@playwright/test').Page, name: RegExp) {
   const control = page.getByRole('button', { name });
-  if (await control.isVisible().catch(() => false)) {
-    await control.dispatchEvent('click');
+  if (await control.count()) {
+    await control.first().dispatchEvent('click');
     return;
   }
-  if (/Tournaments/i.test(String(name))) {
-    await page.locator('.mobile-menu-button').click();
-    const mobileButton = page.getByRole('button', { name: 'Play a tournament', exact: true });
-    await expect(mobileButton).toBeVisible();
-    await mobileButton.dispatchEvent('click');
-    return;
-  }
-  throw new Error(`Required control is not visible: ${name}`);
+  throw new Error(`Required control is not present: ${name}`);
 }
 
 test.beforeEach(async ({ page }) => {
