@@ -345,11 +345,13 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const clockFor = (color: 'white' | 'black') => formatClockMs(color === 'white' ? whiteMs : blackMs);
   const opponentOfferedDraw = Boolean(gameSession?.drawOffers[opponentColor]);
   const youOfferedDraw = Boolean(seat && gameSession?.drawOffers[seat.color]);
-  const connectionLabel = connection === 'connected' ? 'Connected'
-    : connection === 'reconnecting' ? 'Reconnecting…'
-      : connection === 'connecting' ? 'Connecting…'
-        : connection === 'error' ? 'Connection problem'
-          : connection === 'closed' ? 'Offline' : 'Starting…';
+  const connectionLabel = gameSession?.state === 'READY' && snapshot?.players.black
+    ? 'Starting game…'
+    : connection === 'connected' ? 'Connected'
+      : connection === 'reconnecting' ? 'Reconnecting…'
+        : connection === 'connecting' ? 'Connecting…'
+          : connection === 'error' ? 'Connection problem'
+            : connection === 'closed' ? 'Offline' : 'Starting…';
 
   if (!seat) return (
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
