@@ -132,7 +132,7 @@ export default function AppShell() {
   useEffect(() => {
     if (!onboardingComplete || !multiplayerConfigured) return;
     const onVisibility = () => { if (document.visibilityState === 'visible') void refreshPresence(); };
-    void retryPresence();
+    void refreshPresence();
     const timer = window.setInterval(() => void refreshPresence(), 20_000);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
