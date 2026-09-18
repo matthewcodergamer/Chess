@@ -21,3 +21,22 @@ h1,h2,h3,p{margin-top:0}
 .board-player-bar>strong,.online-clock-row strong,.qqurz-clock-lcd strong,.strategy-overlay>div>strong{font-variant-numeric:tabular-nums}
 code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace}
 .text-back{font-size:var(--q-type-label);font-weight:720}
+
+/* Product hierarchy: sentence case by default; weight, not capitalization, carries emphasis. */
+.qqurz-product-system {
+  text-transform: none;
+}
+.qqurz-product-system h1 { font-weight: 800; }
+.qqurz-product-system h2 { font-weight: 700; }
+.qqurz-product-system h3 { font-weight: 650; }
+.qqurz-product-system p { font-weight: 400; }
+.qqurz-product-system small { font-weight: 450; }
+.qqurz-product-system .eyebrow,
+.qqurz-product-system .chess-eyebrow,
+.qqurz-product-system .qqurz-kicker,
+.qqurz-product-system .matchmaking-eyebrow {
+  font-weight: 550;
+  text-transform: none;
+}
+.qqurz-product-system button { font-weight: 650; }
+.qqurz-product-system .qqurz-button { font-weight: 700; }
