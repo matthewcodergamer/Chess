@@ -219,15 +219,15 @@ jobs:
             esac
           fi
           case "$api" in https://*) ;; *) echo 'API_BASE_URL must use HTTPS.' >&2; exit 1 ;; esac
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 24); do
             if payload="$(curl --retry 2 --retry-delay 2 --retry-all-errors --retry 404 --fail --silent --show-error "$api/_health")"; then
               if node -e 'const p=JSON.parse(process.argv[1]);process.exit(p.ok&&p.environment===process.argv[2]&&p.release===process.argv[3]?0:1)' "$payload" "$TARGET" "$RELEASE_SHA"; then
                 echo "API health check passed for $TARGET ($RELEASE_SHA) on attempt $attempt."
                 exit 0
               fi
-              echo "Health endpoint responded, but deployment metadata is not propagated yet (attempt $attempt/12)." >&2
+              echo "Health endpoint responded, but deployment metadata is not propagated yet (attempt $attempt/24)." >&2
             else
-              echo "Health endpoint is not ready yet (attempt $attempt/12)." >&2
+              echo "Health endpoint is not ready yet (attempt $attempt/24)." >&2
             fi
             sleep 5
           done
