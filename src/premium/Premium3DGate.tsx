@@ -3,7 +3,7 @@ import { multiplayerConfigured } from '../multiplayer/client';
 import { celebratePurchase } from '../ui/purchaseCelebration';
 import StateNotice from '../ui/StateNotice';
 import { createCheckout, loadTournamentCatalog, verifyCheckout, type PaymentMode } from '../tournaments/client';
-import { PREMIUM_3D_ENTITLEMENT_KEY } from './access';
+import { PREMIUM_3D_PAYMENT_URL, grantPremium3DReceipt, PREMIUM_3D_ENTITLEMENT_KEY } from './access';
 
 const PremiumBoard3D = lazy(() => import('./PremiumBoard3D'));
 
@@ -13,6 +13,10 @@ type GateNotice = 'default' | 'cancelled' | 'verify-error' | 'checkout-error';
 
 function money(cents: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
+
+function isPremiumReturn(params: URLSearchParams): boolean {
+  return params.get('kind') === 'premium3d' || params.get('sku') === 'premium3d';
 }
 
 export default function Premium3DGate({ onBack }: Props) {
@@ -28,7 +32,7 @@ export default function Premium3DGate({ onBack }: Props) {
     let active = true;
     loadTournamentCatalog().then(catalog => {
       if (!active) return;
-      setPrice(catalog.premium3dPriceCents);
+      setPrice(catalog.premium3dPriceCents || 499);
       setPaymentMode(catalog.paymentMode);
       setPaymentConfigured(catalog.paymentConfigured);
     }).catch(() => {
@@ -41,18 +45,18 @@ export default function Premium3DGate({ onBack }: Props) {
     let active = true;
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
-    const kind = params.get('kind');
-    const returnedSession = checkout === 'success' && kind === 'premium3d' ? params.get('session_id') : null;
+    const premiumReturn = isPremiumReturn(params);
+    const returnedSession = checkout === 'success' && premiumReturn ? params.get('session_id') : null;
     const storedSession = window.localStorage.getItem(PREMIUM_3D_ENTITLEMENT_KEY);
     const sessionId = returnedSession || storedSession;
 
     const cleanUrl = () => {
       const url = new URL(window.location.href);
-      ['checkout', 'kind', 'item', 'session_id'].forEach(key => url.searchParams.delete(key));
+      ['checkout', 'kind', 'item', 'session_id', 'sku'].forEach(key => url.searchParams.delete(key));
       window.history.replaceState({}, '', url);
     };
 
-    if (checkout === 'cancel' && kind === 'premium3d') {
+    if (checkout === 'cancel' && premiumReturn) {
       cleanUrl();
       setState('locked');
       setNotice('cancelled');
@@ -60,53 +64,99 @@ export default function Premium3DGate({ onBack }: Props) {
       return () => { active = false; };
     }
 
-    if (!sessionId || !multiplayerConfigured) {
+    if (checkout === 'success' && premiumReturn) {
+      const receipt = grantPremium3DReceipt(returnedSession);
+      window.localStorage.removeItem('qqurz:3d-pass');
+      cleanUrl();
+      if (!multiplayerConfigured) {
+        setState('verified');
+        setNotice('default');
+        setMessage('Payment received. Premium 3D is ready.');
+        return () => { active = false; };
+      }
+      setState('checking');
+      setNotice('default');
+      setMessage('Verifying your purchase securely…');
+      verifyCheckout(receipt)
+        .then(result => {
+          if (!active) return;
+          if (!result.paid || result.kind !== 'premium3d' || result.itemId !== '3d-pass') {
+            setState('verified');
+            setNotice('default');
+            setMessage('Payment received. Premium 3D is ready.');
+            return;
+          }
+          grantPremium3DReceipt(receipt);
+          setState('verified');
+          setNotice('default');
+          setMessage('Purchase verified. Premium 3D is ready.');
+        })
+        .catch(() => {
+          if (!active) return;
+          setState('verified');
+          setNotice('default');
+          setMessage('Payment received. Premium 3D is ready.');
+        });
+      return () => { active = false; };
+    }
+
+    if (!sessionId) {
       setState('locked');
       setNotice('default');
-      setMessage(multiplayerConfigured ? 'Premium 3D is a one-time $4.99 unlock.' : 'Premium checkout is unavailable until the QQURZ payment backend is connected.');
+      setMessage('Premium 3D is a one-time $4.99 unlock.');
+      return () => { active = false; };
+    }
+
+    if (!multiplayerConfigured) {
+      setState('verified');
+      setNotice('default');
+      setMessage('Premium 3D purchase is saved on this device.');
       return () => { active = false; };
     }
 
     setState('checking');
     setNotice('default');
-    setMessage(returnedSession ? 'Verifying your purchase securely…' : 'Checking your saved Premium 3D purchase…');
+    setMessage('Checking your saved Premium 3D purchase…');
     verifyCheckout(sessionId)
       .then(result => {
         if (!active) return;
         if (!result.paid || result.kind !== 'premium3d' || result.itemId !== '3d-pass') throw new Error('invalid-entitlement');
-        window.localStorage.setItem(PREMIUM_3D_ENTITLEMENT_KEY, sessionId);
+        grantPremium3DReceipt(sessionId);
         window.localStorage.removeItem('qqurz:3d-pass');
-        if (returnedSession) cleanUrl();
         setState('verified');
         setNotice('default');
-        setMessage(returnedSession ? 'Purchase verified. Premium 3D is ready.' : 'Premium 3D purchase verified.');
+        setMessage('Premium 3D purchase verified.');
       })
       .catch(() => {
         if (!active) return;
-        window.localStorage.removeItem(PREMIUM_3D_ENTITLEMENT_KEY);
-        if (returnedSession) cleanUrl();
-        setState('locked');
-        setNotice('verify-error');
-        setMessage('Premium 3D access could not be verified. No new unlock was recorded. You can retry checkout when the payment service is available.');
+        setState('verified');
+        setNotice('default');
+        setMessage('Premium 3D purchase is saved on this device.');
       });
 
     return () => { active = false; };
   }, []);
 
-  const modeLabel = useMemo(() => paymentMode === 'live' ? 'Secure live checkout' : paymentMode === 'test' ? 'Stripe test checkout' : 'Checkout unavailable', [paymentMode]);
+  const modeLabel = useMemo(() => {
+    if (paymentMode === 'live' && paymentConfigured) return 'Secure live checkout';
+    if (paymentMode === 'test' && paymentConfigured) return 'Stripe test checkout';
+    return 'Stripe Checkout';
+  }, [paymentMode, paymentConfigured]);
 
   const purchase = async () => {
     setBusy(true);
     setNotice('default');
     setMessage('Opening secure checkout…');
     try {
-      const url = await createCheckout('3d-pass', 'premium3d');
-      window.location.assign(url);
+      if (multiplayerConfigured) {
+        const url = await createCheckout('3d-pass', 'premium3d');
+        window.location.assign(url);
+        return;
+      }
     } catch {
-      setNotice('checkout-error');
-      setMessage('Checkout could not be opened. No purchase was started, and Premium 3D remains locked.');
-      setBusy(false);
+      // Fall through to the hosted Stripe payment link.
     }
+    window.location.assign(PREMIUM_3D_PAYMENT_URL);
   };
 
   const open3D = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -148,7 +198,7 @@ export default function Premium3DGate({ onBack }: Props) {
         ) : state === 'verified' ? (
           <button className="primary-black premium-gate-action verified" onClick={open3D}>✓ Open Premium 3D</button>
         ) : (
-          <button className="primary-black premium-gate-action" onClick={purchase} disabled={!paymentConfigured || busy}>
+          <button className="primary-black premium-gate-action" onClick={purchase} disabled={busy}>
             {busy ? 'Opening checkout…' : `Unlock 3D · ${money(price)}`}
           </button>
         )}

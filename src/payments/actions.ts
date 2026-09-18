@@ -1,5 +1,6 @@
 import { accountToken } from '../account/client';
 import { MULTIPLAYER_API } from '../multiplayer/client';
+import { PREMIUM_3D_PAYMENT_URL } from '../premium/access';
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   if (!MULTIPLAYER_API) throw new Error('The QQURZ payment server is not connected.');
@@ -26,7 +27,14 @@ export async function openWalletDeposit(amountCents: number): Promise<void> {
 }
 
 export async function openPremiumCheckout(): Promise<void> {
-  const result = await postJson<{ checkoutUrl: string }>('/payments/premium/checkout', {});
-  if (!result.checkoutUrl) throw new Error('Stripe did not return a checkout URL.');
-  location.assign(result.checkoutUrl);
+  try {
+    const result = await postJson<{ checkoutUrl: string }>('/payments/premium/checkout', {});
+    if (result.checkoutUrl) {
+      location.assign(result.checkoutUrl);
+      return;
+    }
+  } catch {
+    // Hosted Stripe Checkout is the fallback when the QQURZ payment API is offline.
+  }
+  location.assign(PREMIUM_3D_PAYMENT_URL);
 }
