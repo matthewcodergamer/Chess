@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl';
 import { IconButton, PrimaryButton } from '../ui/controls';
-import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, multiplayerConfigured, type MatchmakingCriteria, type MatchmakingSnapshot } from './client';
+import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, type MatchmakingCriteria, type MatchmakingSnapshot } from './client';
 import type { RoomSeat } from './types';
 
 type Props = { onlinePlayers: number | null; onOnlinePlayers: (count: number) => void; onMatched: (seat: RoomSeat) => void; onBack: () => void };
@@ -46,7 +46,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
   };
 
   const start = async () => {
-    if (!multiplayerConfigured || busy || ticket) return;
+    if (busy || ticket) return;
     setBusy(true);
     setFailed(false);
     const criteria: MatchmakingCriteria = {
@@ -72,6 +72,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
       }
       throw lastError ?? new Error('Matchmaking failed.');
     } catch {
+      // Keep infrastructure details out of the product surface; the next search remains available.
       setFailed(true);
     } finally {
       setBusy(false);
@@ -116,7 +117,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
         </div>
 
         {!searching && !failed && (
-          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon="♞" onClick={start} disabled={!multiplayerConfigured}>
+          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon="♞" onClick={start} >
             Find an opponent
           </PrimaryButton>
         )}
@@ -135,11 +136,6 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
           </div>
         )}
 
-        {!multiplayerConfigured && !searching && (
-          <div className="matchmaking-retry" role="alert">
-            <span>Matchmaking is unavailable.</span>
-          </div>
-        )}
       </div>
     </section>
   );
