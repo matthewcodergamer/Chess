@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import TournamentMasterGrid from './TournamentMasterGrid';
-import LegacyTournamentHub from './LegacyTournamentHub';
+const LegacyTournamentHub = lazy(() => import('./LegacyTournamentHub'));
 import { TournamentEngineSkeleton } from '../ui/Skeletons';
 import StateNotice from '../ui/StateNotice';
 
@@ -39,7 +39,7 @@ export default function TournamentHub(props: Props) {
           <button role="tab" aria-selected={false} onClick={() => setSurface('engine')}>Tournament engine</button>
           <button role="tab" aria-selected className="active" onClick={() => setSurface('catalog')}>Preset / test catalog</button>
         </div>
-        <LegacyTournamentHub {...props} />
+        <Suspense fallback={<TournamentEngineSkeleton/>}>\n          <LegacyTournamentHub {...props} />\n        </Suspense>
       </div>
     );
   }
