@@ -49,6 +49,8 @@ type ClientMessage =
   | { type: 'decline_draw' };
 type Env = AccountEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
+  DEPLOYMENT_ENV?: string;
+  RELEASE_ID?: string;
   ALLOWED_ORIGINS?: string;
   STRIPE_SECRET_KEY?: string;
   PAYMENTS_MODE?: string;
@@ -237,7 +239,15 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return cors(request, new Response(null, { status: 204 }), env);
-    if (request.method === 'GET' && url.pathname === '/health') return cors(request, json({ ok: true, service: 'qqurz-chess-realtime', chess960Positions: 960 }), env);
+    if (request.method === 'GET' && url.pathname === '/health') {
+      return cors(request, json({
+        ok: true,
+        service: 'qqurz-chess-realtime',
+        chess960Positions: 960,
+        environment: env.DEPLOYMENT_ENV ?? null,
+        release: env.RELEASE_ID ?? null,
+      }), env);
+    }
 
     if (request.method === 'POST' && url.pathname === '/rooms') {
       const body = await request.json().catch(() => ({})) as Record<string, unknown>;
