@@ -41,34 +41,5 @@
 .home-activity-card,.home-premium-row,.home-ai-row{box-shadow:none}
 .home-activity-card b,.home-premium-row b,.home-ai-row b{font-weight:600}
 
-@media (max-width:720px){
-  .qqurz-home-v24{padding-top:var(--q-space-16);padding-bottom:calc(var(--q-space-32) + env(safe-area-inset-bottom))}
-  .home-dashboard{gap:var(--q-space-16)}
-  .home-player-status{padding:var(--q-space-8);border-radius:var(--q-radius-md);background:color-mix(in srgb,var(--q-surface) 72%,transparent)}
-  .home-player-identity{min-height:var(--q-control-sm);gap:var(--q-space-8)}
-  .home-player-avatar{width:var(--q-control-sm);height:var(--q-control-sm)}
-  .home-player-identity small,.home-online-status small{font-size:var(--q-type-caption);font-weight:500}
-  .home-player-name{font-size:var(--q-type-body);font-weight:560}
-  .home-online-status{min-height:var(--q-control-sm);border-radius:var(--q-radius-sm);padding-inline:var(--q-space-12)}
-  .home-online-status b{font-size:var(--q-type-body-lg);font-weight:650}
-  .home-play-panel{padding:var(--q-space-20);gap:var(--q-space-16);border-radius:var(--q-radius-lg)}
-  .home-play-heading h1{font-size:var(--q-type-title-lg);line-height:1.02}
-  .home-variant-badge{width:var(--q-space-48);height:var(--q-space-48);border-radius:var(--q-radius-sm);font-size:var(--q-type-action);font-weight:750}
-  .home-primary-play{gap:var(--q-space-8)}
-  .home-primary-play .qqurz-button--lg{min-height:var(--q-control-md);font-size:var(--q-type-body-lg);border-radius:var(--q-radius-md)}
-  .home-primary-play small{font-size:var(--q-type-caption);line-height:1.35}
-  .home-secondary-play{gap:var(--q-space-8)}
-  .home-secondary-play .qqurz-button--md{min-height:var(--q-control-md);font-size:var(--q-type-body-lg);border-radius:var(--q-radius-md)}
-  .home-board-area{padding:var(--q-space-12);border-radius:var(--q-radius-lg)}
-  .home-section-heading{padding-inline:var(--q-space-4)}
-  .home-section-heading h2{font-size:var(--q-type-title)}
-  .home-live-board-shell{box-shadow:none}
-}
-
-@media (min-width:721px){
-  .home-play-panel{padding:var(--q-space-24)}
-  .home-primary-play .qqurz-button--lg{min-height:var(--q-control-md)}
-  .home-secondary-play .qqurz-button--md{min-height:var(--q-control-sm)}
-}
 
 .home-player-avatar svg{width:var(--q-space-24);height:var(--q-space-24);display:block}
