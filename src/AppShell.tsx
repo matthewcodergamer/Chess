@@ -193,7 +193,7 @@ export default function AppShell() {
     );
   }
 
-  const onlineLabel = onlinePlayers === null ? 'Connecting…' : `${onlinePlayers.toLocaleString()} online`;
+  const onlineLabel = onlinePlayers === null ? 'Online' : `${onlinePlayers.toLocaleString()} online`;
   const roomParam = new URLSearchParams(window.location.search).get('room')?.trim() ?? '';
   const invalidInvite = Boolean(roomParam && !/^[A-Z0-9]{6}$/i.test(roomParam));
   const createFreshRoom = () => {
