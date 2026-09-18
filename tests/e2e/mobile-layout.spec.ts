@@ -64,3 +64,23 @@ test('home controls remain usable after scrolling and returning', async ({ page 
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.getByRole('button', { name: 'Play a friend', exact: true })).toBeVisible();
 });
+
+
+test('online player count opens the live player list', async ({ page }) => {
+  await page.route('**/presence*', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/presence/players')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: 3, presence: { online: 2, away: 0, game: 1 }, players: [{ name: 'GreenRook475', state: 'online' }, { name: 'Chess960', state: 'game' }, { name: 'KnightWave', state: 'online' }] }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onlinePlayers: 3, presence: { online: 2, away: 0, game: 1 } }) });
+  });
+  await page.goto('/');
+  const onlineButton = page.getByRole('button', { name: /3 online.*Show online players/i });
+  await expect(onlineButton).toBeVisible();
+  await onlineButton.click();
+  await expect(page.getByRole('region', { name: 'Online players' })).toBeVisible();
+  await expect(page.getByText('GreenRook475', { exact: true })).toBeVisible();
+  await expect(page.getByText('Chess960', { exact: true })).toBeVisible();
+  await expect(page.getByText('KnightWave', { exact: true })).toBeVisible();
+});
