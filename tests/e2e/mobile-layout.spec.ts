@@ -82,6 +82,8 @@ test('online player count opens a contained scrollable live player list', async 
   await page.goto('/');
   const onlineButton = page.getByRole('button', { name: /10 online.*Show online players/i });
   await expect(onlineButton).toBeVisible();
+  await expect(onlineButton).toContainText('10 online');
+  await expect(onlineButton).toContainText('Chess960 players');
   await onlineButton.click();
 
   const popover = page.getByRole('region', { name: 'Online players' });
@@ -99,4 +101,20 @@ test('online player count opens a contained scrollable live player list', async 
   if (metrics.rowCount !== 10) throw new Error(`expected 10 player rows, got ${metrics.rowCount}`);
   if (metrics.scrollHeight <= metrics.clientHeight) throw new Error('online player list should scroll inside the popover');
   if (metrics.clientHeight > 260) throw new Error(`online player list exposes too many rows at once: ${metrics.clientHeight}px`);
+
+  const bounds = await popover.boundingBox();
+  const viewport = page.viewportSize();
+  if (!bounds || !viewport) throw new Error('could not measure online player popover');
+  if (bounds.x < 0 || bounds.x + bounds.width > viewport.width) {
+    throw new Error(`online player popover overflows viewport: x=${bounds.x}, width=${bounds.width}, viewport=${viewport.width}`);
+  }
+});
+
+
+test('matchmaking screen has a clear mobile hierarchy', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Find an opponent/i }).first().click();
+  await expect(page.getByRole('heading', { name: 'Find an opponent.' })).toBeVisible();
+  await expect(page.getByText('Chess960 · 10+5', { exact: true })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
