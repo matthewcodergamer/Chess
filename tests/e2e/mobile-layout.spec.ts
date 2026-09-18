@@ -49,6 +49,16 @@ test('home is playable and never overflows an iPhone viewport', async ({ page })
   await expectNoHorizontalOverflow(page);
 });
 
+
+test('brand and navigation stay polished on desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('.qqurz-wordmark .wordmark-pawn')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'qqurzchess home' })).toContainText('qqurzchess');
+  await expect(page.locator('.desktop-chess-nav')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test('tournament screen stays inside the viewport', async ({ page }) => {
   await page.goto('/');
   await activate(page, /^(Open tournaments|Tournaments|Play a tournament)$/);
