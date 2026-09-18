@@ -314,7 +314,7 @@ export class ChessRoom extends DurableObject<Env> {
           // Matchmaking allocates both seats atomically. Keep the reserved room in READY
           // until both matched browsers have connected; syncConnectionState then
           // promotes it to ACTIVE and starts the authoritative game clock.
-          state: body.matchmaking ? 'READY' : 'LOBBY',
+          state: body.matchmaking ? 'ACTIVE' : 'LOBBY',
           positionId,
           fen,
           sideToMove: 'white',
