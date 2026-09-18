@@ -224,13 +224,14 @@ export default function AppShell() {
 
       <div id="qqurz-main-content" className="qqurz-main-content" tabIndex={-1}>
         {serverUnavailable && serverScreen && !invalidInvite && (
-          <div className="qqurz-content-page">
+          <div className="qqurz-content-page qqurz-service-status-page">
             <StateNotice
               tone="warning"
+              className="service-unavailable-notice compact"
               icon="↻"
               eyebrow="LIVE SERVICES"
-              title="The QQURZ server isn’t responding"
-              body={<p>Your local chess modes still work. No move, registration, or payment action was accepted by the live server while it was unreachable.</p>}
+              title="Online services are temporarily unavailable"
+              body={<p>We can’t reach the live server right now. Your local chess games are still available.</p>}
               actions={[
                 { label: 'Retry server', onClick: () => void retryPresence(), primary: true },
                 { label: 'Play local instead', onClick: () => openLocal('human') },
