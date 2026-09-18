@@ -85,6 +85,6 @@ export class CanonicalChessRoom extends NotifyingChessRoom {
     await this.project(room,movePayload&&timing?{uci:String(movePayload.uci ?? '').toLowerCase(),moverColor:beforeColor,clientSentAt:Number.isFinite(movePayload.clientSentAt)?Number(movePayload.clientSentAt):null,timing}:undefined).catch(()=>undefined);
   }
   override async alarm(): Promise<void> { await super.alarm(); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
-  override async webSocketClose(): Promise<void> { await super.webSocketClose(); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
-  override async webSocketError(): Promise<void> { await super.webSocketError(); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
+  override async webSocketClose(ws: WebSocket): Promise<void> { await super.webSocketClose(ws); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
+  override async webSocketError(ws: WebSocket): Promise<void> { await super.webSocketError(ws); await this.project(this.canonicalInternals().room).catch(()=>undefined); }
 }
