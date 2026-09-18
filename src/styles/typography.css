@@ -1,16 +1,16 @@
-/* Application typography. Use the filled product sans until the supplied Okine webfont can be embedded without outline variants. */
+/* Application typography: hierarchy comes from size, weight and spacing; labels stay readable in normal case. */
 body,.qqurz-product-system,.qqurz-product-system button,.qqurz-product-system input,.qqurz-product-system select,.qqurz-product-system textarea{font-family:var(--chess-ui);font-size:var(--q-type-body);line-height:var(--q-leading-body);letter-spacing:var(--q-tracking-ui)}
 h1,h2,h3,p{margin-top:0}
 .qqurz-product-system h1,.qqurz-product-system h2,.qqurz-product-system h3,.qqurz-product-system .end-title{font-family:var(--chess-ui);font-weight:760;letter-spacing:var(--q-tracking-tight)}
 .wordmark-copy b{font-family:var(--chess-ui);font-size:var(--q-type-action-lg);letter-spacing:-.035em;color:var(--q-text);-webkit-text-fill-color:currentColor;text-shadow:none}
 .wordmark-copy small{margin-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-caption);font-weight:720;letter-spacing:var(--q-tracking-label);text-transform:uppercase}
-.qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:650;letter-spacing:.045em;text-transform:none}
+.qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:650;letter-spacing:.02em;text-transform:none}
 .page-heading-v14 h1,.tournament-title-v22 h1{margin:var(--q-space-12) 0 var(--q-space-12);font-size:var(--q-type-display-page);line-height:.94}
 .page-heading-v14 p,.tournament-title-v22 p{max-width:720px;margin:0;color:var(--q-muted);font-size:var(--q-type-body-lg);line-height:var(--q-leading-copy)}
 .chess-hero-copy h1{margin:var(--q-space-16) 0 var(--q-space-24);font-size:var(--q-type-display-hero);line-height:.84;letter-spacing:-.06em}
 .chess-hero-copy h1 em{font-style:normal;font-weight:800;color:var(--q-action-strong)}
 .chess-hero-copy p{max-width:620px;margin:0;color:var(--q-muted);font-size:var(--q-type-body-lg);line-height:var(--q-leading-copy)}
-.section-title-v24>span{color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:650;letter-spacing:.045em}
+.section-title-v24>span{color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:650;letter-spacing:.02em;text-transform:none}
 .section-title-v24 h2{margin:0;font-size:clamp(var(--q-type-title),5vw,var(--q-type-title-lg))}
 .board-player-bar>strong,.online-clock-row strong,.qqurz-clock-lcd strong,.strategy-overlay>div>strong{font-variant-numeric:tabular-nums}
 code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace}
