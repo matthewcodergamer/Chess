@@ -433,7 +433,15 @@ export class ChessRoom extends DurableObject<Env> {
     if (payload.type === 'accept_draw') return void await this.handleDrawAccept(ws, color);
     if (payload.type === 'decline_draw') return void await this.handleDrawDecline(ws, color);
     if (payload.type === 'resign') {
-      if (!['ACTIVE', 'PAUSED', 'RECONNECTING'].includes(this.room.session.state)) return this.sendError(ws, 'There is no active game to resign.');
+      // Resignation is intentionally idempotent from the client perspective.
+      // A fast double-tap, reconnect, or queued command can arrive after the
+      // first resignation has already transitioned the authoritative room to a
+      // terminal state. Do not surface a misleading "no active game" error;
+      // simply return the canonical result that is already stored on the server.
+      if (!['ACTIVE', 'PAUSED', 'RECONNECTING'].includes(this.room.session.state)) {
+        this.sendSnapshot(ws, attachment.token);
+        return;
+      }
       const now = Date.now();
       if (this.room.session.state === 'ACTIVE' || this.room.session.state === 'RECONNECTING') this.settleActiveClock(now);
       if (this.room.session.resultKind === 'TIMEOUT') {
