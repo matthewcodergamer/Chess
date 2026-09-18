@@ -33,7 +33,7 @@ jobs:
           const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           // Keep the smoke pair on the same low-latency bucket so a real player in the public pool cannot steal one of the two test tickets.\n          const base = {
             variant: 'chess960',
-            ratingRange: 600,
+            ratingRange: 50,
             timeControl: { id: '10+5', baseMs: 600000, incrementMs: 5000 },
             regionPreference: 'global',
             maxLatencyMs: 40,
@@ -41,7 +41,7 @@ jobs:
           async function request(path, init = {}) {
             const response = await fetch(`${api}${path}`, {
               ...init,
-              headers: { 'content-type': 'application/json', ...(init.headers || {}) },
+              headers: { 'content-type': 'application/json', 'x-qqurz-rating': '4000', 'x-qqurz-rating-deviation': '30', 'x-qqurz-rating-provisional': '1', ...(init.headers || {}) },
               cache: 'no-store',
             });
             const text = await response.text();
