@@ -383,7 +383,10 @@ export class ChessRoom extends DurableObject<Env> {
       const token = url.searchParams.get('token') ?? '';
       if (!colorForToken(this.room, token)) return json({ error: 'Invalid room seat token.' }, 401);
       const pair = new WebSocketPair(); const client = pair[0], server = pair[1];
-      this.ctx.acceptWebSocket(server); server.serializeAttachment({ token } satisfies SocketAttachment); await this.syncConnectionState(); this.sendSnapshot(server, token); this.broadcast();
+      this.ctx.acceptWebSocket(server); server.serializeAttachment({ token } satisfies SocketAttachment);
+      const color = colorForToken(this.room, token);
+      await this.syncConnectionState(color ?? undefined, true);
+      this.sendSnapshot(server, token); this.broadcast();
       return new Response(null, { status: 101, webSocket: client });
     }
     return json({ error: 'Not found.' }, 404);
@@ -427,8 +430,16 @@ export class ChessRoom extends DurableObject<Env> {
     this.sendError(ws, 'Unknown command.');
   }
 
-  async webSocketClose(): Promise<void> { await this.syncConnectionState(); this.broadcast(); }
-  async webSocketError(): Promise<void> { await this.syncConnectionState(); this.broadcast(); }
+  async webSocketClose(ws: WebSocket): Promise<void> {
+    const attachment = ws.deserializeAttachment() as SocketAttachment | null;
+    const color = attachment && this.room ? colorForToken(this.room, attachment.token) : null;
+    await this.syncConnectionState(color ?? undefined, false); this.broadcast();
+  }
+  async webSocketError(ws: WebSocket): Promise<void> {
+    const attachment = ws.deserializeAttachment() as SocketAttachment | null;
+    const color = attachment && this.room ? colorForToken(this.room, attachment.token) : null;
+    await this.syncConnectionState(color ?? undefined, false); this.broadcast();
+  }
 
   async alarm(): Promise<void> {
     if (!this.room) return;
@@ -452,11 +463,8 @@ export class ChessRoom extends DurableObject<Env> {
 
   private connectedColors(): Set<Color> {
     const colors = new Set<Color>(); if (!this.room) return colors;
-    for (const ws of this.ctx.getWebSockets()) {
-      const attachment = ws.deserializeAttachment() as SocketAttachment | null;
-      const color = attachment ? colorForToken(this.room, attachment.token) : null;
-      if (color) colors.add(color);
-    }
+    if (this.room.session.connection.white) colors.add('white');
+    if (this.room.session.connection.black) colors.add('black');
     return colors;
   }
   private snapshotForToken(token: string | null) { if (!this.room) throw new Error('Room state unavailable.'); return makeSnapshot(this.room, this.connectedColors(), token); }
@@ -819,11 +827,12 @@ export class ChessRoom extends DurableObject<Env> {
       // Account history is supplemental; never block the authoritative chess room from persisting.
     }
   }
-  private async syncConnectionState(): Promise<void> {
+  private async syncConnectionState(changedColor?: Color, isConnected?: boolean): Promise<void> {
     if (!this.room) return;
-    const connected = this.connectedColors();
-    const white = connected.has('white');
-    const black = connected.has('black');
+    let white = this.room.session.connection.white;
+    let black = this.room.session.connection.black;
+    if (changedColor === 'white' && typeof isConnected === 'boolean') white = isConnected;
+    if (changedColor === 'black' && typeof isConnected === 'boolean') black = isConnected;
     const both = white && Boolean(this.room.players.black) && black;
     const now = Date.now();
     if (this.room.session.state === 'READY' && both) {
