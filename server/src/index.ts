@@ -836,21 +836,36 @@ export class ChessRoom extends DurableObject<Env> {
   private async syncConnectionState(changedColor?: Color, isConnected?: boolean): Promise<void> {
     if (!this.room) return;
 
-    // Derive live connection state from the Durable Object's accepted WebSockets
-    // instead of trusting only persisted booleans. This matters after hibernation
-    // or a Worker restart: both matched seats can still have live sockets while
-    // the persisted connection flags are stale.
-    const connected = new Set<Color>();
+    // For a freshly matched READY room, the persisted connection flags are
+    // intentionally part of the handshake: the first browser may have connected
+    // just before the second browser, and Durable Objects can briefly yield a
+    // socket set that does not yet include the other accepted WebSocket.
+    //
+    // Once a room is ACTIVE/RECONNECTING, derive presence from the authoritative
+    // live socket set so stale persisted flags cannot keep a disconnected player
+    // looking connected after a Worker restart or hibernation.
+    const liveConnected = new Set<Color>();
     for (const ws of this.ctx.getWebSockets()) {
       const attachment = ws.deserializeAttachment() as SocketAttachment | null;
       const socketColor = attachment?.token ? colorForToken(this.room, attachment.token) : null;
-      if (socketColor) connected.add(socketColor);
+      if (socketColor) liveConnected.add(socketColor);
     }
-    if (changedColor && isConnected === true) connected.add(changedColor);
-    if (changedColor && isConnected === false) connected.delete(changedColor);
 
-    const white = connected.has('white');
-    const black = connected.has('black');
+    let white: boolean;
+    let black: boolean;
+    if (this.room.session.state === 'READY') {
+      white = this.room.session.connection.white || liveConnected.has('white');
+      black = this.room.session.connection.black || liveConnected.has('black');
+      if (changedColor === 'white' && typeof isConnected === 'boolean') white = isConnected;
+      if (changedColor === 'black' && typeof isConnected === 'boolean') black = isConnected;
+    } else {
+      white = liveConnected.has('white');
+      black = liveConnected.has('black');
+      if (changedColor === 'white' && isConnected === true) white = true;
+      if (changedColor === 'white' && isConnected === false) white = false;
+      if (changedColor === 'black' && isConnected === true) black = true;
+      if (changedColor === 'black' && isConnected === false) black = false;
+    }
     const both = white && Boolean(this.room.players.black) && black;
     const now = Date.now();
     if (this.room.session.state === 'READY' && both) {
