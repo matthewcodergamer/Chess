@@ -98,7 +98,6 @@ export default function AppShell() {
   const [onlinePlayers, setOnlinePlayers] = useState<number | null>(null);
   const [onlinePlayerList, setOnlinePlayerList] = useState<OnlinePlayer[]>([]);
   const [presenceId] = useState(getPresenceId);
-  const [serverUnavailable, setServerUnavailable] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -110,30 +109,37 @@ export default function AppShell() {
     saveBoardAppearance(boardAppearance);
   }, [boardAppearance]);
 
-  const retryPresence = useCallback(async () => {
+  const refreshPresence = useCallback(async () => {
     if (!onboardingComplete || !multiplayerConfigured) return;
+
+    // Presence is background telemetry. A failed refresh must never take over the UI
+    // or hide the playable parts of the app. Keep the last known values instead.
     try {
       const presence = await pingPresence(profileName(), presenceId);
       setOnlinePlayers(presence.onlinePlayers);
+    } catch {
+      // Keep the last known count and retry on the next background refresh.
+    }
+
+    try {
       const players = await loadOnlinePlayers();
       setOnlinePlayerList(players.players);
-      setServerUnavailable(false);
     } catch {
-      setServerUnavailable(true);
+      // The detailed player list is supplemental; keep the last successful snapshot.
     }
   }, [onboardingComplete, presenceId]);
 
   useEffect(() => {
     if (!onboardingComplete || !multiplayerConfigured) return;
-    const onVisibility = () => { if (document.visibilityState === 'visible') void retryPresence(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') void refreshPresence(); };
     void retryPresence();
-    const timer = window.setInterval(() => void retryPresence(), 20_000);
+    const timer = window.setInterval(() => void refreshPresence(), 20_000);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [onboardingComplete, retryPresence]);
+  }, [onboardingComplete, refreshPresence]);
 
   const prefetchScreen = (next: Screen) => {
     if (!canPrefetch()) return;
@@ -190,7 +196,6 @@ export default function AppShell() {
   const onlineLabel = onlinePlayers === null ? 'Connecting…' : `${onlinePlayers.toLocaleString()} online`;
   const roomParam = new URLSearchParams(window.location.search).get('room')?.trim() ?? '';
   const invalidInvite = Boolean(roomParam && !/^[A-Z0-9]{6}$/i.test(roomParam));
-  const serverScreen = screen === 'online' || screen === 'matchmaking' || screen === 'tournaments';
   const createFreshRoom = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
@@ -223,23 +228,6 @@ export default function AppShell() {
       />
 
       <div id="qqurz-main-content" className="qqurz-main-content" tabIndex={-1}>
-        {serverUnavailable && serverScreen && !invalidInvite && (
-          <div className="qqurz-content-page qqurz-service-status-page">
-            <StateNotice
-              tone="warning"
-              className="service-unavailable-notice compact"
-              icon="↻"
-              eyebrow="LIVE SERVICES"
-              title="Online services are temporarily unavailable"
-              body={<p>We can’t reach the live server right now. Your local chess games are still available.</p>}
-              actions={[
-                { label: 'Retry server', onClick: () => void retryPresence(), primary: true },
-                { label: 'Play local instead', onClick: () => openLocal('human') },
-              ]}
-            />
-          </div>
-        )}
-
         {screen === 'home' && (
           <HomeDashboard
             onlineLabel={onlineLabel}
