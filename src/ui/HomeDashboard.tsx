@@ -86,8 +86,8 @@ export default function HomeDashboard({
             <span className="home-online-chevron" aria-hidden="true">⌄</span>
           </button>
           {onlineListOpen && <div id="home-online-player-list" className="home-online-popover" role="region" aria-label="Online players">
-            <div className="home-online-popover-head"><div><b>Online players</b><small>Players visible right now</small></div><span>{onlinePlayers.length}</span></div>
-            {onlinePlayers.length ? <ul>{onlinePlayers.map(player => <li key={`${player.name}-${player.state}`}><span className={`presence-dot presence-dot--${player.state}`} /><span>{player.name}</span><small>{player.state === 'game' ? 'In a game' : player.state === 'away' ? 'Away' : 'Online'}</small></li>)}</ul> : <p>No other players are currently visible.</p>}
+            <div className="home-online-popover-head"><div><b>Online players</b><small>Players visible right now</small></div><span>{onlinePlayers.length || onlineLabel}</span></div>
+            {onlinePlayers.length ? <ul>{onlinePlayers.map(player => <li key={`${player.name}-${player.state}`}><span className={`presence-dot presence-dot--${player.state}`} /><span>{player.name}</span><small>{player.state === 'game' ? 'In a game' : player.state === 'away' ? 'Away' : 'Online'}</small></li>)}</ul> : <p>{onlineLabel === 'Connecting…' ? 'Player details are loading…' : onlineLabel === '0 online' ? 'No other players are currently visible.' : `Online count is ${onlineLabel}; player details are still syncing.`}</p>}
             <button className="home-online-find" onClick={onMatchmaking}>Find an opponent</button>
           </div>}
         </div>
