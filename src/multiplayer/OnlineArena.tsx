@@ -365,7 +365,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   return (
     <section className="online-room-shell" data-game-state={gameSession?.state ?? 'LOBBY'}>
       <header className="online-room-header match-room-header">
-        <div><strong>{variant === 'tournament' ? 'Tournament' : 'Live room'} · {seat.code}</strong> <small className={`room-connection-state ${connection}`} role="status" aria-live="polite">● {connectionLabel}</small></div>
+        <div><strong>{variant === 'tournament' ? 'Tournament game' : 'Live game'} · {seat.code}</strong> <small className={`room-connection-state ${connection}`} role="status" aria-live="polite">● {connectionLabel}</small></div>
         <div className="online-header-actions">{canLeave ? <button onClick={onClose}>Leave</button> : <span className="game-locked-pill">Game in progress</span>}</div>
       </header>
       {snapshot ? <div className="online-game-grid match-game-grid">
