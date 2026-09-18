@@ -70,3 +70,5 @@
   .home-primary-play .qqurz-button--lg{min-height:var(--q-control-md)}
   .home-secondary-play .qqurz-button--md{min-height:var(--q-control-sm)}
 }
+
+.home-player-avatar svg{width:var(--q-space-24);height:var(--q-space-24);display:block}
