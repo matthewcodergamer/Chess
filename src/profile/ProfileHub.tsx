@@ -40,6 +40,21 @@ function flagFor(code: string): string {
   return String.fromCodePoint(...[...code].map(letter => 127397 + letter.charCodeAt(0)));
 }
 
+function GoogleIcon() {
+  return <svg className="account-social-icon google" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#4285F4" d="M21.35 12.27c0-.7-.06-1.37-.18-2.02H12v3.82h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.19Z"/>
+    <path fill="#34A853" d="M12 21.92c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.93-3.31.93-2.54 0-4.7-1.72-5.47-4.03H3.29v2.53A9.75 9.75 0 0 0 12 21.92Z"/>
+    <path fill="#FBBC05" d="M6.53 14.01a5.86 5.86 0 0 1 0-3.74V7.74H3.29a9.76 9.76 0 0 0 0 8.8l3.24-2.53Z"/>
+    <path fill="#EA4335" d="M12 6.24c1.43 0 2.72.49 3.73 1.46l2.8-2.8C16.83 3.34 14.63 2.42 12 2.42a9.75 9.75 0 0 0-8.71 5.32l3.24 2.53C7.3 7.96 9.46 6.24 12 6.24Z"/>
+  </svg>;
+}
+
+function AppleIcon() {
+  return <svg className="account-social-icon apple" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M17.05 12.54c-.02-2.03 1.66-3 1.74-3.05-.95-1.39-2.42-1.58-2.94-1.6-1.24-.13-2.44.74-3.07.74-.64 0-1.63-.73-2.67-.71-1.37.02-2.63.8-3.34 2.02-1.43 2.48-.36 6.13 1.02 8.14.69.98 1.49 2.07 2.56 2.03 1.03-.04 1.42-.66 2.66-.66 1.24 0 1.59.66 2.68.64 1.11-.02 1.81-.99 2.47-1.98.78-1.14 1.1-2.25 1.12-2.31-.02-.01-2.21-.85-2.23-3.26Zm-2.02-5.97c.56-.68.94-1.62.84-2.57-.81.03-1.79.54-2.37 1.22-.52.6-.98 1.56-.86 2.48.9.07 1.83-.46 2.39-1.13Z"/>
+  </svg>;
+}
+
 function dateLabel(value: number): string {
   try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
   catch { return new Date(value).toLocaleString(); }
@@ -251,10 +266,19 @@ export default function ProfileHub({ onBack }: Props) {
             </form>
           )}
 
-          <div className="account-social-gate" aria-label="Social sign-in status">
-            <div><b>Apple</b><small>{socialStatus.apple ? 'Available' : 'Not enabled yet'}</small></div>
-            <div><b>Google</b><small>{socialStatus.google ? 'Available' : 'Not enabled yet'}</small></div>
-            <p>Social sign-in stays gated until ordinary QQURZ authentication, recovery and verification are operating reliably in production.</p>
+          <div className="account-social-gate" aria-label="Social sign-up options">
+            <div className="account-social-heading"><span><b>Sign up faster</b><small>Social accounts will be added after provider authentication is configured.</small></span></div>
+            <div className="account-social-actions">
+              <button type="button" className="account-social-button" disabled aria-label="Sign up with Google — coming soon">
+                <GoogleIcon />
+                <span><b>Sign up with Google</b><small>{socialStatus.google ? 'Provider ready' : 'Coming soon'}</small></span>
+              </button>
+              <button type="button" className="account-social-button" disabled aria-label="Sign up with Apple — coming soon">
+                <AppleIcon />
+                <span><b>Sign up with Apple</b><small>{socialStatus.apple ? 'Provider ready' : 'Coming soon'}</small></span>
+              </button>
+            </div>
+            <p>These controls stay non-clickable until the server has a real OAuth flow. Your email/password account is fully separate and remains available now.</p>
           </div>
         </section>
       </div>
