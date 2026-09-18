@@ -1,4 +1,4 @@
-/* Application typography: hierarchy comes from size, weight and spacing. Body copy stays quiet; weight is reserved for actions and key facts. */
+/* Product typography: sentence case by default. Weight, size and spacing—not all-caps—carry hierarchy. */
 body,.qqurz-product-system,.qqurz-product-system button,.qqurz-product-system input,.qqurz-product-system select,.qqurz-product-system textarea{font-family:var(--chess-ui);font-size:var(--q-type-body);line-height:var(--q-leading-body);letter-spacing:var(--q-tracking-ui)}
 h1,h2,h3,p{margin-top:0}
 .qqurz-product-system h1,.qqurz-product-system h2,.qqurz-product-system h3,.qqurz-product-system .end-title{font-family:var(--chess-ui);letter-spacing:var(--q-tracking-tight)}
@@ -7,7 +7,7 @@ h1,h2,h3,p{margin-top:0}
 .qqurz-product-system h3{font-weight:680}
 .qqurz-product-system p{font-weight:400}
 .qqurz-product-system small{font-weight:500}
-.qqurz-product-system .eyebrow,.qqurz-product-system .chess-eyebrow,.qqurz-product-system .qqurz-kicker,.qqurz-product-system .matchmaking-eyebrow{font-weight:600;letter-spacing:.015em;text-transform:none}
+.qqurz-product-system .eyebrow,.qqurz-product-system .chess-eyebrow,.qqurz-product-system .qqurz-kicker,.qqurz-product-system .matchmaking-eyebrow{font-weight:550;letter-spacing:.015em;text-transform:none}
 .wordmark-copy b{font-family:var(--chess-ui);font-size:var(--q-type-action-lg);letter-spacing:-.035em;color:var(--q-text);-webkit-text-fill-color:currentColor;text-shadow:none}
 .wordmark-copy small{margin-top:var(--q-space-4);color:var(--q-muted);font-size:var(--q-type-caption);font-weight:720;letter-spacing:var(--q-tracking-label);text-transform:uppercase}
 .qqurz-kicker,.chess-eyebrow,.eyebrow,.matchmaking-eyebrow{display:inline-block;color:var(--q-action-strong);font-size:var(--q-type-label-sm);font-weight:600;letter-spacing:.015em;text-transform:none}
@@ -40,3 +40,9 @@ code,.local-fast-side h2{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,mo
 }
 .qqurz-product-system button { font-weight: 650; }
 .qqurz-product-system .qqurz-button { font-weight: 700; }
+
+
+/* Intentional emphasis scale: body is quiet; only headings, key facts and actions get heavier. */
+.qqurz-product-system :where(.online-room-header strong,.match-game-meta b,.match-turn-note.active,.result-banner,.room-code-display){font-weight:700}
+.qqurz-product-system :where(.online-room-header small,.match-game-meta span,.match-options-panel span,.online-room-shell p,.online-room-shell small){font-weight:400}
+.qqurz-product-system :where(.online-primary,.online-actions-grid button,.match-controls button,.auction-actions button,.overlay-start-button){font-weight:650}
