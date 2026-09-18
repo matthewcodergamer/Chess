@@ -102,6 +102,9 @@ jobs:
                   }
                 };
                 connection.ws.addEventListener('message', handler);
+                // Ask the authoritative room for a fresh snapshot after the
+                // listener is installed, avoiding a READY -> ACTIVE race in CI.
+                try { connection.ws.send(JSON.stringify({ type: 'sync' })); } catch {}
               });
             }
             const [activeFirst, activeSecond] = await Promise.all([
