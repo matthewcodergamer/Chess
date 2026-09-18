@@ -352,7 +352,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
           : connection === 'closed' ? 'Offline' : 'Starting…';
 
   if (!seat) return (
-    <section className="online-lobby-panel" aria-label="Online Multiplayer lobby">
+    <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
       <div className="online-lobby-heading"><div><span className="eyebrow">Online Multiplayer</span><h3>{variant === 'tournament' ? 'Enter the tournament room' : 'Play across different internet connections'}</h3><p>Create or join a six-character room. The server keeps the shared Chess960 game state authoritative.</p></div><span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>{multiplayerConfigured ? 'Server configured' : 'Backend connection required'}</span></div>
       <WalletPanel />
       <label className="online-field"><span>Your display name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
@@ -430,7 +430,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             <div><span>Time control</span><b>{gameSession ? timeControlLabel(gameSession.clocks.baseMs, gameSession.clocks.incrementMs) : roomTimeControl.label}</b></div>
             <div><span>Increment</span><b>{(gameSession?.clocks.incrementMs ?? 0) / 1000}s</b></div>
             <div className="match-options-actions"><button onClick={copyInvite}>{copied ? 'Invite copied ✓' : 'Copy invite link'}</button>{canLeave && <button onClick={onClose}>Leave room</button>}</div>
-            <div className="match-move-list"><span className="qqurz-kicker">MOVES</span>{gameSession?.movesSan.length ? <ol>{gameSession.movesSan.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div>
+            <div className="match-move-list"><span className="qqurz-kicker">Moves</span>{gameSession?.movesSan.length ? <ol>{gameSession.movesSan.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div>
           </section>}
 
           {message && <p className="online-error">{message}</p>}
