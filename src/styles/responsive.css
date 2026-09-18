@@ -31,12 +31,6 @@
 }
 
 @media (max-width:720px){
-  .qqurz-service-status-page{padding-top:var(--q-space-12)}
-  .service-unavailable-notice{grid-template-columns:auto minmax(0,1fr);gap:var(--q-space-12)}
-  .service-unavailable-notice .state-notice-actions{display:grid;grid-template-columns:1fr}
-  .service-unavailable-notice .state-notice-actions button{width:100%}
-}
-@media (max-width:720px){
   :root{--q-header-h:calc(70px + env(safe-area-inset-top));--q-page-gutter:var(--q-space-16)}
   html{scroll-padding-top:calc(var(--q-header-h) + var(--q-space-12));scroll-padding-bottom:calc(var(--q-space-32) + env(safe-area-inset-bottom))}
   .chess-topbar{box-sizing:border-box;width:100%;max-width:100vw;height:var(--q-header-h);padding:env(safe-area-inset-top) max(var(--q-space-12),env(safe-area-inset-right)) 0 max(var(--q-space-12),env(safe-area-inset-left));grid-template-columns:var(--q-control-sm) minmax(0,1fr) auto;gap:var(--q-space-8);overflow:hidden}
