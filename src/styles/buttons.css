@@ -3,7 +3,7 @@
 .qqurz-product-system button:active:not(:disabled){transform:translateY(1px) scale(.995)}
 .qqurz-product-system button:focus-visible,.qqurz-product-system input:focus-visible,.qqurz-product-system select:focus-visible,.qqurz-product-system textarea:focus-visible{outline:3px solid var(--q-focus-ring);outline-offset:3px}
 
-.qqurz-button{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:0;padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-md);font-size:var(--q-type-body);font-weight:800;line-height:1.1;text-align:center;text-decoration:none;white-space:normal;user-select:none;-webkit-user-select:none;isolation:isolate}
+.qqurz-button{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:0;padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-md);font-size:var(--q-type-body);font-weight:700;line-height:1.1;text-align:center;text-decoration:none;white-space:normal;user-select:none;-webkit-user-select:none;isolation:isolate}
 .qqurz-button--sm{min-height:var(--q-control-sm);padding-inline:var(--q-space-12);font-size:var(--q-type-label)}
 .qqurz-button--md{min-height:var(--q-control-md);padding-inline:var(--q-space-16);font-size:var(--q-type-body)}
 .qqurz-button--lg{min-height:var(--q-control-lg);padding-inline:var(--q-space-24);font-size:var(--q-type-action)}
@@ -40,9 +40,9 @@
 .qqurz-segmented-option:disabled{opacity:.42}
 
 /* Legacy aliases stay visually compatible while screens are migrated onto the React primitives. */
-.primary-black,.chess-primary-action,.matchmaking-find,.qqurz-live-strip>button,.online-primary,.join-room-box button,.lock-color-bid,.settle-color-auction,.local-start{min-height:var(--q-control-md);border:1px solid color-mix(in srgb,var(--q-action) 76%,var(--q-ink-inverse));border-radius:var(--q-radius-md);background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action) 88%,white 12%),var(--q-action));color:var(--q-action-ink);font-size:var(--q-type-action);font-weight:800;box-shadow:var(--q-elevation-action)}
+.primary-black,.chess-primary-action,.matchmaking-find,.qqurz-live-strip>button,.online-primary,.join-room-box button,.lock-color-bid,.settle-color-auction,.local-start{min-height:var(--q-control-md);border:1px solid color-mix(in srgb,var(--q-action) 76%,var(--q-ink-inverse));border-radius:var(--q-radius-md);background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action) 88%,white 12%),var(--q-action));color:var(--q-action-ink);font-size:var(--q-type-action);font-weight:750;box-shadow:var(--q-elevation-action)}
 .primary-black{padding-inline:var(--q-space-24)}
-.secondary-clean,.chess-secondary-action,.online-back,.choose-pattern-button,.online-room-header button,.invite-link-button{min-height:var(--q-control-sm);padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-sm);background:var(--q-surface-2);color:var(--q-text);font-size:var(--q-type-body);font-weight:740}
+.secondary-clean,.chess-secondary-action,.online-back,.choose-pattern-button,.online-room-header button,.invite-link-button{min-height:var(--q-control-sm);padding-inline:var(--q-space-16);border:1px solid var(--q-line);border-radius:var(--q-radius-sm);background:var(--q-surface-2);color:var(--q-text);font-size:var(--q-type-body);font-weight:650}
 .chess-primary-action,.chess-secondary-action{min-height:var(--q-control-lg);padding-inline:var(--q-space-24);display:flex;align-items:center;gap:var(--q-space-12);font-size:var(--q-type-action)}
 .chess-primary-action>span,.chess-secondary-action>span{font-family:Georgia,serif;font-size:var(--q-type-action-lg)}.chess-primary-action i{font-style:normal;margin-left:var(--q-space-8)}
 .resign-button{min-height:var(--q-control-sm);padding-inline:var(--q-space-12);border:1px solid color-mix(in srgb,var(--q-danger) 48%,var(--q-line));border-radius:var(--q-radius-sm);background:var(--q-danger-soft);color:var(--q-danger-strong);font-size:var(--q-type-label);font-weight:800}
