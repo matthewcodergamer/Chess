@@ -38,7 +38,7 @@ type HomeProfile = {
 
 
 function ProfileAvatar({ value }: { value: string }) {
-  const piece = value === '♟' ? 'pawn' : value === '♞' || value === '♘' ? 'knight' : value === '♜' || value === '♖' ? 'rook' : value === '♛' || value === '♕' ? 'queen' : value === '♚' || value === '♔' ? 'king' : null;
+  const piece: Exclude<HomeIconName, 'chevron'> | null = value === '♟' ? 'pawn' : value === '♞' || value === '♘' ? 'knight' : value === '♜' || value === '♖' ? 'rook' : value === '♛' || value === '♕' ? 'queen' : value === '♚' || value === '♔' ? 'king' : null;
   return piece ? <HomeIcon name={piece} /> : <span>{value}</span>;
 }
 
