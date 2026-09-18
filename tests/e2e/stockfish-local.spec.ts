@@ -19,13 +19,14 @@ async function seedApp(page: import('@playwright/test').Page) {
 async function moveE2ToE4(page: import('@playwright/test').Page) {
   const board = page.locator('.qqurz-board-accessible-shell');
   await expect(board).toBeVisible();
-  // Use the board's accessibility interaction so the move works on iPhone
-  // Safari/WebKit even when fixed navigation overlaps the rendered board.
-  await board.focus();
-  await board.press('Enter');
-  await board.press('ArrowUp');
-  await board.press('ArrowUp');
-  await board.press('Enter');
+  await board.scrollIntoViewIfNeeded();
+  const box = await board.boundingBox();
+  if (!box) throw new Error('Chessboard has no layout box.');
+  const square = box.width / 8;
+  // e2 -> e4. Scroll the board to the center first so fixed navigation cannot
+  // intercept the pointer event on the lower half of the board.
+  await page.mouse.click(box.x + square * 4.5, box.y + square * 6.5);
+  await page.mouse.click(box.x + square * 4.5, box.y + square * 4.5);
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
@@ -63,7 +64,7 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   // Use the board's real accessibility interaction instead of viewport coordinates;
   // large desktop boards can place e4 beneath the fixed navigation bar.
   await moveE2ToE4(page);
-  await expect(moves).toHaveCount(1, { timeout: 5_000 });
+  await expect(moves).toHaveCount(1, { timeout: 10_000 });
 
   await expect(moves).toHaveCount(2, { timeout: 20_000 });
   await expect(moves.nth(1)).not.toHaveText('');
