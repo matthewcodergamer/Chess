@@ -71,7 +71,7 @@ jobs:
                 ws.addEventListener('message', event => {
                   let payload;
                   try { payload = JSON.parse(String(event.data)); } catch { return; }
-                  if (payload.type === 'snapshot') { clearTimeout(timer); resolve({ ws, room: payload.room }); }
+                  if (payload.type === 'snapshot' && payload.room?.session?.state === 'ACTIVE') { clearTimeout(timer); resolve({ ws, room: payload.room }); }
                   if (payload.type === 'error') reject(new Error(payload.message));
                 });
                 ws.addEventListener('error', () => reject(new Error('WebSocket connection failed')));
