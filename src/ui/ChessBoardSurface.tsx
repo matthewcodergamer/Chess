@@ -164,7 +164,7 @@ export default function ChessBoardSurface({
       }
       const after = latestConfig.current.movable?.events?.after;
       if (after) {
-        after(keyboardSelectedSquare, keyboardSquare);
+        after(keyboardSelectedSquare, keyboardSquare, undefined);
         setAnnouncement(`Moved from ${keyboardSelectedSquare} to ${keyboardSquare}.`);
       }
       setKeyboardSelectedSquare(null);
