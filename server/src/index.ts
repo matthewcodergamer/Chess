@@ -310,9 +310,11 @@ export class ChessRoom extends DurableObject<Env> {
         code,
         session: createGameSession({
           id: `room-${code}`,
-          // Matchmaking allocates both seats first. The game starts only after both
-          // matched players have actually connected to the authoritative room.
-          state: body.matchmaking ? 'READY' : 'LOBBY',
+          // Matchmaking allocates both seats atomically, so the room is immediately a
+          // real playable game. A player cannot move until their WebSocket is
+          // connected, but the authoritative game state no longer depends on
+          // both sockets arriving before the game exists.
+          state: body.matchmaking ? 'ACTIVE' : 'LOBBY',
           positionId,
           fen,
           sideToMove: 'white',
