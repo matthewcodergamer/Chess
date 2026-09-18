@@ -66,6 +66,16 @@ test('home controls remain usable after scrolling and returning', async ({ page 
 });
 
 
+test('presence outages stay silent and do not replace the home screen', async ({ page }) => {
+  await page.route('**/presence*', route => route.abort());
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Play chess.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Find an opponent', exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Online services are temporarily unavailable', { exact: true })).not.toBeVisible();
+  await expect(page.locator('.qqurz-home-v24')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test('online player count opens a contained scrollable live player list', async ({ page }) => {
   const players = Array.from({ length: 10 }, (_, index) => ({
     name: ['GreenRook475', 'Chess960', 'KnightWave', 'RookRunner', 'QuietBishop', 'CastleKing', 'OpenFile', 'RapidKnight', 'EndgameFox', 'TacticalPawn'][index],
