@@ -78,28 +78,50 @@ jobs:
                 ws.addEventListener('message', event => {
                   let payload;
                   try { payload = JSON.parse(String(event.data)); } catch { return; }
-                  if (payload.type === 'snapshot' && payload.room?.session?.state === 'ACTIVE') { clearTimeout(timer); resolve({ ws, room: payload.room }); }
+                  // The first socket can legitimately see READY until the second
+                  // matched player connects. Resolve on the first snapshot so both
+                  // sockets are opened concurrently, then wait for ACTIVE below.
+                  if (payload.type === 'snapshot' && payload.room) { clearTimeout(timer); resolve({ ws, room: payload.room }); }
                   if (payload.type === 'error') reject(new Error(payload.message));
                 });
                 ws.addEventListener('error', () => reject(new Error('WebSocket connection failed')));
               });
             }
-            const first = await connect(firstSeat);
-            const second = await connect(secondSeat);
-            if (first.room.session?.state !== 'ACTIVE' || second.room.session?.state !== 'ACTIVE') throw new Error(`Matched room is not active: ${first.room.session?.state}/${second.room.session?.state}`);
-            if (!first.room.players?.black || !second.room.players?.black) throw new Error('Matched room does not contain both players');
+            const [first, second] = await Promise.all([connect(firstSeat), connect(secondSeat)]);
+            async function waitForActive(connection, label) {
+              if (connection.room.session?.state === 'ACTIVE') return connection;
+              return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error(`${label} did not reach ACTIVE state`)), 15000);
+                const handler = event => {
+                  let payload;
+                  try { payload = JSON.parse(String(event.data)); } catch { return; }
+                  if (payload.type === 'snapshot' && payload.room?.session?.state === 'ACTIVE') {
+                    clearTimeout(timer);
+                    connection.ws.removeEventListener('message', handler);
+                    resolve({ ws: connection.ws, room: payload.room });
+                  }
+                };
+                connection.ws.addEventListener('message', handler);
+              });
+            }
+            const [activeFirst, activeSecond] = await Promise.all([
+              waitForActive(first, 'first player'),
+              waitForActive(second, 'second player'),
+            ]);
+            if (activeFirst.room.session?.state !== 'ACTIVE' || activeSecond.room.session?.state !== 'ACTIVE') throw new Error(`Matched room is not active: ${activeFirst.room.session?.state}/${activeSecond.room.session?.state}`);
+            if (!activeFirst.room.players?.black || !activeSecond.room.players?.black) throw new Error('Matched room does not contain both players');
             const move = new Promise((resolve, reject) => {
               const timer = setTimeout(() => reject(new Error('Opponent did not receive the first move')), 15000);
-              second.ws.addEventListener('message', event => {
+              activeSecond.ws.addEventListener('message', event => {
                 let payload;
                 try { payload = JSON.parse(String(event.data)); } catch { return; }
                 if (payload.type === 'snapshot' && payload.room?.session?.moveNumber === 1) { clearTimeout(timer); resolve(payload.room); }
               });
             });
-            first.ws.send(JSON.stringify({ type: 'move', uci: 'e2e4', clientSequence: 1, clientSentAt: Date.now() }));
+            activeFirst.ws.send(JSON.stringify({ type: 'move', uci: 'e2e4', clientSequence: 1, clientSentAt: Date.now() }));
             const after = await move;
-            first.ws.close();
-            second.ws.close();
+            activeFirst.ws.close();
+            activeSecond.ws.close();
             return { state: after.session.state, moveNumber: after.session.moveNumber, sideToMove: after.session.sideToMove, room: firstSeat.code };
           }, { api, firstSeat: first.seat, secondSeat: second.seat });
           await browser.close();
