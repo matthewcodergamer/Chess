@@ -96,7 +96,7 @@ const PRE_GAME_STATES = new Set<GameSessionState>(['LOBBY', 'READY', 'COLOR_SELE
 
 const TRANSITIONS: Record<GameSessionState, ReadonlySet<GameSessionState>> = {
   LOBBY: new Set(['READY', 'COLOR_SELECTION', 'COIN_TOSS', 'COUNTDOWN', 'FINAL']),
-  READY: new Set(['COLOR_SELECTION', 'COIN_TOSS', 'COUNTDOWN', 'FINAL']),
+  READY: new Set(['COLOR_SELECTION', 'COIN_TOSS', 'COUNTDOWN', 'ACTIVE', 'FINAL']),
   COLOR_SELECTION: new Set(['COIN_TOSS', 'COUNTDOWN', 'FINAL']),
   COIN_TOSS: new Set(['COUNTDOWN', 'FINAL']),
   COUNTDOWN: new Set(['ACTIVE', 'PAUSED', 'RECONNECTING', 'FINAL']),
