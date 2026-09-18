@@ -16,15 +16,18 @@ async function seedApp(page: import('@playwright/test').Page) {
   }, onboarding);
 }
 
-async function moveByKeyboard(page: import('@playwright/test').Page) {
-  const board = page.locator('.qqurz-board-accessible-shell');
+async function moveE2ToE4(page: import('@playwright/test').Page) {
+  const board = page.locator('.board-mount');
   await expect(board).toBeVisible();
-  await board.focus();
-  // ChessBoardSurface starts keyboard focus on e2 for the white orientation.
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('ArrowUp');
-  await page.keyboard.press('ArrowUp');
-  await page.keyboard.press('Enter');
+  const box = await board.boundingBox();
+  if (!box) throw new Error('Chessboard bounds were unavailable.');
+  // Chess960 keeps pawns on their home rank, so e2-e4 is legal from every position.
+  const square = (file: number, rank: number) => ({
+    x: box.x + (file + 0.5) * box.width / 8,
+    y: box.y + (8 - rank + 0.5) * box.height / 8,
+  });
+  await page.mouse.click(square(4, 2).x, square(4, 2).y);
+  await page.mouse.click(square(4, 4).x, square(4, 4).y);
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
@@ -61,7 +64,8 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   // e2-e4 is legal from every Chess960 starting position and leaves White in control.
   // Use the board's real accessibility interaction instead of viewport coordinates;
   // large desktop boards can place e4 beneath the fixed navigation bar.
-  await moveByKeyboard(page);
+  await moveE2ToE4(page);
+  await expect(moves).toHaveCount(1, { timeout: 5_000 });
 
   await expect(moves).toHaveCount(2, { timeout: 20_000 });
   await expect(moves.nth(1)).not.toHaveText('');
