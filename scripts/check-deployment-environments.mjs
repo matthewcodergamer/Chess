@@ -61,9 +61,13 @@ if (!paymentsModule.includes('decidePaymentEnvironment')) fail('payments module 
 
 const frontendWorkflow = read('.github/workflows/deploy-pages.yml');
 const apiWorkflow = read('.github/workflows/deploy-realtime.yml');
+const apiSource = read('server/src/index.ts');
 if (!frontendWorkflow.includes('wrangler pages deploy')) fail('frontend deployment must target Cloudflare Pages.');
 if (!frontendWorkflow.includes('environment:')) fail('frontend deployment must use GitHub environments.');
 if (!apiWorkflow.includes('wrangler deploy --env')) fail('API deployment must use Wrangler environments.');
 if (!apiWorkflow.includes('environment:')) fail('API deployment must use GitHub environments.');
+if (!apiWorkflow.includes('RELEASE_ID:$RELEASE_SHA')) fail('API deployment must inject the immutable release SHA.');
+if (!apiSource.includes('environment: env.DEPLOYMENT_ENV')) fail('API health must report the deployment environment.');
+if (!apiSource.includes('release: env.RELEASE_ID')) fail('API health must report the deployed release SHA.');
 
 console.log('QQURZ deployment environments OK: Development → Staging → Production, HTTPS-only nonlocal origins, test-only nonproduction payments, production fail-closed payments, SQLite PITR readiness, ordered migrations, and environment-gated Cloudflare deployments.');
