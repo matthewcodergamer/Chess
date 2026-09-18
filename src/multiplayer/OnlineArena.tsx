@@ -353,7 +353,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
 
   if (!seat) return (
     <section className="online-lobby-panel" aria-label="Online multiplayer lobby">
-      <div className="online-lobby-heading"><div><span className="eyebrow">Online Multiplayer</span><h3>{variant === 'tournament' ? 'Enter the tournament room' : 'Play across different internet connections'}</h3><p>Create or join a six-character room. The server keeps the shared Chess960 game state authoritative.</p></div><span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>{multiplayerConfigured ? 'Server configured' : 'Backend connection required'}</span></div>
+      <div className="online-lobby-heading"><div><span className="eyebrow">Online multiplayer</span><h3>{variant === 'tournament' ? 'Enter the tournament room' : 'Play across different internet connections'}</h3><p>Create or join a six-character room. The server keeps the shared Chess960 game state authoritative.</p></div><span className={`server-readiness ${multiplayerConfigured ? 'configured' : ''}`}>{multiplayerConfigured ? 'Server configured' : 'Backend connection required'}</span></div>
       <WalletPanel />
       <label className="online-field"><span>Your display name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
       <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : undefined} allowCustom={variant !== 'tournament'} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
