@@ -68,6 +68,7 @@ export default function ChessBoardSurface({
   const orientation = (config.orientation ?? 'white') as 'white' | 'black';
   const [keyboardSquare, setKeyboardSquare] = useState<Key>(() => orientation === 'white' ? 'e2' : 'e7');
   const [keyboardActive, setKeyboardActive] = useState(false);
+  const [keyboardSelectedSquare, setKeyboardSelectedSquare] = useState<Key | null>(null);
   const [announcement, setAnnouncement] = useState('');
 
   const effectiveConfig = useMemo<QQurzChessgroundConfig>(() => {
@@ -149,8 +150,25 @@ export default function ChessBoardSurface({
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       setKeyboardActive(true);
+      if (!keyboardSelectedSquare) {
+        setKeyboardSelectedSquare(keyboardSquare);
+        ownApi.current?.selectSquare(keyboardSquare);
+        setAnnouncement(`Selected ${keyboardSquare}. Use the arrow keys to move to a destination, then press Enter or Space.`);
+        return;
+      }
+      if (keyboardSelectedSquare === keyboardSquare) {
+        setKeyboardSelectedSquare(null);
+        ownApi.current?.selectSquare(keyboardSquare);
+        setAnnouncement(`Cancelled selection on ${keyboardSquare}.`);
+        return;
+      }
+      const after = latestConfig.current.movable?.events?.after;
+      if (after) {
+        after(keyboardSelectedSquare, keyboardSquare);
+        setAnnouncement(`Moved from ${keyboardSelectedSquare} to ${keyboardSquare}.`);
+      }
+      setKeyboardSelectedSquare(null);
       ownApi.current?.selectSquare(keyboardSquare);
-      setAnnouncement(`Selected ${keyboardSquare}. Use the arrow keys to move to a destination, then press Enter or Space.`);
     }
   };
 
@@ -168,7 +186,7 @@ export default function ChessBoardSurface({
         setAnnouncement(`Keyboard focus ${keyboardSquare}. Use arrow keys to move between squares and Enter or Space to select.`);
       }}
       onKeyDown={onKeyboard}
-      onPointerDown={() => setKeyboardActive(false)}
+      onPointerDown={() => { setKeyboardActive(false); setKeyboardSelectedSquare(null); }}
       data-keyboard-active={keyboardActive ? 'true' : 'false'}
     >
       <div
