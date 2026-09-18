@@ -294,6 +294,7 @@ export class ChessRoom extends DurableObject<Env> {
         blackAccountId?: string | null;
         timeControl?: TimeControlRequest;
         tournamentTemplateId?: TournamentTimeTemplateId;
+        matchmaking?: boolean;
       };
       const code = String(body.code ?? '').toUpperCase();
       if (!/^[A-Z0-9]{6}$/.test(code)) return json({ error: 'Invalid room code.' }, 400);
@@ -307,7 +308,18 @@ export class ChessRoom extends DurableObject<Env> {
       const fen = chess960Fen(positionId);
       this.room = {
         code,
-        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen, sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'CONNECTED', now }),
+        session: createGameSession({
+          id: `room-${code}`,
+          state: body.matchmaking ? 'ACTIVE' : 'LOBBY',
+          positionId,
+          fen,
+          sideToMove: 'white',
+          clockMs: timeControl.baseMs,
+          incrementMs: timeControl.incrementMs,
+          connectionStatus: 'DISCONNECTED',
+          clockStartedAt: body.matchmaking ? null : undefined,
+          now,
+        }),
         lastMoveTiming: null,
         accountResultRecordedAt: null,
         positionHistory: historyForFen(fen),
@@ -321,7 +333,7 @@ export class ChessRoom extends DurableObject<Env> {
         auction: emptyAuction(),
         colorAuction: emptyColorAuction(),
       };
-      this.prepareCoin(now);
+      if (!body.matchmaking) this.prepareCoin(now);
       await this.persist();
       await this.scheduleForState();
       return json({
