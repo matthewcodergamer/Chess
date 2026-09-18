@@ -13,6 +13,13 @@ function source(file) {
   return fs.readFileSync(full, 'utf8');
 }
 
+function requireAbsent(file, needles) {
+  const text = source(file);
+  for (const needle of needles) {
+    if (text.includes(needle)) errors.push(`${file} must not contain the retired UX marker: ${needle}`);
+  }
+}
+
 function requireText(file, needles) {
   const text = source(file);
   for (const needle of needles) {
@@ -22,7 +29,8 @@ function requireText(file, needles) {
 }
 
 requireText('src/ui/StateNotice.tsx', ['state-notice', 'state-notice-actions', 'type="button"']);
-requireText('src/AppShell.tsx', ['This invite link isn’t valid', 'Create a room', 'Retry server', 'Play local instead']);
+requireText('src/AppShell.tsx', ['This invite link isn’t valid', 'Create a room', 'refreshPresence', 'Presence is background telemetry']);
+requireAbsent('src/AppShell.tsx', ['Online services are temporarily unavailable', 'Retry server', 'Play local instead', 'serverUnavailable']);
 requireText('src/game/LocalMatchChrome.tsx', ['Stockfish isn’t available right now', 'Retry Stockfish', 'Play local human']);
 requireText('src/ui/MatchPlayerBar.tsx', ['ReconnectCountdown', 'reconnectingOpponent']);
 requireText('src/payments/WalletPanel.tsx', ['Payment cancelled', 'No purchase was completed', 'Retry wallet']);
