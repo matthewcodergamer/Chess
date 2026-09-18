@@ -69,11 +69,16 @@ function withCors(request: Request, response: Response, env: RealtimeGatewayEnv)
 async function routed(request: Request, env: RealtimeGatewayEnv): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === 'GET' && (url.pathname === '/_health' || url.pathname === '/healthz')) {
-    return json({
+    return new Response(JSON.stringify({
       ok: true,
       service: 'qqurz-chess-api',
       environment: env.DEPLOYMENT_ENV ?? 'development',
       release: env.RELEASE_ID ?? 'unknown',
+    }), {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'no-store, no-cache, must-revalidate',
+      },
     });
   }
 
