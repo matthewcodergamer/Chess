@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { getPresenceId, multiplayerConfigured, pingPresence } from './multiplayer/client';
+import { getPresenceId, loadOnlinePlayers, multiplayerConfigured, pingPresence } from './multiplayer/client';
+import type { OnlinePlayer } from './multiplayer/client';
 import type { RoomSeat } from './multiplayer/types';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
 import { IconButton } from './ui/controls';
@@ -109,7 +110,8 @@ export default function AppV14() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(soundEnabled);
   const [onlineVariant, setOnlineVariant] = useState<'friends' | 'tournament'>('friends');
-  const [onlinePlayers, setOnlinePlayers] = useState<number | null>(null);
+  const [onlineCount, setOnlineCount] = useState<number | null>(null);
+  const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
   const [presenceId] = useState(getPresenceId);
 
   useEffect(() => {
@@ -133,7 +135,13 @@ export default function AppV14() {
     const ping = async () => {
       try {
         const presence = await pingPresence(profileName(), presenceId);
-        if (!stopped) setOnlinePlayers(presence.onlinePlayers);
+        if (!stopped) setOnlineCount(presence.onlinePlayers);
+        try {
+          const players = await loadOnlinePlayers();
+          if (!stopped) setOnlinePlayers(players.players);
+        } catch {
+          // The player list is supplemental; keep the live count when the list endpoint is unavailable.
+        }
       } catch {
         // Presence is informational; a temporary network failure should not block the app.
       }
@@ -247,16 +255,15 @@ export default function AppV14() {
     );
   }
 
-  const onlineLabel = onlinePlayers === null ? 'Connecting…' : `${onlinePlayers.toLocaleString()} online`;
+  const onlineLabel = onlineCount === null ? 'Connecting…' : `${onlineCount.toLocaleString()} online`;
 
   return (
     <main className="qqurz-app-v14 qqurz-app-v22 qqurz-app-v24 qqurz-product-system">
       <header className="qqurz-nav chess-topbar">
         <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}>☰</IconButton>
 
-        <button className="qqurz-wordmark" onClick={goHome} aria-label="QQURZ Chess home">
-          <span className="wordmark-piece" aria-hidden="true">♞</span>
-          <span className="wordmark-copy"><b>QQURZ</b><small>Competitive Chess960</small></span>
+        <button className="qqurz-wordmark" onClick={goHome} aria-label="qqurzchess home">
+          <span className="wordmark-copy"><b>qqurzchess</b></span>
         </button>
 
         <nav className="desktop-chess-nav" aria-label="Primary navigation">
@@ -297,13 +304,13 @@ export default function AppV14() {
 
       {menuOpen && (
         <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
-          <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="QQURZ menu" onPointerDown={event => event.stopPropagation()}>
+          <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="qqurzchess menu" onPointerDown={event => event.stopPropagation()}>
             <div className="drawer-head">
               <button className="qqurz-wordmark" onClick={goHome}><span className="wordmark-piece">♞</span><span className="wordmark-copy"><b>QQURZ</b><small>Chess960</small></span></button>
               <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">×</button>
             </div>
             <nav className="drawer-links" aria-label="Chess menu">
-              <button onClick={() => openScreen('tournaments')} {...intent('tournaments')}><span>♛</span><div><b>Play a tournament</b><small>QQURZ competitive events</small></div></button>
+              <button onClick={() => openScreen('tournaments')} {...intent('tournaments')}><span>♛</span><div><b>Play a tournament</b><small>qqurzchess competitive events</small></div></button>
               <button onClick={openFriends} {...intent('online')}><span>♘</span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
               <button onClick={() => openLocal('human')} {...intent('local')}><span>♟</span><div><b>Same device</b><small>Two players, one board</small></div></button>
               <button onClick={() => openScreen('3d')} {...intent('3d')}><span>♜</span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
@@ -311,7 +318,7 @@ export default function AppV14() {
               <button className="drawer-ai-choice" onClick={() => openLocal('ai')} {...intent('local')}><span>♞</span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
             </nav>
             <div className="drawer-live-match">
-              <div><span className="presence-dot"/><b>{onlineLabel}</b><small>Players seen on QQURZ recently</small></div>
+              <div><span className="presence-dot"/><b>{onlineLabel}</b><small>Players seen on qqurzchess recently</small></div>
               <button onClick={openMatchmaking} {...intent('matchmaking')}>Find an opponent</button>
             </div>
             <div className="drawer-settings" aria-label="Preferences and settings">
