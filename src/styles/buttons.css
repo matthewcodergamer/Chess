@@ -10,7 +10,7 @@
 .qqurz-button--full{width:100%}
 .qqurz-button-content{display:inline-flex;align-items:center;justify-content:center;gap:var(--q-space-8);min-width:0}
 .qqurz-button-label{min-width:0}
-.qqurz-button-icon{display:inline-grid;place-items:center;flex:0 0 auto;font-family:Georgia,serif;font-size:var(--q-type-action-lg);line-height:1}
+.qqurz-button-icon{display:inline-grid;place-items:center;flex:0 0 auto;line-height:1}.qqurz-button-icon svg{width:var(--q-space-20);height:var(--q-space-20);display:block}
 .qqurz-button--primary{border-color:color-mix(in srgb,var(--q-action) 76%,var(--q-ink-inverse));background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action) 88%,white 12%),var(--q-action));color:var(--q-action-ink);box-shadow:var(--q-elevation-action)}
 .qqurz-button--primary:hover:not(:disabled){background:linear-gradient(to bottom,color-mix(in srgb,var(--q-action-hover) 88%,white 12%),var(--q-action-hover))}
 .qqurz-button--primary:active:not(:disabled){background:var(--q-action-active);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--q-text-inverse) 12%,transparent),0 1px 0 color-mix(in srgb,var(--q-ink-inverse) 28%,transparent)}
