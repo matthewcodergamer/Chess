@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "QQURZ Chess",
-  "short_name": "QQURZ",
+  "name": "qqurzchess",
+  "short_name": "qqurzchess",
   "description": "Freestyle Chess960 with Stockfish AI, friends online, official tournaments and optional Premium 3D.",
   "start_url": "./",
   "scope": "./",

@@ -189,6 +189,37 @@ jobs:
           put_secret NUVEI_MERCHANT_SITE_ID "$NUVEI_TEST_MERCHANT_SITE_ID"
           put_secret NUVEI_SECRET_KEY "$NUVEI_TEST_SECRET_KEY"
 
+      - name: Sync production Stripe and social secrets
+        if: needs.resolve.outputs.target == 'production'
+        working-directory: server
+        shell: bash
+        env:
+          TARGET: ${{ needs.resolve.outputs.target }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          STRIPE_LIVE_SECRET_KEY: ${{ secrets.STRIPE_LIVE_SECRET_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          put_secret() {
+            key="$1"; value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$key" --env "$TARGET"
+            fi
+          }
+          put_secret STRIPE_SECRET_KEY "$STRIPE_LIVE_SECRET_KEY"
+          put_secret GOOGLE_CLIENT_ID "$GOOGLE_CLIENT_ID"
+          put_secret GOOGLE_CLIENT_SECRET "$GOOGLE_CLIENT_SECRET"
+          put_secret APPLE_CLIENT_ID "$APPLE_CLIENT_ID"
+          put_secret APPLE_TEAM_ID "$APPLE_TEAM_ID"
+          put_secret APPLE_KEY_ID "$APPLE_KEY_ID"
+          put_secret APPLE_PRIVATE_KEY "$APPLE_PRIVATE_KEY"
+
       - id: worker_deploy
         name: Atomically deploy isolated Worker version
         working-directory: server

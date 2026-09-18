@@ -18,6 +18,8 @@ import {
   resetPassword,
   revokeAccountSession,
   revokeOtherSessions,
+  consumeSocialLoginToken,
+  socialAuthUrl,
   socialProviderStatus,
   unblockPlayer,
   updateAccountNotifications,
@@ -151,6 +153,17 @@ export default function ProfileHub({ onBack }: Props) {
 
   useEffect(() => {
     void socialProviderStatus().then(setSocialStatus).catch(() => undefined);
+    if (query.get('social') === 'error') {
+      setFailure(new Error(query.get('reason')?.replaceAll('+', ' ') || 'Social sign-in was cancelled.'));
+    }
+    if (consumeSocialLoginToken()) {
+      setBusy(true);
+      void refreshAccount()
+        .then(value => setMessage(`Signed in as ${value.displayName}.`))
+        .catch(setFailure)
+        .finally(() => { setBusy(false); setLoading(false); });
+      return;
+    }
     if (verifyToken) {
       setBusy(true);
       void verifyEmail(verifyToken)
@@ -216,10 +229,10 @@ export default function ProfileHub({ onBack }: Props) {
     return (
       <div className="account-page account-auth-page qqurz-content-page">
         <section className="account-auth-shell">
-          <div className="account-auth-top"><SecondaryButton size="sm" leadingIcon="←" onClick={onBack}>Home</SecondaryButton><span className="qqurz-kicker">QQURZ ACCOUNT</span></div>
+          <div className="account-auth-top"><SecondaryButton size="sm" leadingIcon="←" onClick={onBack}>Home</SecondaryButton><span className="qqurz-kicker">qqurzchess</span></div>
           <div className="account-auth-heading">
             <span className="account-auth-mark" aria-hidden="true">♞</span>
-            <div><h1>{authMode === 'register' ? 'Create your player account.' : authMode === 'forgot' ? 'Recover your account.' : authMode === 'reset' ? 'Choose a new password.' : 'Sign in to QQURZ.'}</h1><p>Email/password remains the primary authentication route. Apple and Google are deliberately not allowed to replace it.</p></div>
+            <div><h1>{authMode === 'register' ? 'Create your player account.' : authMode === 'forgot' ? 'Recover your account.' : authMode === 'reset' ? 'Choose a new password.' : 'Sign in to qqurzchess.'}</h1><p>Use email, Google, or Apple. Same player account either way.</p></div>
           </div>
 
           {notice && <div className="account-message success" role="status">{notice}</div>}
@@ -267,18 +280,18 @@ export default function ProfileHub({ onBack }: Props) {
           )}
 
           <div className="account-social-gate" aria-label="Social sign-up options">
-            <div className="account-social-heading"><span><b>Sign up faster</b><small>Social accounts will be added after provider authentication is configured.</small></span></div>
+            <div className="account-social-heading"><span><b>Sign up faster</b><small>Google and Apple open a secure provider window, then return you to qqurzchess.</small></span></div>
             <div className="account-social-actions">
-              <button type="button" className="account-social-button" disabled aria-label="Sign up with Google — coming soon">
+              <button type="button" className="account-social-button" onClick={() => { window.location.assign(socialAuthUrl('google')); }} aria-label="Sign up with Google">
                 <GoogleIcon />
-                <span><b>Sign up with Google</b><small>{socialStatus.google ? 'Provider ready' : 'Coming soon'}</small></span>
+                <span><b>Sign up with Google</b><small>{socialStatus.google ? 'Continue with Google' : 'Needs Google setup'}</small></span>
               </button>
-              <button type="button" className="account-social-button" disabled aria-label="Sign up with Apple — coming soon">
+              <button type="button" className="account-social-button" onClick={() => { window.location.assign(socialAuthUrl('apple')); }} aria-label="Sign up with Apple">
                 <AppleIcon />
-                <span><b>Sign up with Apple</b><small>{socialStatus.apple ? 'Provider ready' : 'Coming soon'}</small></span>
+                <span><b>Sign up with Apple</b><small>{socialStatus.apple ? 'Continue with Apple' : 'Needs Apple setup'}</small></span>
               </button>
             </div>
-            <p>These controls stay non-clickable until the server has a real OAuth flow. Your email/password account is fully separate and remains available now.</p>
+            <p>Email/password still works. Google and Apple create or reopen the same qqurzchess player account.</p>
           </div>
         </section>
       </div>

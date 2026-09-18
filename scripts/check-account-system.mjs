@@ -74,8 +74,17 @@ if (!gateway.includes('./modules/realtime') || !authModule.includes('handleAccou
 }
 if (!wrangler.includes('"ACCOUNTS"') || !wrangler.includes('"AccountRegistry"')) errors.push('AccountRegistry Durable Object binding is missing.');
 
-if (!server.includes("return json({ google: false, apple: false, ordinaryAuthRequired: true })")) {
-  errors.push('Apple/Google must stay disabled until ordinary authentication is proven reliable.');
+if (!server.includes('/account/google/start') || !server.includes('/account/apple/start') || !server.includes('/internal/social-login')) {
+  errors.push('Google and Apple sign-in routes are missing from the account server.');
+}
+if (!server.includes('GOOGLE_CLIENT_ID') || !server.includes('APPLE_CLIENT_ID')) {
+  errors.push('Google/Apple Worker secrets are not declared on AccountEnv.');
+}
+if (!client.includes('function socialAuthUrl') || !client.includes('function consumeSocialLoginToken')) {
+  errors.push('Account client is missing social login helpers.');
+}
+if (ui.includes('Sign up with Google — coming soon') || ui.includes('disabled aria-label="Sign up with Google')) {
+  errors.push('Google and Apple buttons must be enabled.');
 }
 if (server.includes('password: body.password') || server.includes('password: String(body.password)')) errors.push('Possible plaintext password persistence detected.');
 

@@ -45,12 +45,12 @@ function canPrefetch(): boolean {
 
 function hasAccountAction(): boolean {
   const params = new URLSearchParams(window.location.search);
-  return Boolean(params.get('verify') || params.get('reset'));
+  return Boolean(params.get('verify') || params.get('reset') || params.get('social'));
 }
 
 function initialScreen(): Screen {
   const params = new URLSearchParams(window.location.search);
-  if (params.get('verify') || params.get('reset')) return 'account';
+  if (params.get('verify') || params.get('reset') || params.get('social')) return 'account';
   if (params.get('room')) return 'online';
   const checkoutKind = params.get('kind') || params.get('sku');
   const checkoutState = params.get('checkout');

@@ -16,3 +16,14 @@ NUVEI_SECRET_KEY=
 # Optional integrity/admin secrets.
 INTEGRITY_ADMIN_SECRET=
 INTEGRITY_SIGNAL_SECRET=
+
+# Google Sign-In (Web application OAuth client).
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Apple Sign In (Services ID + .p8 key). Put the PEM on one line with \n.
+APPLE_CLIENT_ID=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+APPLE_PRIVATE_KEY=
+

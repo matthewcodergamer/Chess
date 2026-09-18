@@ -7,6 +7,12 @@ export type AccountEnv = {
   PUBLIC_SITE_URL?: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  APPLE_CLIENT_ID?: string;
+  APPLE_TEAM_ID?: string;
+  APPLE_KEY_ID?: string;
+  APPLE_PRIVATE_KEY?: string;
 };
 
 type PrivacySettings = {
@@ -346,9 +352,178 @@ function resetEmailHtml(url: string): string {
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;max-width:560px;margin:auto"><h1>Reset your QQURZ password</h1><p>Use this one-time link to choose a new password.</p><p><a href="${url}" style="display:inline-block;padding:14px 20px;background:#81b64c;color:#17200f;text-decoration:none;border-radius:10px;font-weight:700">Reset password</a></p><p>This link expires in 60 minutes. If you did not request it, you can ignore this email.</p></div>`;
 }
 
+
+function siteUrl(env: AccountEnv): string {
+  return (env.PUBLIC_SITE_URL || 'https://qqurzchess.com').replace(/\/$/, '');
+}
+
+function googleConfigured(env: AccountEnv): boolean {
+  return Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim());
+}
+
+function appleConfigured(env: AccountEnv): boolean {
+  return Boolean(env.APPLE_CLIENT_ID?.trim() && env.APPLE_TEAM_ID?.trim() && env.APPLE_KEY_ID?.trim() && env.APPLE_PRIVATE_KEY?.trim());
+}
+
+function b64url(value: string | Uint8Array): string {
+  const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function oauthCookie(state: string): string {
+  return `qqurz_oauth=${state}; Path=/account; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+}
+
+function readOAuthCookie(request: Request): string {
+  const match = /(?:^|;\s*)qqurz_oauth=([^;]+)/.exec(request.headers.get('cookie') ?? '');
+  return match?.[1]?.trim() ?? '';
+}
+
+function redirectToSite(env: AccountEnv, params: Record<string, string>): Response {
+  const url = new URL(siteUrl(env));
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  return new Response(null, { status: 302, headers: { location: url.toString(), 'set-cookie': 'qqurz_oauth=; Path=/account; Max-Age=0' } });
+}
+
+async function startGoogle(request: Request, env: AccountEnv): Promise<Response> {
+  if (!googleConfigured(env)) return redirectToSite(env, { social: 'error', reason: 'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to the Cloudflare Worker, then deploy.' });
+  const state = `google.${crypto.randomUUID()}`;
+  const redirectUri = new URL('/account/google/callback', request.url).toString();
+  const target = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  target.searchParams.set('client_id', env.GOOGLE_CLIENT_ID!.trim());
+  target.searchParams.set('redirect_uri', redirectUri);
+  target.searchParams.set('response_type', 'code');
+  target.searchParams.set('scope', 'openid email profile');
+  target.searchParams.set('state', state);
+  target.searchParams.set('prompt', 'select_account');
+  return new Response(null, { status: 302, headers: { location: target.toString(), 'set-cookie': oauthCookie(state) } });
+}
+
+async function googleCallback(request: Request, env: AccountEnv): Promise<Response> {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code')?.trim() ?? '';
+  const state = url.searchParams.get('state')?.trim() ?? '';
+  if (url.searchParams.get('error') || !code) return redirectToSite(env, { social: 'error', reason: 'Google sign-in was cancelled.' });
+  if (!state || state !== readOAuthCookie(request)) return redirectToSite(env, { social: 'error', reason: 'Google sign-in expired. Try again.' });
+  const redirectUri = new URL('/account/google/callback', request.url).toString();
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: env.GOOGLE_CLIENT_ID!.trim(),
+      client_secret: env.GOOGLE_CLIENT_SECRET!.trim(),
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    }),
+  });
+  const tokenPayload = await tokenResponse.json().catch(() => ({})) as { access_token?: string; error?: string };
+  if (!tokenResponse.ok || !tokenPayload.access_token) return redirectToSite(env, { social: 'error', reason: 'Google could not verify that sign-in.' });
+  const profileResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { authorization: `Bearer ${tokenPayload.access_token}` } });
+  const profile = await profileResponse.json().catch(() => ({})) as { sub?: string; email?: string; email_verified?: boolean; name?: string };
+  if (!profile.sub || !profile.email || profile.email_verified === false) return redirectToSite(env, { social: 'error', reason: 'Google did not return a verified email.' });
+  const login = await completeSocialLogin(request, env, { provider: 'google', providerId: profile.sub, email: profile.email, name: profile.name || '' });
+  return login;
+}
+
+async function startApple(request: Request, env: AccountEnv): Promise<Response> {
+  if (!appleConfigured(env)) return redirectToSite(env, { social: 'error', reason: 'Add Apple Sign In keys to the Cloudflare Worker, then deploy.' });
+  const state = `apple.${crypto.randomUUID()}`;
+  const redirectUri = new URL('/account/apple/callback', request.url).toString();
+  const target = new URL('https://appleid.apple.com/auth/authorize');
+  target.searchParams.set('client_id', env.APPLE_CLIENT_ID!.trim());
+  target.searchParams.set('redirect_uri', redirectUri);
+  target.searchParams.set('response_type', 'code');
+  target.searchParams.set('response_mode', 'form_post');
+  target.searchParams.set('scope', 'name email');
+  target.searchParams.set('state', state);
+  return new Response(null, { status: 302, headers: { location: target.toString(), 'set-cookie': oauthCookie(state) } });
+}
+
+async function appleClientSecret(env: AccountEnv): Promise<string> {
+  const pem = env.APPLE_PRIVATE_KEY!.replace(/\\n/g, '\n');
+  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s+/g, '');
+  const der = Uint8Array.from(atob(b64), char => char.charCodeAt(0));
+  const key = await crypto.subtle.importKey('pkcs8', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const now = Math.floor(Date.now() / 1000);
+  const signingInput = `${b64url(JSON.stringify({ alg: 'ES256', kid: env.APPLE_KEY_ID!.trim() }))}.${b64url(JSON.stringify({
+    iss: env.APPLE_TEAM_ID!.trim(),
+    iat: now,
+    exp: now + 3600,
+    aud: 'https://appleid.apple.com',
+    sub: env.APPLE_CLIENT_ID!.trim(),
+  }))}`;
+  const signature = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(signingInput)));
+  return `${signingInput}.${b64url(signature)}`;
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const part = token.split('.')[1];
+  if (!part) return {};
+  const padded = part.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - part.length % 4) % 4);
+  try { return JSON.parse(atob(padded)) as Record<string, unknown>; } catch { return {}; }
+}
+
+async function appleCallback(request: Request, env: AccountEnv): Promise<Response> {
+  const form = await request.formData().catch(() => null);
+  const code = String(form?.get('code') ?? '').trim();
+  const state = String(form?.get('state') ?? '').trim();
+  const userBlob = String(form?.get('user') ?? '');
+  if (String(form?.get('error') ?? '') || !code) return redirectToSite(env, { social: 'error', reason: 'Apple sign-in was cancelled.' });
+  if (!state || state !== readOAuthCookie(request)) return redirectToSite(env, { social: 'error', reason: 'Apple sign-in expired. Try again.' });
+  const redirectUri = new URL('/account/apple/callback', request.url).toString();
+  const secret = await appleClientSecret(env);
+  const tokenResponse = await fetch('https://appleid.apple.com/auth/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: env.APPLE_CLIENT_ID!.trim(),
+      client_secret: secret,
+      redirect_uri: redirectUri,
+    }),
+  });
+  const tokenPayload = await tokenResponse.json().catch(() => ({})) as { id_token?: string };
+  if (!tokenResponse.ok || !tokenPayload.id_token) return redirectToSite(env, { social: 'error', reason: 'Apple could not verify that sign-in.' });
+  const claims = decodeJwtPayload(tokenPayload.id_token);
+  const email = normalizeEmail(claims.email);
+  const sub = String(claims.sub ?? '').trim();
+  let name = '';
+  try { name = String((JSON.parse(userBlob) as { name?: { firstName?: string; lastName?: string } }).name?.firstName ?? ''); } catch { name = ''; }
+  if (!sub) return redirectToSite(env, { social: 'error', reason: 'Apple did not return a player identity.' });
+  if (!email) return redirectToSite(env, { social: 'error', reason: 'Apple did not share an email. Use Hide My Email or share email, then retry.' });
+  return completeSocialLogin(request, env, { provider: 'apple', providerId: sub, email, name });
+}
+
+async function completeSocialLogin(request: Request, env: AccountEnv, input: { provider: 'google' | 'apple'; providerId: string; email: string; name: string }): Promise<Response> {
+  const response = await accountStub(env).fetch(new Request('https://accounts.internal/internal/social-login', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'user-agent': request.headers.get('user-agent') ?? '',
+      'x-qqurz-client-ip': request.headers.get('cf-connecting-ip') ?? '',
+    },
+    body: JSON.stringify(input),
+  }));
+  const payload = await response.json().catch(() => ({})) as { token?: string; error?: string };
+  if (!response.ok || !payload.token) return redirectToSite(env, { social: 'error', reason: payload.error || 'Could not create that qqurzchess account.' });
+  return redirectToSite(env, { social: 'success', token: payload.token });
+}
+
+
 export async function handleAccountRequest(request: Request, env: AccountEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/account/')) return null;
+  if (url.pathname === '/account/social-status' && request.method === 'GET') {
+    return json({ google: googleConfigured(env), apple: appleConfigured(env), ordinaryAuthRequired: true });
+  }
+  if (url.pathname === '/account/google/start' && request.method === 'GET') return startGoogle(request, env);
+  if (url.pathname === '/account/google/callback' && request.method === 'GET') return googleCallback(request, env);
+  if (url.pathname === '/account/apple/start' && request.method === 'GET') return startApple(request, env);
+  if (url.pathname === '/account/apple/callback' && (request.method === 'POST' || request.method === 'GET')) return appleCallback(request, env);
   const target = new URL(`https://accounts.internal${url.pathname}${url.search}`);
   const headers = new Headers();
   headers.set('content-type', request.headers.get('content-type') ?? 'application/json');
@@ -867,13 +1042,94 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
     return json({ ok: true });
   }
 
+
+  private async accountIdByProvider(provider: 'google' | 'apple', providerId: string): Promise<string | null> {
+    const id = await this.ctx.storage.get<string>(`${provider}:${providerId}`);
+    return id || null;
+  }
+
+  private async uniqueUsername(seed: string): Promise<string> {
+    const base = validUsername(normalizeUsername(seed)) ? normalizeUsername(seed) : `player${crypto.randomUUID().slice(0, 6)}`;
+    let candidate = base.slice(0, 20);
+    let n = 0;
+    while (await this.accountIdByUsername(candidate)) {
+      n += 1;
+      const suffix = String(n);
+      candidate = `${base.slice(0, Math.max(3, 20 - suffix.length))}${suffix}`;
+    }
+    return candidate;
+  }
+
+  private async socialLogin(request: Request): Promise<Response> {
+    const body = await request.json().catch(() => ({})) as { provider?: 'google' | 'apple'; providerId?: string; email?: string; name?: string };
+    const provider = body.provider === 'apple' ? 'apple' : body.provider === 'google' ? 'google' : null;
+    const providerId = String(body.providerId ?? '').trim().slice(0, 128);
+    const email = normalizeEmail(body.email);
+    if (!provider || providerId.length < 4 || !validEmail(email)) return json({ error: 'That social sign-in is missing a verified email.' }, 400);
+
+    const existingProvider = await this.accountIdByProvider(provider, providerId);
+    let account = existingProvider ? await this.getAccount(existingProvider) : null;
+    if (!account) {
+      const existingEmail = await this.accountIdByEmail(email);
+      account = existingEmail ? await this.getAccount(existingEmail) : null;
+    }
+    if (!account) {
+      const salt = randomBytes(16);
+      const now = Date.now();
+      const id = crypto.randomUUID();
+      const username = await this.uniqueUsername(email.split('@')[0] || 'player');
+      account = {
+        id,
+        email,
+        emailVerifiedAt: now,
+        username,
+        displayName: normalizeDisplayName(body.name, username),
+        countryCode: '',
+        avatar: '♞',
+        avatarImage: null,
+        ratingModel: 'glicko2',
+        chess960Ratings: createRatingBook(),
+        rating: 1500,
+        chess960Rating: 1500,
+        gamesPlayed: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        createdAt: now,
+        updatedAt: now,
+        passwordHash: await passwordHash(bytesToBase64Url(randomBytes(24)), salt),
+        passwordSalt: bytesToBase64(salt),
+        passwordIterations: PBKDF2_ITERATIONS,
+        failedLoginCount: 0,
+        lockUntil: null,
+        privacy: { ...DEFAULT_PRIVACY },
+        notifications: { ...DEFAULT_NOTIFICATIONS },
+        settings: { ...DEFAULT_SETTINGS },
+        blockedPlayerIds: [],
+        gameHistory: [],
+        tournamentHistory: [],
+        trophies: [],
+        sessions: {},
+      };
+      await this.ctx.storage.put({ [`account:${id}`]: account, [`email:${email}`]: id, [`username:${username.toLowerCase()}`]: id, [`${provider}:${providerId}`]: id });
+    } else {
+      account.emailVerifiedAt = account.emailVerifiedAt ?? Date.now();
+      await this.ctx.storage.put(`${provider}:${providerId}`, account.id);
+      await this.putAccount(account);
+    }
+    const session = await this.createSession(account, request);
+    return json({ account: publicAccount(account), token: session.token });
+  }
+
   async fetch(request: Request): Promise<Response> {
+
     const url = new URL(request.url);
     const path = url.pathname;
 
     if (path === '/internal/resolve' && request.method === 'GET') return this.resolveInternal(request);
     if (path === '/internal/game-result' && request.method === 'POST') return this.recordGameResult(request);
     if (path === '/internal/tournament' && request.method === 'POST') return this.recordTournament(request);
+    if (path === '/internal/social-login' && request.method === 'POST') return this.socialLogin(request);
 
     if (path === '/account/register' && request.method === 'POST') return this.register(request);
     if (path === '/account/login' && request.method === 'POST') return this.login(request);
@@ -895,7 +1151,6 @@ export class AccountRegistry extends DurableObject<AccountEnv> {
     if (path === '/account/verify-email' && request.method === 'POST') return this.verifyEmail(request);
     if (path === '/account/resend-verification' && request.method === 'POST') return this.resendVerification(request);
     if (path === '/account/delete' && request.method === 'POST') return this.deleteAccount(request);
-    if (path === '/account/social-status' && request.method === 'GET') return json({ google: false, apple: false, ordinaryAuthRequired: true });
     return json({ error: 'Not found.' }, 404);
   }
 }

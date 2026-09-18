@@ -91,3 +91,57 @@ Before treating paid access as a durable account entitlement across devices, add
 `LIVE_TOURNAMENT_PAYMENTS` defaults to `disabled`. Even if Premium 3D is in live mode, real tournament entry charges will return a server error until this flag is explicitly changed to `enabled` after QQURZ has the event operations, prize rules, eligibility, refunds and jurisdiction/compliance requirements ready.
 
 The tournament catalog currently demonstrates 10, 32, 100 and 256-player official event capacities. The existing realtime server handles private head-to-head rooms; large-scale Swiss/knockout tournament orchestration, registration persistence and pairing are a separate backend layer and should not be confused with merely listing a 100-player event.
+
+## Google and Apple sign-in
+
+The frontend buttons call the Worker:
+
+- `GET /account/google/start`
+- `GET /account/apple/start`
+
+They stay ready in the UI. They only complete after the Worker has provider secrets.
+
+### Google
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Create an OAuth client of type **Web application**.
+3. Authorized JavaScript origins:
+   - `https://qqurzchess.com`
+   - `https://www.qqurzchess.com`
+4. Authorized redirect URI:
+   - `https://qqurz-chess-api.gamerstriper.workers.dev/account/google/callback`
+5. Put the client id/secret in GitHub Actions secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, or run:
+
+```bash
+cd server
+printf '%s' 'your-google-client-id' | npx wrangler secret put GOOGLE_CLIENT_ID --env production
+printf '%s' 'your-google-client-secret' | npx wrangler secret put GOOGLE_CLIENT_SECRET --env production
+```
+
+### Apple
+
+1. Apple Developer → Identifiers → **Services ID** for Sign in with Apple.
+2. Domains: `qqurzchess.com` and `qqurz-chess-api.gamerstriper.workers.dev`.
+3. Return URL: `https://qqurz-chess-api.gamerstriper.workers.dev/account/apple/callback`
+4. Create a Sign in with Apple **.p8** key. Store:
+
+```bash
+cd server
+printf '%s' 'com.qqurzchess.web' | npx wrangler secret put APPLE_CLIENT_ID --env production
+printf '%s' 'YOUR_TEAM_ID' | npx wrangler secret put APPLE_TEAM_ID --env production
+printf '%s' 'YOUR_KEY_ID' | npx wrangler secret put APPLE_KEY_ID --env production
+printf '%s' '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----' | npx wrangler secret put APPLE_PRIVATE_KEY --env production
+```
+
+Then deploy the Worker (`npm run deploy -- --env production` or push to `main` so `deploy-realtime.yml` runs).
+
+## Live Stripe on Cloudflare
+
+The site already uses a live Stripe Payment Link for Premium 3D. To also let the Worker create Checkout Sessions:
+
+1. Add GitHub secret `STRIPE_LIVE_SECRET_KEY` (`sk_live_...`).
+2. In `server/wrangler.jsonc` production vars, set `PAYMENTS_MODE` to `live`.
+3. Redeploy the Worker.
+
+Payouts, branding and bank details stay in the [Stripe Dashboard](https://dashboard.stripe.com).
+

@@ -264,3 +264,20 @@ export async function deleteAccount(password: string): Promise<void> {
 export async function socialProviderStatus(): Promise<{ google: boolean; apple: boolean; ordinaryAuthRequired: boolean }> {
   return requestJson('/account/social-status', { auth: false });
 }
+
+export function socialAuthUrl(provider: 'google' | 'apple'): string {
+  if (!ACCOUNT_API) throw new Error('The qqurzchess account server is not connected.');
+  return `${ACCOUNT_API}/account/${provider}/start`;
+}
+
+export function consumeSocialLoginToken(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token')?.trim() ?? '';
+  if (params.get('social') !== 'success' || !token) return false;
+  saveAccountToken(token);
+  const url = new URL(window.location.href);
+  ['social', 'token', 'reason'].forEach(key => url.searchParams.delete(key));
+  window.history.replaceState({}, '', url);
+  return true;
+}
+
