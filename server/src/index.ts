@@ -401,7 +401,13 @@ export class ChessRoom extends DurableObject<Env> {
     try { payload = JSON.parse(typeof message === 'string' ? message : new TextDecoder().decode(message)) as ClientMessage; }
     catch { return this.sendError(ws, 'Unreadable command.'); }
 
-    if (payload.type === 'sync') return void this.sendSnapshot(ws, attachment.token);
+    if (payload.type === 'sync') {
+      // Reconcile the authoritative socket set before every client sync. This closes
+      // the READY -> ACTIVE race when both matched browsers finish their WebSocket
+      // handshakes close together, and also repairs connection state after hibernation.
+      await this.syncConnectionState();
+      return void this.sendSnapshot(ws, attachment.token);
+    }
     if (payload.type === 'time_sync_ack') return void this.handleTimeSyncAck(attachment.token, payload.nonce);
     if (payload.type === 'call_coin') return void await this.callCoin(ws, attachment.token, payload.face);
     if (payload.type === 'claim_position_bid') return void await this.claimPositionBid(ws, attachment.token, payload.sessionId);
