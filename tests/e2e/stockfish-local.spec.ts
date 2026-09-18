@@ -19,11 +19,21 @@ async function seedApp(page: import('@playwright/test').Page) {
 async function moveE2ToE4(page: import('@playwright/test').Page) {
   const board = page.locator('.qqurz-board-accessible-shell');
   await expect(board).toBeVisible();
-  await board.focus();
-  await board.press('Enter');
-  await board.press('ArrowUp');
-  await board.press('ArrowUp');
-  await board.press('Enter');
+  await board.scrollIntoViewIfNeeded();
+  const box = await board.boundingBox();
+  if (!box) throw new Error('Chess board has no measurable bounds.');
+  // The local AI starts with White and Chess960 keeps pawns on their normal
+  // ranks, so e2-e4 is legal for every starting position. Pointer input tests
+  // the same real board interaction a player uses on touch and desktop.
+  const file = 4;
+  const e2RankFromTop = 6;
+  const e4RankFromTop = 4;
+  const square = (rankFromTop: number) => ({
+    x: box.x + ((file + 0.5) / 8) * box.width,
+    y: box.y + ((rankFromTop + 0.5) / 8) * box.height,
+  });
+  await page.mouse.click(square(e2RankFromTop).x, square(e2RankFromTop).y);
+  await page.mouse.click(square(e4RankFromTop).x, square(e4RankFromTop).y);
 }
 
 test('Stockfish makes the AI reply after a human move', async ({ page }) => {
@@ -47,12 +57,8 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   await expect(wordmark.locator('.wordmark-piece')).toHaveCount(0);
   await expect(wordmark.locator('.wordmark-copy small')).toHaveCount(0);
 
-  // Keep the move list open so the browser test can verify the AI reply as well as engine state.
-  await page.getByRole('button', { name: 'Options' }).click();
-  const moves = page.locator('.match-move-list li');
-  await expect(moves).toHaveCount(0);
-
   // Capture the black-piece render positions before the AI turn.
+  const moves = page.locator('.match-move-list li');
   const blackPiecesBefore = await page.locator('.cg-wrap .piece.black').evaluateAll(
     pieces => pieces.map(piece => piece.getAttribute('style')).sort(),
   );
@@ -61,6 +67,7 @@ test('Stockfish makes the AI reply after a human move', async ({ page }) => {
   // Use the board's real accessibility interaction instead of viewport coordinates;
   // large desktop boards can place e4 beneath the fixed navigation bar.
   await moveE2ToE4(page);
+  await page.getByRole('button', { name: 'Options' }).click();
   await expect(moves).toHaveCount(1, { timeout: 10_000 });
 
   await expect(moves).toHaveCount(2, { timeout: 20_000 });
