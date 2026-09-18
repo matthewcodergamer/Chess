@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import AppNavigation from './accessibility/AppNavigation';
-import { getPresenceId, multiplayerConfigured, pingPresence } from './multiplayer/client';
+import { getPresenceId, loadOnlinePlayers, multiplayerConfigured, pingPresence, type OnlinePlayer } from './multiplayer/client';
 import type { RoomSeat } from './multiplayer/types';
 import { setSoundEnabled, soundEnabled } from './ui/sound';
 import { ProfilePageSkeleton, TournamentPageSkeleton } from './ui/Skeletons';
@@ -96,6 +96,7 @@ export default function AppShell() {
   const [soundOn, setSoundOn] = useState(soundEnabled);
   const [onlineVariant, setOnlineVariant] = useState<'friends' | 'tournament'>('friends');
   const [onlinePlayers, setOnlinePlayers] = useState<number | null>(null);
+  const [onlinePlayerList, setOnlinePlayerList] = useState<OnlinePlayer[]>([]);
   const [presenceId] = useState(getPresenceId);
   const [serverUnavailable, setServerUnavailable] = useState(false);
 
@@ -114,6 +115,8 @@ export default function AppShell() {
     try {
       const presence = await pingPresence(profileName(), presenceId);
       setOnlinePlayers(presence.onlinePlayers);
+      const players = await loadOnlinePlayers();
+      setOnlinePlayerList(players.players);
       setServerUnavailable(false);
     } catch {
       setServerUnavailable(true);
@@ -239,6 +242,7 @@ export default function AppShell() {
         {screen === 'home' && (
           <HomeDashboard
             onlineLabel={onlineLabel}
+            onlinePlayers={onlinePlayerList}
             onProfile={() => setScreen('account')}
             onTournament={() => setScreen('tournaments')}
             onFriend={openFriends}
