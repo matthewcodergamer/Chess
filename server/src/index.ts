@@ -4,7 +4,7 @@ import { makeFen, parseFen } from 'chessops/fen';
 import { makeSan } from 'chessops/san';
 import { parseUci } from 'chessops/util';
 import { chess960Fen, randomChess960Id } from './chess960';
-import { canColorMove, clockOwner, createGameSession, isTerminalGameState, reduceGameSession, type GameResultKind, type GameSessionModel, type GameSessionState } from '../../shared/gameSession';
+import { canColorMove, canResignGameSession, clockOwner, createGameSession, isTerminalGameState, reduceGameSession, type GameResultKind, type GameSessionModel, type GameSessionState } from '../../shared/gameSession';
 import { TOURNAMENT_TIME_TEMPLATES, isTournamentControlAllowed, normalizeTimeControl, type TimeControlRequest, type TournamentTimeTemplateId } from '../../shared/timeControl';
 import { adjudicateChess, appendPositionHistory, chessPositionKeyFromFen } from '../../shared/chess960Rules';
 import { recordAccountGame, resolveAccountSession, type AccountEnv } from './accounts';
@@ -438,7 +438,7 @@ export class ChessRoom extends DurableObject<Env> {
       // first resignation has already transitioned the authoritative room to a
       // terminal state. Do not surface a misleading "no active game" error;
       // simply return the canonical result that is already stored on the server.
-      if (!['ACTIVE', 'PAUSED', 'RECONNECTING'].includes(this.room.session.state)) {
+      if (!canResignGameSession(this.room.session)) {
         this.sendSnapshot(ws, attachment.token);
         return;
       }
