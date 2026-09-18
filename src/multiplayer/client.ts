@@ -27,6 +27,9 @@ export type PresenceSnapshot = {
   presence?: PresenceCounts;
 };
 
+export type OnlinePlayer = { name: string; state: PresenceState };
+export type OnlinePlayersSnapshot = { onlinePlayers: number; presence?: PresenceCounts; players: OnlinePlayer[] };
+
 export type MatchmakingSnapshot = {
   ticket: string;
   status: 'waiting' | 'matched';
@@ -108,6 +111,7 @@ export async function pingPresence(name: string, presenceId: string, state?: Pre
   return sendPresence(currentPresence, state ?? inferredPresenceState(), keepalive);
 }
 export async function loadPresence(): Promise<PresenceSnapshot> { return requestJson<PresenceSnapshot>('/presence'); }
+export async function loadOnlinePlayers(): Promise<OnlinePlayersSnapshot> { return requestJson<OnlinePlayersSnapshot>('/presence/players'); }
 export async function enqueueMatch(name: string, presenceId: string, criteria: MatchmakingCriteria): Promise<MatchmakingSnapshot> {
   return requestJson<MatchmakingSnapshot>('/matchmaking/enqueue', { method: 'POST', body: JSON.stringify({ name, presenceId, ...criteria }) });
 }
