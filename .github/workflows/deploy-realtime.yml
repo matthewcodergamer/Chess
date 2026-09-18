@@ -1,9 +1,7 @@
 name: Deploy QQURZ API environment
 
 on:
-  workflow_run:
-    workflows: ["QQURZ automated quality gates"]
-    types: [completed]
+  push:
     branches: [develop, staging, main]
   workflow_dispatch:
     inputs:
@@ -26,7 +24,7 @@ concurrency:
 
 jobs:
   resolve:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       target: ${{ steps.resolve.outputs.target }}
@@ -38,8 +36,8 @@ jobs:
         env:
           REQUESTED: ${{ inputs.deployment_environment }}
           REQUESTED_REF: ${{ inputs.source_ref }}
-          TRIGGER_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
-          TRIGGER_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          TRIGGER_BRANCH: ${{ github.ref_name }}
+          TRIGGER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
