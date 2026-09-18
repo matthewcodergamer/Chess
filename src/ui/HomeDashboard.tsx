@@ -113,6 +113,7 @@ export default function HomeDashboard({
       </section>
 
       <section className="home-play-panel" aria-labelledby="home-play-heading">
+        <button type="button" className="home-get-started" onClick={onMatchmaking}>Get Started</button>
         <div className="home-play-heading">
           <div>
             <span className="chess-eyebrow">Chess960</span>
@@ -120,6 +121,7 @@ export default function HomeDashboard({
           </div>
           <span className="home-variant-badge">960</span>
         </div>
+        <p className="home-play-lead">Sharpen your skills and play anyone, on any device, with a clean Chess960 board.</p>
 
         <div className="home-primary-play">
           <PrimaryButton size="lg" fullWidth leadingIcon={<HomeIcon name="knight" />} onClick={onMatchmaking}>
@@ -139,7 +141,9 @@ export default function HomeDashboard({
           <div><span className="chess-eyebrow">Board</span><h2>Ready position</h2></div>
           <SecondaryButton size="sm" onClick={onMatchmaking}>Play anyone</SecondaryButton>
         </div>
-        <Suspense fallback={<div className="home-live-board-shell" aria-label="Chess960 board preview loading" />}>\n          <HomeBoardPreview playerName={profile.username} />\n        </Suspense>
+        <Suspense fallback={<div className="home-live-board-shell" aria-label="Chess960 board preview loading" />}>
+          <HomeBoardPreview playerName={profile.username} />
+        </Suspense>
       </section>
 
       <section className="home-activity-grid" aria-label="Chess activity">

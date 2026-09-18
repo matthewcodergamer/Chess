@@ -10,6 +10,7 @@ import {
   type LocalSideChoice,
 } from '../game/useLocalGameController';
 import ThreeBoardRenderer, { type ThreeBoardRendererHandle } from './ThreeBoardRenderer';
+import { resultTextForViewer } from '../../shared/gameSession';
 
 type Props = { onBack: () => void };
 function opposite(color: Color): Color { return color === 'white' ? 'black' : 'white'; }
@@ -38,7 +39,7 @@ export default function PremiumBoard3D({ onBack }: Props) {
       <ThreeBoardRenderer ref={rendererRef} state={boardState} onMove={game.boardMove} ariaLabel="Interactive Premium 3D Chess960 board" />
       <div className="three-preview-badge">PREMIUM 3D</div><div className="three-board-help">Tap piece, then destination</div>
       {game.phase === 'strategy' && <div className="local-board-overlay"><span>STRATEGY</span><strong>{formatLocalClockMs(game.session.countdownMs)}</strong><p>The legal destinations are computed by the shared chess controller, not by the renderer.</p><div><button onPointerDown={() => game.setFastForward(true)} onPointerUp={() => game.setFastForward(false)} onPointerCancel={() => game.setFastForward(false)}>Hold ×4</button><button className="primary-black" onClick={game.startNow}>Start Now</button></div></div>}
-      {game.phase === 'ended' && game.session.result && <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{game.session.result}</strong><button className="primary-black" onClick={game.createPosition}>New position</button></div>}
+      {game.phase === 'ended' && game.session.result && <div className="local-board-overlay ended"><span>GAME OVER</span><strong className="end-title">{resultTextForViewer(game.session, game.humanColor ?? game.orientation) ?? game.session.result}</strong><button className="primary-black" onClick={game.createPosition}>New position</button></div>}
     </section></div>
       <aside className="three-side-column"><div className="three-panel"><span className="qqurz-kicker">POSITION {game.positionId !== null ? `#${game.positionId}` : '—'}</span><h2>{game.backRank || 'Open a 3D position'}</h2><p>{game.mode === 'ai' ? `You vs ${LOCAL_DIFFICULTIES[game.difficulty].label} Stockfish` : 'Two players on one device'} · {game.timeControl.label}</p></div>{game.mode === 'ai' && <div className={`local-engine-state ${game.engineStatus}`}>{game.engineStatus === 'loading' ? 'Loading Stockfish…' : game.engineStatus === 'thinking' ? 'Stockfish thinking…' : game.engineStatus === 'ready' ? 'Stockfish ready' : game.engineError || 'AI preparing'}</div>}<div className="three-panel muted"><span className="qqurz-kicker">RENDERER BOUNDARY</span><ul className="three-note-list"><li>2D and 3D consume the same shared board-state projection.</li><li>Piece meshes are instanced by role with per-instance color, reducing piece draw calls by half.</li><li>Board and table geometry render only surfaces visible from the play camera where practical.</li><li>Older iPhones cap device pixel ratio, reduce geometry detail and start without shadow maps.</li><li>Rendering is demand-driven and pauses when hidden, backgrounded or off-screen.</li></ul></div><div className="three-panel moves"><span className="qqurz-kicker">MOVES</span>{game.moves.length ? <ol>{game.moves.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div></aside>
     </section>

@@ -115,6 +115,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [livePositionBidsEnabled, setLivePositionBidsEnabled] = useState(false);
   const [liveColorBidsEnabled, setLiveColorBidsEnabled] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [resignPending, setResignPending] = useState(false);
   const tournamentPolicy = useMemo(() => tournamentTimePolicy(), []);
   const [roomTimeControl, setRoomTimeControl] = useState<TimeControl>(() => variant === 'tournament' ? tournamentTimePolicy().control : { ...TIME_CONTROL_PRESETS['10+5'] });
   const reducedMotion = useReducedMotion();
@@ -187,7 +188,10 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     rememberSeat(seat);
     setMessage('');
     const ws = connectRoom(seat, (event: ServerEvent) => {
-      if (event.type === 'error') return setMessage(event.message);
+      if (event.type === 'error') {
+        if (/no active game to resign/i.test(event.message)) return;
+        return setMessage(event.message);
+      }
       if (event.type === 'color_gate') {
         setColorGate(event);
         return;
@@ -207,6 +211,10 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     socket.current = ws;
     return () => { ws.close(); if (socket.current === ws) socket.current = null; };
   }, [seat?.code, seat?.token]);
+
+  useEffect(() => {
+    if (gameSession && canResignGameSession(gameSession)) setResignPending(false);
+  }, [gameSession?.id, gameSession?.state]);
 
   useEffect(() => {
     if (connection !== 'connected') setPromotion(null);
@@ -335,6 +343,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const canLeave = !gameSession || canLeaveGameSession(gameSession);
   const canDraw = Boolean(connectedToRoom && gameSession && canOfferDraw(gameSession));
   const canResign = Boolean(connectedToRoom && gameSession && canResignGameSession(gameSession));
+  const resignDisabled = !canResign || resignPending;
   const viewerResult = gameSession && seat ? resultTextForViewer(gameSession, seat.color) : gameSession?.result ?? null;
   const colorPreferenceOpen = Boolean(snapshot && gameSession?.state === 'COIN_TOSS' && !snapshot.coin.result && colorGate.enabled && !colorGate.open);
   const bidAllowed = Boolean(snapshot && gameSession && (gameSession.state === 'COUNTDOWN' || (gameSession.state === 'COIN_TOSS' && (!colorGate.enabled || colorGate.open))));
@@ -420,7 +429,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             <div className={`match-turn-note ${yourTurn ? 'active' : ''}`}>{gameSession && isTerminalGameState(gameSession.state) ? viewerResult : !connectedToRoom ? 'Reconnecting — the server will restore the latest game state' : gameSession?.state === 'ACTIVE' ? yourTurn ? 'Your move' : 'Opponent move' : gameSession?.state === 'RECONNECTING' ? 'Opponent reconnecting — server clock continues' : gameSession?.state === 'PAUSED' ? 'Game paused' : gameSession?.state === 'COUNTDOWN' ? 'Strategy phase' : gameSession?.state === 'COIN_TOSS' ? colorPreferenceOpen ? 'Color preference' : 'Color toss' : gameSession?.state === 'READY' ? 'Players ready' : 'Waiting for opponent'}</div>
             <button onClick={() => send({ type: opponentOfferedDraw ? 'accept_draw' : 'offer_draw' })} disabled={!canDraw || youOfferedDraw}>{opponentOfferedDraw ? 'Accept draw' : youOfferedDraw ? 'Draw offered' : 'Draw'}</button>
             {opponentOfferedDraw && canDraw && <button onClick={() => send({ type: 'decline_draw' })}>Decline</button>}
-            <button className="match-resign resign-button" onClick={() => send({ type: 'resign' })} disabled={!canResign}>Resign</button>
+            <button className="match-resign resign-button" onClick={() => { setResignPending(true); setMessage(''); send({ type: 'resign' }); }} disabled={resignDisabled}>Resign</button>
             <button aria-expanded={optionsOpen} onClick={() => setOptionsOpen(value => !value)}>Options</button>
           </div>
 

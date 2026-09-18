@@ -23,7 +23,19 @@ const resultKindFromLegacy = (snapshot: RoomSnapshot): GameSessionModel['resultK
 };
 
 export function authoritativeRoomSession(snapshot: RoomSnapshot): GameSessionModel {
-  if (snapshot.session) return snapshot.session;
+  if (snapshot.session) {
+    const session = snapshot.session;
+    if (session.winner || (!session.resultKind && !session.resignedBy && !/resign/i.test(session.result ?? ''))) return session;
+    const inferred = session.winner
+      ?? session.resignedBy && (session.resignedBy === 'white' ? 'black' : 'white')
+      ?? (/^White\b/i.test(session.result ?? '') ? 'white' : /^Black\b/i.test(session.result ?? '') ? 'black' : null);
+    if (!inferred) return session;
+    return {
+      ...session,
+      resultKind: session.resultKind === 'RESIGN' || /resign/i.test(session.result ?? '') ? 'RESIGN' : session.resultKind,
+      winner: inferred,
+    };
+  }
   const session = createGameSession({
     id: `room-${snapshot.code}`,
     state: stateFromLegacy(snapshot),
@@ -45,6 +57,9 @@ export function authoritativeRoomSession(snapshot: RoomSnapshot): GameSessionMod
     movesSan: snapshot.moves,
     result: snapshot.result,
     resultKind: resultKindFromLegacy(snapshot),
+    winner: /resign/i.test(snapshot.result ?? '')
+      ? (/^White\b/i.test(snapshot.result ?? '') ? 'white' : /^Black\b/i.test(snapshot.result ?? '') ? 'black' : null)
+      : session.winner,
     check: snapshot.check,
     checkmate: snapshot.checkmate,
     clocks: { ...session.clocks, startedAt: snapshot.turnStartedAt },

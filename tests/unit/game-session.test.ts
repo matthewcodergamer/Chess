@@ -101,3 +101,21 @@ test('resignation result is shown as a color to the loser and You win to the win
   assert.equal(resultTextForViewer(resigned, 'black'), 'You win');
   assert.equal(resultTextForViewer(resigned, 'white'), 'Black wins');
 });
+
+test('legacy resignation payloads still resolve You win for the winner', () => {
+  const active = createGameSession({ state: 'ACTIVE', sideToMove: 'black', clockMs: 60_000, clockStartedAt: 100, now: 100 });
+  const resigned = reduceGameSession(active, { type: 'RESIGN', by: 'black', at: 200 });
+  const stripped = { ...resigned, winner: null, result: 'White wins by resignation' };
+  assert.equal(resultTextForViewer(stripped, 'white'), 'You win');
+  assert.equal(resultTextForViewer(stripped, 'black'), 'White wins');
+
+  const textOnly = {
+    ...resigned,
+    winner: null,
+    resignedBy: null,
+    resultKind: 'OTHER' as const,
+    result: 'Black wins by resignation',
+  };
+  assert.equal(resultTextForViewer(textOnly, 'black'), 'You win');
+  assert.equal(resultTextForViewer(textOnly, 'white'), 'Black wins');
+});
