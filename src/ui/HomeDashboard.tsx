@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { OnlinePlayer } from '../multiplayer/client';
 import { PrimaryButton, SecondaryButton } from './controls';
 import HomeBoardPreview from './HomeBoardPreview';
@@ -6,7 +6,7 @@ import HomeBoardPreview from './HomeBoardPreview';
 type HomeIconName = 'chevron' | 'pawn' | 'knight' | 'rook' | 'queen' | 'king';
 
 function HomeIcon({ name }: { name: HomeIconName }) {
-  const paths: Record<HomeIconName, React.ReactNode> = {
+  const paths: Record<HomeIconName, ReactNode> = {
     chevron: <path d="m7 9 5 6 5-6" />,
     pawn: <><circle cx="12" cy="6.5" r="3" /><path d="M8.5 10h7l-1.5 5 3 4H7l3-4-1.5-5Z" /><path d="M6 21h12" /></>,
     knight: <path d="M7 20h11M8 20c.5-3 1.7-4.8 3.8-6.2 1.7-1 2.7-2.1 2.7-4.2 0-1.8-.9-3.2-2.5-4.1.1 1.3-.5 2.2-1.8 2.6-1.2.4-2.4.1-3.2-.8.1 2.1.9 3.5 2.4 4.4-2.2 1.3-3.4 3.6-3.4 6.3M15 5.7c1.8.3 3 1.5 3.3 3.4" />,
