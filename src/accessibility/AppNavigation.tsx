@@ -32,7 +32,8 @@ type NavIconName = 'menu' | 'close' | 'home' | 'trophy' | 'users' | 'cube' | 'pa
 
 function NavIcon({ name, className = '' }: { name: NavIconName; className?: string }) {
   const paths: Record<NavIconName, ReactNode> = {
-    menu: <path d="M4 7h16M4 12h16M4 17h16" />,\n    close: <path d="m6 6 12 12M18 6 6 18" />,
+    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+    close: <path d="m6 6 12 12M18 6 6 18" />,
     home: <><path d="m4 10 8-6 8 6" /><path d="M6.5 9.5V20h11V9.5M10 20v-5h4v5" /></>,
     trophy: <><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" /><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 12v4M8 20h8M9 16h6" /></>,
     users: <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M14 18a4.5 4.5 0 0 1 7 0" /></>,
