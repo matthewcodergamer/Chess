@@ -3,7 +3,7 @@ import type { Key } from '@lichess-org/chessground/types';
 import type { ChessBoardViewState } from '../game/boardViewState';
 import * as THREE from 'three';
 import { createThreeScene, syncThreePieces, syncThreeSelection, type ThreeSceneHandle } from './threeScene';
-import { squareFromWorldPoint } from './threeGeometry';
+import { squareFromWorldPoint, SQUARE_TOP } from './threeGeometry';
 
 export type ThreeBoardRendererHandle = { resetCamera: () => void };
 export type ThreeBoardRendererProps = {
@@ -44,7 +44,7 @@ const ThreeBoardRenderer = forwardRef<ThreeBoardRendererHandle, ThreeBoardRender
     const { handle, cleanup } = createThreeScene(element);
     sceneRef.current = handle;
     const raycaster = new THREE.Raycaster();
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.075);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -SQUARE_TOP);
     const pointer = new THREE.Vector2();
     const hit = new THREE.Vector3();
     let down: Key | null = null;

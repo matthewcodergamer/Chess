@@ -14,7 +14,7 @@ Networking and tournament rules remain in their existing authoritative server/re
 
 The Three.js scene is demand-driven. There is no perpetual animation loop. Rendering pauses when the document is hidden and when the board leaves the viewport.
 
-The board uses one instanced mesh for all 64 square top surfaces. Pieces use one instanced mesh per role across both colors, with per-instance color, for at most six piece draw calls instead of twelve role/color calls. Frame rails and legal destination markers are also instanced. Shared materials are reused rather than cloned per piece.
+The board uses one instanced mesh for all 64 square top surfaces. Pieces use one instanced mesh per role across both colors, with per-instance color, for at most six piece draw calls instead of twelve role/color calls. Frame rails and legal destination markers are also instanced. Shared materials are reused rather than cloned per piece. Piece meshes are procedural Staunton silhouettes (lathe plus merged extras so the knight is a horse, the king carries a cross, the queen a coronet, the rook merlons, and the bishop a mitre slit) with a satin wood material; both sides still share one geometry per role.
 
 Geometry detail is device-tiered. Lower-power iPhones use fewer radial segments, a 1.25 device-pixel-ratio cap, a low-power WebGL preference, no MSAA and no shadow maps at startup. Faster devices retain higher quality and may degrade render scale if active frame bursts repeatedly miss the frame budget.
 
