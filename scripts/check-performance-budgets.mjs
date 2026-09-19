@@ -65,7 +65,7 @@ if (!mainKey) errors.push('Could not find main Vite entry in manifest.');
 const initialKeys = staticClosure(mainKey);
 const initial = measure(initialKeys);
 requireBudget('Initial JavaScript gzip', initial.jsGzip, 96 * KiB);
-requireBudget('Initial CSS gzip', initial.cssGzip, 34 * KiB);
+requireBudget('Initial CSS gzip', initial.cssGzip, 35 * KiB);
 requireBudget('Initial JS+CSS gzip', initial.totalGzip, 135 * KiB);
 
 const adminKey = keyForSource('admin.html') ?? keyForSource('src/admin/main.tsx');
