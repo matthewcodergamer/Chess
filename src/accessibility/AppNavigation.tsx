@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
 import { IconButton } from '../ui/controls';
-import { AppIcon } from '../ui/AppIcons';
+import { AppIcon, AppIconPad } from '../ui/AppIcons';
 import BrandMark from '../ui/BrandMark';
 import { boardAppearanceLabel, type BoardAppearance } from '../onboarding/preferences';
 import { useAccessibilityPreferences } from './preferences';
@@ -155,13 +155,13 @@ export default function AppNavigation({
           <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><AppIcon name="close" /></button>
         </div>
         <nav className="drawer-links" aria-label="Chess menu" onKeyDown={moveFocus}>
-          <button onClick={() => run(onTournaments)} {...intent('tournaments')}><span className="drawer-glyph"><AppIcon name="trophy" /></span><div><b>Play a tournament</b><small>Competitive Chess960 events</small></div></button>
-          <button onClick={() => run(onFriends)} {...intent('online')}><span className="drawer-glyph"><AppIcon name="users" /></span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
-          <button onClick={() => run(onSameDevice)} {...intent('local')}><span className="drawer-glyph"><AppIcon name="board" /></span><div><b>Same device</b><small>Two players, one board</small></div></button>
-          <button onClick={() => run(onPremium3D)} {...intent('3d')}><span className="drawer-glyph"><AppIcon name="cube" /></span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
-          <button onClick={() => run(onShop)} {...intent('shop')}><span className="drawer-glyph"><AppIcon name="king" /></span><div><b>Plans and extras</b><small>Freestyle, themes, and 3D</small></div></button>
-          <button onClick={() => run(onAccount)} {...intent('account')}><span className="drawer-glyph"><AppIcon name="user" /></span><div><b>Account</b><small>Identity, ratings and settings</small></div></button>
-          <button className="drawer-ai-choice" onClick={() => run(onAI)} {...intent('local')}><span className="drawer-glyph"><AppIcon name="cpu" /></span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
+          <button onClick={() => run(onTournaments)} {...intent('tournaments')}><span className="drawer-glyph"><AppIconPad name="trophy" /></span><div><b>Play a tournament</b><small>Competitive Chess960 events</small></div></button>
+          <button onClick={() => run(onFriends)} {...intent('online')}><span className="drawer-glyph"><AppIconPad name="users" /></span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
+          <button onClick={() => run(onSameDevice)} {...intent('local')}><span className="drawer-glyph"><AppIconPad name="board" /></span><div><b>Same device</b><small>Two players, one board</small></div></button>
+          <button onClick={() => run(onPremium3D)} {...intent('3d')}><span className="drawer-glyph"><AppIconPad name="cube" /></span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
+          <button onClick={() => run(onShop)} {...intent('shop')}><span className="drawer-glyph"><AppIconPad name="king" /></span><div><b>Plans and extras</b><small>Freestyle, themes, and 3D</small></div></button>
+          <button onClick={() => run(onAccount)} {...intent('account')}><span className="drawer-glyph"><AppIconPad name="user" /></span><div><b>Account</b><small>Identity, ratings and settings</small></div></button>
+          <button className="drawer-ai-choice" onClick={() => run(onAI)} {...intent('local')}><span className="drawer-glyph"><AppIconPad name="cpu" /></span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
         </nav>
         <div className="drawer-live-match">
           <div><span className="presence-dot" aria-hidden="true"/><b>{onlineLabel}</b><small>Players seen recently</small></div>

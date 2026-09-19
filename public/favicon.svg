@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QQURZ Chess">
-  <rect width="512" height="512" rx="116" fill="#81b64c"/>
+  <rect width="512" height="512" rx="116" fill="#71A84B"/>
   <circle cx="256" cy="145" r="67" fill="#ffffff"/>
   <path fill="#ffffff" d="M190 219c10-20 31-32 66-32s56 12 66 32c7 15 5 31-5 45l-25 35c-7 10-10 21-9 33h-54c1-12-2-23-9-33l-25-35c-10-14-12-30-5-45Z"/>
   <path fill="#ffffff" d="M176 324h160c13 0 24 11 24 24v9c0 12-9 22-21 24l-166 0c-12-2-21-12-21-24v-9c0-13 11-24 24-24Z"/>

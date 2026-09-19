@@ -80,6 +80,23 @@ export function AppIcon({ name, className = 'qqurz-app-icon', ...props }: IconPr
   );
 }
 
+const ICON_PAD_FILES: Partial<Record<AppIconName, string>> = {
+  swords: 'icons/pad-play-online.png',
+  users: 'icons/pad-play-friend.png',
+  cpu: 'icons/pad-play-cpu.png',
+  board: 'icons/pad-play-board.png',
+  trophy: 'icons/pad-tournament.png',
+  cube: 'icons/pad-3d.png',
+  king: 'icons/pad-plans.png',
+  user: 'icons/pad-account.png',
+  knight: 'icons/pad-ai.png',
+};
+
+export function iconPadSrc(name: AppIconName): string | null {
+  const file = ICON_PAD_FILES[name];
+  return file ? `${import.meta.env.BASE_URL}${file}` : null;
+}
+
 export function AppIconPad({
   name,
   tone = 'soft',
@@ -89,6 +106,14 @@ export function AppIconPad({
   tone?: 'soft' | 'action' | 'muted';
   className?: string;
 }) {
+  const src = iconPadSrc(name);
+  if (src) {
+    return (
+      <span className={`qqurz-icon-pad qqurz-icon-pad--image qqurz-icon-pad--${tone} ${className}`.trim()} aria-hidden="true">
+        <img src={src} alt="" width="32" height="32" />
+      </span>
+    );
+  }
   return (
     <span className={`qqurz-icon-pad qqurz-icon-pad--${tone} ${className}`.trim()} aria-hidden="true">
       <AppIcon name={name} />

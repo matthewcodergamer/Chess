@@ -183,7 +183,7 @@ export default function Premium3DGate({ onBack }: Props) {
     <div className="premium-gate-page qqurz-content-page">
       <section className="premium-gate-card">
         <button className="text-back" onClick={onBack}>← Home</button>
-        <div className="premium-gate-icon" aria-hidden="true">♟</div>
+        <div className="premium-gate-icon" aria-hidden="true"><img src={`${import.meta.env.BASE_URL}icons/pad-3d.png`} alt="" width="64" height="64" /></div>
         <span className="qqurz-kicker">PREMIUM 3D · ONE-TIME UNLOCK</span>
         <h1>Play QQURZ in 3D.</h1>
         <p>Normal Chess960 stays fast and free in 2D. Premium 3D loads only after a verified purchase, so Three.js never slows down the standard board.</p>

@@ -17,6 +17,24 @@ import {
   savePieceTheme,
 } from './entitlements';
 
+const STORE_ART: Partial<Record<CatalogItemId, string>> = {
+  '3d-pass': 'icons/store-3d.png',
+  'theme-green': 'icons/store-green.png',
+  'theme-slate': 'icons/store-slate.png',
+  'pieces-warm': 'icons/store-warm-pieces.png',
+  'blitz-day': 'icons/store-blitz.png',
+  'blitz-month': 'icons/store-blitz.png',
+  'sub-monthly': 'icons/store-freestyle.png',
+  'sub-quarterly': 'icons/store-freestyle.png',
+  'sub-six': 'icons/store-freestyle.png',
+  'sub-annual': 'icons/store-freestyle.png',
+};
+
+function storeArt(id: CatalogItemId): string | null {
+  const file = STORE_ART[id];
+  return file ? `${import.meta.env.BASE_URL}${file}` : null;
+}
+
 type Props = { onBack: () => void; onOpen3D: () => void };
 
 function isPaidReturn(kind: string | null): boolean {
@@ -133,6 +151,7 @@ export default function StorePage({ onBack, onOpen3D }: Props) {
             const owned = ownedLabel(id);
             return (
               <article key={id} className={id === 'sub-annual' ? 'store-card featured' : 'store-card'}>
+                {storeArt(id) && <img className="store-card-art" src={storeArt(id)!} alt="" />}
                 <small>{id === 'sub-annual' ? 'Best value' : item.recurring?.intervalCount === 1 ? 'Monthly' : item.name.replace('Freestyle ', '')}</small>
                 <b>{money(item.cents)}</b>
                 <p>{item.blurb}</p>
@@ -165,6 +184,7 @@ export default function StorePage({ onBack, onOpen3D }: Props) {
             const owned = ownedLabel(id);
             return (
               <article key={id} className="store-card">
+                {storeArt(id) && <img className="store-card-art" src={storeArt(id)!} alt="" />}
                 <small>{item.name}</small>
                 <b>{money(item.cents)}</b>
                 <p>{item.blurb}</p>
@@ -192,6 +212,7 @@ export default function StorePage({ onBack, onOpen3D }: Props) {
             const owned = ownedLabel(id);
             return (
               <article key={id} className="store-card">
+                {storeArt(id) && <img className="store-card-art" src={storeArt(id)!} alt="" />}
                 <small>{item.name}</small>
                 <b>{money(item.cents)}</b>
                 <p>{item.blurb}</p>
