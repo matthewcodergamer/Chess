@@ -119,3 +119,27 @@ test('legacy resignation payloads still resolve You win for the winner', () => {
   assert.equal(resultTextForViewer(textOnly, 'black'), 'You win');
   assert.equal(resultTextForViewer(textOnly, 'white'), 'Black wins');
 });
+
+test('take-back pops the last ply and restores the fen', () => {
+  const active = createGameSession({ state: 'ACTIVE', sideToMove: 'white', clockMs: 60_000, clockStartedAt: 100, now: 100 });
+  const moved = reduceGameSession(active, {
+    type: 'MOVE_COMMITTED',
+    fen: 'after-white',
+    sideToMove: 'black',
+    mover: 'white',
+    san: 'e4',
+    at: 200,
+  });
+  const undone = reduceGameSession(moved, {
+    type: 'TAKE_BACK',
+    fen: 'start',
+    sideToMove: 'white',
+    plies: 1,
+    at: 300,
+  });
+  assert.equal(undone.fen, 'start');
+  assert.equal(undone.sideToMove, 'white');
+  assert.equal(undone.moveNumber, 0);
+  assert.equal(undone.movesSan.length, 0);
+  assert.equal(undone.pendingClockPress, null);
+});

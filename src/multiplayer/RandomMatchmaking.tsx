@@ -3,8 +3,9 @@ import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl
 import { IconButton, PrimaryButton } from '../ui/controls';
 import { cancelMatch, enqueueMatch, getPresenceId, loadMatch, type MatchmakingCriteria, type MatchmakingSnapshot } from './client';
 import type { RoomSeat } from './types';
+import { consumeHumanMatch, hasFreestyle, humanMatchBlockReason, humanMatchesRemaining } from '../premium/entitlements';
 
-type Props = { onlinePlayers: number | null; onOnlinePlayers: (count: number) => void; onMatched: (seat: RoomSeat) => void; onBack: () => void };
+type Props = { onlinePlayers: number | null; onOnlinePlayers: (count: number) => void; onMatched: (seat: RoomSeat) => void; onBack: () => void; onShop?: () => void };
 
 function profileName(): string {
   try {
@@ -30,7 +31,7 @@ function MatchIcon({ kind }: { kind: 'back' | 'knight' }): ReactNode {
   return <svg className="matchmaking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M7 20h11M8 20c.5-3 1.7-4.8 3.8-6.2 1.7-1 2.7-2.1 2.7-4.2 0-1.8-.9-3.2-2.5-4.1.1 1.3-.5 2.2-1.8 2.6-1.2.4-2.4.1-3.2-.8.1 2.1.9 3.5 2.4 4.4-2.2 1.3-3.4 3.6-3.4 6.3M15 5.7c1.8.3 3 1.5 3.3 3.4" /></svg>;
 }
 
-export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }: Props) {
+export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack, onShop }: Props) {
   const name = profileName();
   const [ticket, setTicket] = useState('');
   const [busy, setBusy] = useState(false);
@@ -52,6 +53,8 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
 
   const start = async () => {
     if (busy || ticket) return;
+    const blocked = humanMatchBlockReason();
+    if (blocked) return;
     setBusy(true);
     setFailed(false);
     const criteria: MatchmakingCriteria = {
@@ -66,6 +69,7 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
       for (let attempt = 1; attempt <= 5; attempt += 1) {
         try {
           const match = await enqueueMatch(name, presenceId, criteria);
+          consumeHumanMatch();
           if (finishMatch(match)) return;
           waitingRef.current = true;
           setTicket(match.ticket);
@@ -118,11 +122,15 @@ export default function RandomMatchmaking({ onOnlinePlayers, onMatched, onBack }
         <div className="matchmaking-simple-copy">
           <span className="eyebrow">QUICK MATCH</span>
           <h1>Find an opponent.</h1>
-          <p>Join the live Chess960 queue. We’ll keep you waiting here until you’re matched or you leave.</p>
+          <p>Join the live Chess960 queue. We’ll keep you waiting here until you’re matched or you leave.{hasFreestyle() ? '' : ` ${humanMatchesRemaining()} casual human matches left this month.`}</p>
         </div>
 
+        {humanMatchBlockReason() && (
+          <p className="human-match-note">{humanMatchBlockReason()} {onShop ? <button type="button" onClick={onShop}>See plans</button> : null}</p>
+        )}
+
         {!searching && !failed && (
-          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon={<MatchIcon kind="knight" />} onClick={start} >
+          <PrimaryButton className="matchmaking-simple-cta" fullWidth size="lg" leadingIcon={<MatchIcon kind="knight" />} onClick={start} disabled={Boolean(humanMatchBlockReason())}>
             Find an opponent
           </PrimaryButton>
         )}

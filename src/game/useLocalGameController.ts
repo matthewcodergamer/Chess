@@ -12,6 +12,7 @@ import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl
 import { chess960BackRank, chess960Fen, randomChess960Id } from './chess960';
 import { useGameSession } from './useGameSession';
 import { chessSoundForSan, playChessSound } from '../ui/sound';
+import { loadTakebackPreference, saveTakebackPreference } from '../premium/entitlements';
 
 export type LocalGameMode = 'human' | 'ai';
 export type LocalDifficulty = 'easy' | 'hard' | 'crazy';
@@ -76,6 +77,10 @@ export type LocalGameController = {
   fastForward: boolean;
   setFastForward: (value: boolean) => void;
   createPosition: () => void;
+  takeBack: () => void;
+  canTakeBack: boolean;
+  takebacksOn: boolean;
+  setTakebacksOn: (value: boolean) => void;
   boardMove: (orig: Key, dest: Key) => void;
   promote: (role: LocalPromotionRole) => void;
   startNow: () => void;
@@ -91,6 +96,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
   // consume its state and callbacks; neither renderer is allowed to adjudicate chess.
   const position = useRef<Chess | null>(null);
   const positionHistory = useRef<string[]>([]);
+  const undoStack = useRef<Array<{ fen: string; lastMove?: [Key, Key] }>>([]);
   const engine = useRef<Engine | null>(null);
   const enginePromise = useRef<Promise<Engine> | null>(null);
   const terminalSoundPlayed = useRef(false);
@@ -114,6 +120,12 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
   const [engineError, setEngineError] = useState('');
   const [promotion, setPromotion] = useState<{ orig: Key; dest: Key } | null>(null);
   const [timeControl, setTimeControl] = useState<TimeControl>(() => ({ ...DEFAULT_LOCAL_TIME_CONTROL }));
+  const [takebacksOn, setTakebacksOnState] = useState(loadTakebackPreference);
+
+  const setTakebacksOn = useCallback((value: boolean) => {
+    setTakebacksOnState(value);
+    saveTakebackPreference(value);
+  }, []);
 
   const phase = sessionUiPhase(session);
   const positionId = session.positionId;
@@ -154,6 +166,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     const chosen = mode === 'ai' ? chooseColor(sideChoice) : null;
     position.current = pos;
     positionHistory.current = [chessPositionKey(pos)];
+    undoStack.current = [];
     terminalSoundPlayed.current = false;
     dispatchSession({
       type: 'RESET',
@@ -184,6 +197,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
       && session.sideToMove === pos?.turn;
     if (!pos || !sessionCanMove || !pos.isLegal(move)) return false;
     const movingColor = pos.turn;
+    undoStack.current.push({ fen: makeFen(pos.toSetup()), lastMove });
     const san = makeSan(pos, move);
     pos.play(move);
     positionHistory.current = appendPositionHistory(positionHistory.current, pos);
@@ -209,7 +223,7 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
       engine.current?.cancelSearch();
     }
     return true;
-  }, [dispatchSession, humanColor, mode, session.pendingClockPress, session.result, session.sideToMove, session.state]);
+  }, [dispatchSession, humanColor, lastMove, mode, session.pendingClockPress, session.result, session.sideToMove, session.state]);
 
   const boardMove = useCallback((orig: Key, dest: Key) => {
     const pos = position.current;
@@ -329,6 +343,28 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     setFastForward(false);
   }, [dispatchSession, session.state]);
 
+  const takeBack = useCallback(() => {
+    if (!takebacksOn || session.state !== 'ACTIVE' || !position.current || undoStack.current.length === 0) return;
+    engine.current?.cancelSearch();
+    const plies = mode === 'ai' && undoStack.current.length >= 2 ? 2 : 1;
+    const snaps = undoStack.current.slice(-plies);
+    const target = snaps[0];
+    undoStack.current = undoStack.current.slice(0, -plies);
+    const pos = Chess.fromSetup(parseFen(target.fen).unwrap()).unwrap();
+    position.current = pos;
+    positionHistory.current = positionHistory.current.slice(0, Math.max(1, positionHistory.current.length - plies));
+    dispatchSession({
+      type: 'TAKE_BACK',
+      fen: target.fen,
+      sideToMove: pos.turn,
+      plies,
+      check: pos.isCheck(),
+      checkmate: pos.isCheckmate(),
+    });
+    setLastMove(target.lastMove);
+    setPromotion(null);
+  }, [dispatchSession, mode, session.state, takebacksOn]);
+
 
   const agreeDraw = useCallback((by: Color) => {
     if (session.state !== 'ACTIVE') return;
@@ -389,6 +425,10 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     fastForward,
     setFastForward,
     createPosition,
+    takeBack,
+    canTakeBack: takebacksOn && session.state === 'ACTIVE' && session.movesSan.length > 0,
+    takebacksOn,
+    setTakebacksOn,
     boardMove,
     promote,
     startNow,

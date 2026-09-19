@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent } from 'react';
 import { IconButton } from '../ui/controls';
 import { AppIcon } from '../ui/AppIcons';
+import BrandMark from '../ui/BrandMark';
 import { boardAppearanceLabel, type BoardAppearance } from '../onboarding/preferences';
 import { useAccessibilityPreferences } from './preferences';
 import AccessibilityPanel from './AccessibilityPanel';
 
-type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'account';
+type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'shop' | 'account';
 type IntentHandlers = Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'onPointerEnter' | 'onFocus' | 'onPointerDown'>;
 
 type Props = {
@@ -25,6 +26,7 @@ type Props = {
   onAI: () => void;
   onMatchmaking: () => void;
   onPremium3D: () => void;
+  onShop: () => void;
   onAccount: () => void;
   intent: (screen: Screen) => IntentHandlers;
 };
@@ -66,6 +68,7 @@ export default function AppNavigation({
   onAI,
   onMatchmaking,
   onPremium3D,
+  onShop,
   onAccount,
   intent,
 }: Props) {
@@ -110,7 +113,7 @@ export default function AppNavigation({
       <div className="qqurz-nav-start">
         <IconButton className="mobile-menu-button" size="sm" onClick={() => setMenuOpen(true)} aria-label="Open chess menu" aria-expanded={menuOpen}><AppIcon name="menu" /></IconButton>
         <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="qqurzchess home">
-          <span className="wordmark-pawn" aria-hidden="true"><AppIcon name="pawn" /></span><span className="wordmark-copy"><b>qqurzchess</b></span>
+          <BrandMark /><span className="wordmark-copy"><b>qqurzchess</b></span>
         </button>
       </div>
 
@@ -118,6 +121,7 @@ export default function AppNavigation({
         <button onClick={() => run(onHome)} className={screen === 'home' ? 'active' : ''} aria-current={screen === 'home' ? 'page' : undefined}><AppIcon name="home" /> Home</button>
         <button onClick={() => run(onTournaments)} {...intent('tournaments')} className={screen === 'tournaments' ? 'active' : ''} aria-current={screen === 'tournaments' ? 'page' : undefined}><AppIcon name="trophy" /> Tournaments</button>
         <button onClick={() => run(onFriends)} {...intent('online')} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''} aria-current={screen === 'online' && onlineVariant === 'friends' ? 'page' : undefined}><AppIcon name="users" /> Friends</button>
+        <button onClick={() => run(onShop)} {...intent('shop')} className={screen === 'shop' ? 'active' : ''} aria-current={screen === 'shop' ? 'page' : undefined}><AppIcon name="king" /> Plans</button>
         <button onClick={() => run(onPremium3D)} {...intent('3d')} className={screen === '3d' ? 'active' : ''} aria-current={screen === '3d' ? 'page' : undefined}><AppIcon name="cube" /> 3D</button>
       </nav>
 
@@ -147,7 +151,7 @@ export default function AppNavigation({
     {menuOpen && <div className="chess-drawer-backdrop" role="presentation" onPointerDown={() => setMenuOpen(false)}>
       <aside className="chess-drawer" role="dialog" aria-modal="true" aria-label="qqurzchess menu" onPointerDown={event => event.stopPropagation()}>
         <div className="drawer-head">
-          <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="qqurzchess home"><span className="wordmark-pawn" aria-hidden="true"><AppIcon name="pawn" /></span><span className="wordmark-copy"><b>qqurzchess</b></span></button>
+          <button className="qqurz-wordmark" onClick={() => run(onHome)} aria-label="qqurzchess home"><BrandMark /><span className="wordmark-copy"><b>qqurzchess</b></span></button>
           <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><AppIcon name="close" /></button>
         </div>
         <nav className="drawer-links" aria-label="Chess menu" onKeyDown={moveFocus}>
@@ -155,6 +159,7 @@ export default function AppNavigation({
           <button onClick={() => run(onFriends)} {...intent('online')}><span className="drawer-glyph"><AppIcon name="users" /></span><div><b>Play a friend</b><small>Create or join a private room</small></div></button>
           <button onClick={() => run(onSameDevice)} {...intent('local')}><span className="drawer-glyph"><AppIcon name="board" /></span><div><b>Same device</b><small>Two players, one board</small></div></button>
           <button onClick={() => run(onPremium3D)} {...intent('3d')}><span className="drawer-glyph"><AppIcon name="cube" /></span><div><b>Premium 3D</b><small>Physical board experience</small></div></button>
+          <button onClick={() => run(onShop)} {...intent('shop')}><span className="drawer-glyph"><AppIcon name="king" /></span><div><b>Plans and extras</b><small>Freestyle, themes, and 3D</small></div></button>
           <button onClick={() => run(onAccount)} {...intent('account')}><span className="drawer-glyph"><AppIcon name="user" /></span><div><b>Account</b><small>Identity, ratings and settings</small></div></button>
           <button className="drawer-ai-choice" onClick={() => run(onAI)} {...intent('local')}><span className="drawer-glyph"><AppIcon name="cpu" /></span><div><b>Practice with AI</b><small>Stockfish training only</small></div></button>
         </nav>

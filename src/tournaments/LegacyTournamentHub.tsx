@@ -122,7 +122,7 @@ export default function TournamentHub({ onBack, onPlayOnline }: Props) {
     liveTournamentPaymentsEnabled: false,
     cashTournamentCheckoutMode: 'test-only',
     platformRakeBps: PLATFORM_RAKE_BPS,
-    premium3dPriceCents: 499,
+    premium3dPriceCents: 399,
   });
   const [selectedSeats, setSelectedSeats] = useState<number>(32);
   const [selectedEntry, setSelectedEntry] = useState<number>(1_000);

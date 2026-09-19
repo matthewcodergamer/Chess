@@ -16,7 +16,7 @@ Authoritative Chess960 room server for players on different networks. It runs on
 - separate Chess960 Rapid, Blitz and Bullet Glicko-2 ratings
 - Glicko-2 rating deviation, volatility and provisional state
 - official QQURZ tournament catalog with configurable seat counts
-- Stripe Checkout Sessions for tournament entries and the $4.99 Premium 3D pass
+- Stripe Checkout Sessions for tournament entries and the $3.99 Premium 3D pass
 - server-side Checkout Session verification
 
 The browser is never trusted to decide whether a chess move is legal, change a competitive rating, write an official game result, or decide whether a Stripe Checkout Session is paid.
@@ -59,7 +59,7 @@ The committed configuration intentionally stays in test mode:
 
 ```text
 PAYMENTS_MODE=test
-PREMIUM_3D_PRICE_CENTS=499
+PREMIUM_3D_PRICE_CENTS=399
 ```
 
 Store the Stripe secret as a Cloudflare Worker **secret**, never in source control:
@@ -78,7 +78,7 @@ The backend supports live Stripe Checkout. When QQURZ is ready to collect real p
 1. Replace the Worker secret with the Stripe live secret using `npx wrangler secret put STRIPE_SECRET_KEY` and provide the `sk_live_...` value.
 2. Change `PAYMENTS_MODE` from `test` to `live` in the Worker configuration (or equivalent production environment configuration).
 3. Deploy the Worker.
-4. Keep `PREMIUM_3D_PRICE_CENTS=499` for the $4.99 one-time Premium 3D unlock, or change the amount deliberately.
+4. Keep `PREMIUM_3D_PRICE_CENTS=399` for the $3.99 one-time Premium 3D unlock, or change the amount deliberately.
 
 The frontend checks the returned Checkout Session with the server before loading Three.js, and re-verifies the saved Checkout Session on later visits. The old local prototype unlock flag is no longer accepted.
 

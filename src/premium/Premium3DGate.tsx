@@ -4,6 +4,7 @@ import { celebratePurchase } from '../ui/purchaseCelebration';
 import StateNotice from '../ui/StateNotice';
 import { createCheckout, loadTournamentCatalog, verifyCheckout, type PaymentMode } from '../tournaments/client';
 import { PREMIUM_3D_PAYMENT_URL, grantPremium3DReceipt, PREMIUM_3D_ENTITLEMENT_KEY } from './access';
+import { hasPremium3D } from './entitlements';
 
 const PremiumBoard3D = lazy(() => import('./PremiumBoard3D'));
 
@@ -21,7 +22,7 @@ function isPremiumReturn(params: URLSearchParams): boolean {
 
 export default function Premium3DGate({ onBack }: Props) {
   const [state, setState] = useState<GateState>('checking');
-  const [price, setPrice] = useState(499);
+  const [price, setPrice] = useState(399);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('off');
   const [paymentConfigured, setPaymentConfigured] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,7 +33,7 @@ export default function Premium3DGate({ onBack }: Props) {
     let active = true;
     loadTournamentCatalog().then(catalog => {
       if (!active) return;
-      setPrice(catalog.premium3dPriceCents || 499);
+      setPrice(catalog.premium3dPriceCents || 399);
       setPaymentMode(catalog.paymentMode);
       setPaymentConfigured(catalog.paymentConfigured);
     }).catch(() => {
@@ -101,9 +102,15 @@ export default function Premium3DGate({ onBack }: Props) {
     }
 
     if (!sessionId) {
+      if (hasPremium3D()) {
+        setState('verified');
+        setNotice('default');
+        setMessage('Premium 3D is included with Freestyle, or already unlocked on this device.');
+        return () => { active = false; };
+      }
       setState('locked');
       setNotice('default');
-      setMessage('Premium 3D is a one-time $4.99 unlock.');
+      setMessage('Premium 3D is a one-time $3.99 unlock, and it is included with Freestyle.');
       return () => { active = false; };
     }
 

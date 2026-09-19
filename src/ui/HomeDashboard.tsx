@@ -13,6 +13,7 @@ type Props = {
   onSameDevice: () => void;
   onMatchmaking: () => void;
   onPremium3D: () => void;
+  onShop?: () => void;
   onAI: () => void;
 };
 
@@ -57,6 +58,7 @@ export default function HomeDashboard({
   onSameDevice,
   onMatchmaking,
   onPremium3D,
+  onShop,
   onAI,
 }: Props) {
   const profile = useMemo(loadProfile, []);
@@ -159,8 +161,8 @@ export default function HomeDashboard({
 
       <section className="home-premium-row">
         <AppIconPad name="cube" tone="action" />
-        <div><span className="chess-eyebrow">Premium 3D</span><b>Physical board mode</b><small>Play with the table-style board and clock.</small></div>
-        <SecondaryButton size="sm" onClick={onPremium3D}>Open 3D</SecondaryButton>
+        <div><span className="chess-eyebrow">Freestyle</span><b>Plans and extras</b><small>Rated play, 3D, green and slate boards, and warm wood pieces.</small></div>
+        <SecondaryButton size="sm" onClick={onShop ?? onPremium3D}>Open plans</SecondaryButton>
       </section>
 
       <section className="home-ai-row" aria-label="AI practice">

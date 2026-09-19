@@ -13,12 +13,19 @@ import {
   saveBoardAppearance,
   type BoardAppearance,
 } from './onboarding/preferences';
+import {
+  applyPieceThemeToDocument,
+  cycleOwnedBoardAppearance,
+  grantFromCheckout,
+  resolvedBoardAppearance,
+} from './premium/entitlements';
 
 const loadLocalGame = () => import('./LocalGame');
 const loadOnlineArena = () => import('./multiplayer/OnlineArena');
 const loadRandomMatchmaking = () => import('./multiplayer/RandomMatchmaking');
 const loadTournamentHub = () => import('./tournaments/TournamentHub');
 const loadPremium3DGate = () => import('./premium/Premium3DGate');
+const loadStorePage = () => import('./premium/StorePage');
 const loadProfileHub = () => import('./profile/ProfileHub');
 const loadFairPlayPrompt = () => import('./fairPlay/FairPlayPrompt');
 const loadFairPlayRoomTools = () => import('./fairPlay/FairPlayRoomTools');
@@ -28,11 +35,12 @@ const OnlineArena = lazy(loadOnlineArena);
 const RandomMatchmaking = lazy(loadRandomMatchmaking);
 const TournamentHub = lazy(loadTournamentHub);
 const Premium3DGate = lazy(loadPremium3DGate);
+const StorePage = lazy(loadStorePage);
 const ProfileHub = lazy(loadProfileHub);
 const FairPlayPrompt = lazy(loadFairPlayPrompt);
 const FairPlayRoomTools = lazy(loadFairPlayRoomTools);
 
-type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'account';
+type Screen = 'home' | 'local' | 'online' | 'matchmaking' | 'tournaments' | '3d' | 'shop' | 'account';
 type LocalMode = 'human' | 'ai';
 type Theme = 'light' | 'dark';
 type NetworkInformation = { saveData?: boolean; effectiveType?: string };
@@ -56,8 +64,9 @@ function initialScreen(): Screen {
   const checkoutState = params.get('checkout');
   if ((checkoutState === 'success' || checkoutState === 'cancel') && (checkoutKind === 'position_bid' || checkoutKind === 'color_bid')) return 'online';
   if ((checkoutState === 'success' || checkoutState === 'cancel') && checkoutKind === 'premium3d') return '3d';
+  if ((checkoutState === 'success' || checkoutState === 'cancel') && (checkoutKind === 'subscription' || checkoutKind === 'theme' || checkoutKind === 'blitz')) return 'shop';
   if ((checkoutState === 'success' || checkoutState === 'cancel') && checkoutKind === 'tournament') return 'tournaments';
-  if (checkoutState === 'success') return 'tournaments';
+  if (checkoutState === 'success') return 'shop';
   return 'home';
 }
 
@@ -91,7 +100,7 @@ export default function AppShell() {
   const [accountAction] = useState(hasAccountAction);
   const [localMode, setLocalMode] = useState<LocalMode>('human');
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [boardAppearance, setBoardAppearance] = useState<BoardAppearance>(loadBoardAppearance);
+  const [boardAppearance, setBoardAppearance] = useState<BoardAppearance>(() => resolvedBoardAppearance(loadBoardAppearance()));
   const [onboardingComplete, setOnboardingComplete] = useState(hasCompletedOnboarding);
   const [soundOn, setSoundOn] = useState(soundEnabled);
   const [onlineVariant, setOnlineVariant] = useState<'friends' | 'tournament'>('friends');
@@ -108,6 +117,14 @@ export default function AppShell() {
     document.documentElement.dataset.boardTheme = boardAppearance;
     saveBoardAppearance(boardAppearance);
   }, [boardAppearance]);
+
+  useEffect(() => {
+    applyPieceThemeToDocument();
+    const params = new URLSearchParams(window.location.search);
+    const item = params.get('item');
+    const sessionId = params.get('session_id');
+    if (params.get('checkout') === 'success' && item) grantFromCheckout(item, sessionId);
+  }, []);
 
   const refreshPresence = useCallback(async () => {
     if (!onboardingComplete || !multiplayerConfigured) return;
@@ -148,6 +165,7 @@ export default function AppShell() {
     else if (next === 'matchmaking') void Promise.all([loadRandomMatchmaking(), loadFairPlayPrompt()]);
     else if (next === 'tournaments') void Promise.all([loadTournamentHub(), loadFairPlayPrompt()]);
     else if (next === '3d') void loadPremium3DGate();
+    else if (next === 'shop') void loadStorePage();
     else if (next === 'account') void loadProfileHub();
   };
 
@@ -215,7 +233,7 @@ export default function AppShell() {
         soundOn={soundOn}
         onSoundChange={applySound}
         onToggleTheme={() => setTheme(value => value === 'light' ? 'dark' : 'light')}
-        onCycleBoardAppearance={() => setBoardAppearance(value => value === 'walnut' ? 'tournament' : value === 'tournament' ? 'slate' : 'walnut')}
+        onCycleBoardAppearance={() => setBoardAppearance(value => cycleOwnedBoardAppearance(value))}
         onHome={goHome}
         onTournaments={() => setScreen('tournaments')}
         onFriends={openFriends}
@@ -223,6 +241,7 @@ export default function AppShell() {
         onAI={() => openLocal('ai')}
         onMatchmaking={openMatchmaking}
         onPremium3D={() => setScreen('3d')}
+        onShop={() => setScreen('shop')}
         onAccount={() => setScreen('account')}
         intent={intent}
       />
@@ -238,16 +257,18 @@ export default function AppShell() {
             onSameDevice={() => openLocal('human')}
             onMatchmaking={openMatchmaking}
             onPremium3D={() => setScreen('3d')}
+            onShop={() => setScreen('shop')}
             onAI={() => openLocal('ai')}
           />
         )}
 
         {screen === 'local' && <Suspense fallback={<LoadingView/>}><div className="qqurz-local-v14"><LocalGame key={localMode} initialMode={localMode}/></div></Suspense>}
         {screen === 'online' && invalidInvite && <div className="qqurz-content-page"><StateNotice tone="warning" icon="↗" eyebrow="ROOM INVITE" title="This invite link isn’t valid" body={<p>QQURZ room codes contain exactly six letters or numbers. This link may be incomplete, expired from sharing, or edited.</p>} detail="You can create a fresh private room and send its new invite instead." actions={[{ label: 'Create a room', onClick: createFreshRoom, primary: true }, { label: 'Back home', onClick: goHome }]} /></div>}
-        {screen === 'online' && !invalidInvite && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant}/><FairPlayRoomTools/></div></Suspense>}
-        {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={(_seat: RoomSeat) => { setOnlineVariant('friends'); setScreen('online'); }} onBack={goHome}/></></Suspense>}
+        {screen === 'online' && !invalidInvite && <Suspense fallback={<LoadingView/>}><div className="qqurz-content-page"><FairPlayPrompt/><OnlineArena onClose={goHome} variant={onlineVariant} onShop={() => setScreen('shop')}/><FairPlayRoomTools/></div></Suspense>}
+        {screen === 'matchmaking' && <Suspense fallback={<LoadingView/>}><><FairPlayPrompt/><RandomMatchmaking onlinePlayers={onlinePlayers} onOnlinePlayers={setOnlinePlayers} onMatched={(_seat: RoomSeat) => { setOnlineVariant('friends'); setScreen('online'); }} onBack={goHome} onShop={() => setScreen('shop')}/></></Suspense>}
         {screen === 'tournaments' && <Suspense fallback={<TournamentPageSkeleton/>}><div className="qqurz-content-page"><FairPlayPrompt mode="inline"/><TournamentHub onBack={goHome} onPlayOnline={() => { prefetchScreen('online'); setOnlineVariant('tournament'); setScreen('online'); }} onShow3D={() => { prefetchScreen('3d'); setScreen('3d'); }}/></div></Suspense>}
         {screen === '3d' && <Suspense fallback={<LoadingView/>}><Premium3DGate onBack={goHome}/></Suspense>}
+        {screen === 'shop' && <Suspense fallback={<LoadingView/>}><StorePage onBack={goHome} onOpen3D={() => setScreen('3d')}/></Suspense>}
         {screen === 'account' && <Suspense fallback={<ProfilePageSkeleton/>}><ProfileHub onBack={goHome}/></Suspense>}
       </div>
     </main>

@@ -1,5 +1,6 @@
 import { MULTIPLAYER_API, multiplayerConfigured } from '../multiplayer/client';
 import { TIME_CONTROL_PRESETS, tournamentTimeTemplateFor, type TournamentTimeTemplateId } from '../../shared/timeControl';
+import type { CheckoutKind } from '../../shared/catalog';
 import {
   ANNUAL_CHAMPIONSHIP_ENTRY_CENTS,
   ANNUAL_CHAMPIONSHIP_GUARANTEE_CENTS,
@@ -23,7 +24,7 @@ import {
 } from './model';
 
 export type PaymentMode = 'off' | 'test' | 'live';
-export type CheckoutKind = 'tournament' | 'premium3d' | 'position_bid' | 'color_bid';
+export type { CheckoutKind };
 
 export type Tournament = {
   id: string;
@@ -143,7 +144,7 @@ export async function loadTournamentCatalog(): Promise<TournamentCatalog> {
       cashTournamentCheckoutMode: 'test-only',
       complianceNotice: 'Cash-prize tournament checkout is test-only until QQURZ has an approved payment provider and jurisdiction review.',
       platformRakeBps: PLATFORM_RAKE_BPS,
-      premium3dPriceCents: 499,
+      premium3dPriceCents: 399,
       positionBidCents: [200, 500],
       livePositionBidsEnabled: false,
       colorBidCents: [200, 500],

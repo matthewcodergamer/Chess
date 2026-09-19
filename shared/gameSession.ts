@@ -74,6 +74,7 @@ export type GameSessionEvent =
   | { type: 'RESET'; options?: CreateGameSessionOptions }
   | { type: 'TRANSITION'; to: GameSessionState; at?: number }
   | { type: 'SET_POSITION'; fen: string; sideToMove: GameColor; positionId?: number | null; check?: boolean; checkmate?: boolean; at?: number }
+  | { type: 'TAKE_BACK'; fen: string; sideToMove: GameColor; plies?: number; check?: boolean; checkmate?: boolean; at?: number }
   | { type: 'MOVE_COMMITTED'; fen: string; sideToMove: GameColor; mover: GameColor; san: string; check?: boolean; checkmate?: boolean; at?: number }
   | { type: 'CLOCK_TICK'; elapsedMs: number; at?: number }
   | { type: 'CLOCK_TRANSFERRED'; at?: number }
@@ -279,6 +280,21 @@ export function reduceGameSession(session: GameSessionModel, event: GameSessionE
         checkmate: Boolean(event.checkmate),
         updatedAt: at,
       };
+    case 'TAKE_BACK': {
+      if (session.state !== 'ACTIVE' || session.movesSan.length === 0) return session;
+      const plies = Math.max(1, Math.min(event.plies ?? 1, session.movesSan.length));
+      return {
+        ...session,
+        fen: event.fen,
+        sideToMove: event.sideToMove,
+        pendingClockPress: null,
+        moveNumber: Math.max(0, session.moveNumber - plies),
+        movesSan: session.movesSan.slice(0, -plies),
+        check: Boolean(event.check),
+        checkmate: Boolean(event.checkmate),
+        updatedAt: at,
+      };
+    }
     case 'MOVE_COMMITTED':
       if (session.state !== 'ACTIVE' || session.pendingClockPress || session.sideToMove !== event.mover || session.result) return session;
       return {

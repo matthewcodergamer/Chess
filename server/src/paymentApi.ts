@@ -217,7 +217,7 @@ async function createPremiumCheckout(request: Request, env: PaymentsEnv, identit
   if (!stripeConfigured(env)) return json({ error: 'Stripe is not configured for premium purchases.' }, 503);
   const idempotency = clean(request.headers.get('idempotency-key'), 160);
   if (!idempotency) return json({ error: 'An Idempotency-Key header is required.' }, 400);
-  const price = parseCents(env.PREMIUM_3D_PRICE_CENTS ?? '499', 50, 100_000) || 499;
+  const price = parseCents(env.PREMIUM_3D_PRICE_CENTS ?? '399', 50, 100_000) || 399;
   const site = (env.PUBLIC_SITE_URL ?? 'https://qqurzchess.com').replace(/\/$/, '');
   const params = new URLSearchParams();
   params.set('mode', 'payment');

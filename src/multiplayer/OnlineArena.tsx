@@ -19,11 +19,25 @@ import type { CoinFace, RoomSeat, RoomSnapshot, ServerEvent } from './types';
 import { authoritativeRoomSession } from './session';
 import { canColorMove, canLeaveGameSession, canOfferDraw, canResignGameSession, clockOwner, isTerminalGameState, resultTextForViewer } from '../../shared/gameSession';
 import { TIME_CONTROL_PRESETS, TOURNAMENT_TIME_TEMPLATES, normalizeTimeControl, timeControlLabel, type TimeControl, type TimeControlPresetId, type TournamentTimeTemplateId } from '../../shared/timeControl';
+import {
+  allowedTimePresetIds,
+  consumeHumanMatch,
+  hasBlitzAccess,
+  hasFreestyle,
+  humanMatchBlockReason,
+  humanMatchesRemaining,
+  loadChatPreference,
+  loadRatedPreference,
+  loadTakebackPreference,
+  saveChatPreference,
+  saveRatedPreference,
+  saveTakebackPreference,
+} from '../premium/entitlements';
 
 type PromotionLetter = 'q' | 'r' | 'b' | 'n';
 type DesiredColor = 'white' | 'black';
 type ColorGate = Extract<ServerEvent, { type: 'color_gate' }>;
-type Props = { onClose: () => void; variant?: 'friends' | 'tournament' };
+type Props = { onClose: () => void; variant?: 'friends' | 'tournament'; onShop?: () => void };
 
 function formatClockMs(value: number): string {
   const seconds = Math.max(0, Math.ceil(value / 1000));
@@ -76,7 +90,7 @@ function inviteUrl(code: string): string {
   return url.toString();
 }
 
-export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
+export default function OnlineArena({ onClose, variant = 'friends', onShop }: Props) {
   const ground = useRef<QQurzChessgroundApi | null>(null);
   const socket = useRef<RoomConnection | null>(null);
   const moveHandler = useRef<(orig: Key, dest: Key) => void>(() => {});
@@ -118,6 +132,11 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
   const [resignPending, setResignPending] = useState(false);
   const tournamentPolicy = useMemo(() => tournamentTimePolicy(), []);
   const [roomTimeControl, setRoomTimeControl] = useState<TimeControl>(() => variant === 'tournament' ? tournamentTimePolicy().control : { ...TIME_CONTROL_PRESETS['10+5'] });
+  const [takebacksOn, setTakebacksOn] = useState(loadTakebackPreference);
+  const [chatOn, setChatOn] = useState(loadChatPreference);
+  const [ratedOn, setRatedOn] = useState(loadRatedPreference);
+  const clocksUnlocked = hasBlitzAccess();
+  const subscribed = hasFreestyle();
   const reducedMotion = useReducedMotion();
   const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
 
@@ -297,16 +316,20 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
     history.replaceState({}, '', url);
   };
   const create = async () => {
+    const blocked = humanMatchBlockReason();
+    if (blocked) { setMessage(blocked); return; }
     setBusy(true); setMessage('');
-    try { const created = await createRoom(name.trim() || 'Guest', roomTimeControl, variant === 'tournament' ? tournamentPolicy.templateId : undefined); setRoomCode(created.code); rememberSeat(created); setSeat(created); setRoomUrl(created.code); }
+    try { const created = await createRoom(name.trim() || 'Guest', roomTimeControl, variant === 'tournament' ? tournamentPolicy.templateId : undefined); consumeHumanMatch(); setRoomCode(created.code); rememberSeat(created); setSeat(created); setRoomUrl(created.code); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not create room.'); }
     finally { setBusy(false); }
   };
   const join = async (codeOverride?: string) => {
     const code = (codeOverride ?? roomCode).trim().toUpperCase();
     if (!code) return setMessage('Enter a room code first.');
+    const blocked = humanMatchBlockReason();
+    if (blocked) { setMessage(blocked); return; }
     setBusy(true); setMessage('');
-    try { const joined = await joinRoom(code, name.trim() || 'Guest'); rememberSeat(joined); setSeat(joined); setRoomUrl(joined.code); }
+    try { const joined = await joinRoom(code, name.trim() || 'Guest'); consumeHumanMatch(); rememberSeat(joined); setSeat(joined); setRoomUrl(joined.code); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not join room.'); }
     finally { setBusy(false); }
   };
@@ -379,9 +402,37 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
       <label className="online-field"><span>Your name</span><input value={name} maxLength={28} onChange={event => setName(event.target.value)} placeholder="Player name" /></label>
       <details className="room-clock-details">
         <summary>Clock · {roomTimeControl.label}</summary>
-        <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : undefined} allowCustom={variant !== 'tournament'} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
+        <TimeControlPicker value={roomTimeControl} onChange={setRoomTimeControl} allowedPresetIds={variant === 'tournament' ? tournamentPolicy.allowed : clocksUnlocked ? ['3+2', '5+0', '10+5'] : allowedTimePresetIds()} allowCustom={variant !== 'tournament' && clocksUnlocked} label={variant === 'tournament' ? 'Tournament clock' : 'Room clock'} />
       </details>
-      <div className="online-actions-grid"><button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy}>{busy ? 'Working…' : 'Create room'}</button><div className="join-room-box"><input value={roomCode} onChange={event => applyRoomCode(event.target.value)} placeholder="Room code" aria-label="Room code"/><button onClick={() => void join()} disabled={!multiplayerConfigured || busy}>Join</button></div></div>
+      <div className="game-setup-options">
+        <div>
+          <span>Take-backs</span>
+          <div className="side-pills">
+            <button type="button" className={takebacksOn ? 'selected' : ''} onClick={() => { setTakebacksOn(true); saveTakebackPreference(true); }}>On</button>
+            <button type="button" className={!takebacksOn ? 'selected' : ''} onClick={() => { setTakebacksOn(false); saveTakebackPreference(false); }}>Off</button>
+          </div>
+        </div>
+        <div>
+          <span>Chat</span>
+          <div className="side-pills">
+            <button type="button" className={chatOn ? 'selected' : ''} onClick={() => { setChatOn(true); saveChatPreference(true); }}>On</button>
+            <button type="button" className={!chatOn ? 'selected' : ''} onClick={() => { setChatOn(false); saveChatPreference(false); }}>Off</button>
+          </div>
+        </div>
+        {subscribed ? (
+          <div>
+            <span>Rated</span>
+            <div className="side-pills">
+              <button type="button" className={ratedOn ? 'selected' : ''} onClick={() => { setRatedOn(true); saveRatedPreference(true); }}>On</button>
+              <button type="button" className={!ratedOn ? 'selected' : ''} onClick={() => { setRatedOn(false); saveRatedPreference(false); }}>Off</button>
+            </div>
+          </div>
+        ) : (
+          <p className="setup-lock-note">Casual only on free play. Rated, blitz, and bullet come with Freestyle.{onShop ? <button type="button" onClick={onShop}>See plans</button> : null}</p>
+        )}
+      </div>
+      {!subscribed && <p className="human-match-note">{Number.isFinite(humanMatchesRemaining()) ? `${humanMatchesRemaining()} casual human matches left this month.` : 'Unlimited human matches.'}</p>}
+      <div className="online-actions-grid"><button className="online-primary" onClick={create} disabled={!multiplayerConfigured || busy || Boolean(humanMatchBlockReason())}>{busy ? 'Working…' : 'Create room'}</button><div className="join-room-box"><input value={roomCode} onChange={event => applyRoomCode(event.target.value)} placeholder="Room code" aria-label="Room code"/><button onClick={() => void join()} disabled={!multiplayerConfigured || busy || Boolean(humanMatchBlockReason())}>Join</button></div></div>
       {message && <p className="online-error">{message}</p>}<button className="online-back" onClick={onClose}>Back</button>
     </section>
   );
@@ -418,7 +469,7 @@ export default function OnlineArena({ onClose, variant = 'friends' }: Props) {
             {gameSession?.state === 'LOBBY' && <div className="board-overlay online-waiting-overlay"><div><span>Waiting for opponent</span><strong className="room-code-display">{snapshot.code}</strong><small>Share this code or invite link with player two.</small></div></div>}
             {gameSession?.state === 'COIN_TOSS' && <div className="board-overlay coin-overlay"><div className="coin-stage real-quarter-stage"><span>{colorPreferenceOpen ? 'Color preference' : 'Color toss'}</span><Quarter3D result={snapshot.coin.result} flippedAt={snapshot.coin.flippedAt}/>{colorPreferenceOpen ? snapshot.colorAuction.leaderName ? <><strong>Color preference is active.</strong><p><b>{snapshot.colorAuction.leaderName}</b> leads at {money(snapshot.colorAuction.leadingBidCents)} for {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'}. The toss stays locked until this preference is resolved.</p>{youLeadColorBid ? <button className="lock-color-bid" onClick={() => send({ type: 'settle_color_bid' })} disabled={!connectedToRoom}>Lock {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'} and continue</button> : <small>Outbid the leader below, or wait for the winning preference to resolve.</small>}</> : <><strong>Choose a side preference or use the free toss.</strong><p>The quarter cannot be called until both players choose the free toss. This keeps color preference and the toss from racing each other.</p><button className="lock-color-bid" onClick={chooseFreeToss} disabled={!connectedToRoom || colorGate.yourOptOut}>{colorGate.yourOptOut ? 'Waiting for opponent…' : 'Use free quarter toss'}</button><small>{colorGate.optedOut}/{colorGate.required} players chose the free toss.</small></> : !snapshot.coin.result ? <><strong>Call the quarter.</strong><p>The server has already opened the normal toss path. Choose a face; the server generates and stores the result before the animation displays it.</p><div className="coin-call-actions"><button onClick={() => send({ type: 'call_coin', face: 'heads' })} disabled={!connectedToRoom}>Heads</button><button onClick={() => send({ type: 'call_coin', face: 'tails' })} disabled={!connectedToRoom}>Tails</button></div></> : <><strong>{snapshot.coin.result.toUpperCase()} · {snapshot.coin.winner} gets White</strong><p>You called {snapshot.coin.yourFace ?? '—'} · your assigned color is {snapshot.yourColor ?? seat.color}.</p></>}</div></div>}
             {gameSession?.state === 'COUNTDOWN' && <div className="board-overlay strategy-overlay online-strategy-overlay"><div><span>Strategy phase</span><strong>{formatClockMs(strategySeconds * 1000)}</strong><small>Green dots show legal destinations. Tactical danger warnings stay off, so players can still blunder.</small><button className="overlay-start-button" onClick={() => { playChessSound('start'); send({ type: 'start_now' }); }} disabled={!connectedToRoom}>Start now</button></div></div>}
-            {gameSession && isTerminalGameState(gameSession.state) && viewerResult && <div className="board-overlay ended online-ended-overlay"><div><span>Game over</span><strong className="end-title">{viewerResult}</strong></div></div>}
+            {gameSession && isTerminalGameState(gameSession.state) && viewerResult && <div className="board-overlay ended online-ended-overlay"><div><span>Game over</span><strong className="end-title">{viewerResult}</strong><small>{subscribed ? 'Analysis and the opening explorer are included with Freestyle.' : 'Analysis and the opening explorer come with Freestyle.'}</small></div></div>}
           </div>
 
           <MatchPlayerBar

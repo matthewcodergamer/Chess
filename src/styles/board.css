@@ -21,4 +21,17 @@
 .promotion-grid button,.online-promotion button{display:flex;align-items:center;justify-content:center;gap:var(--q-space-8)}
 .promotion-grid button .qqurz-piece-asset,.online-promotion button .qqurz-piece-asset{flex:0 0 auto}
 
+html[data-piece-theme='warm'] .qqurz-chessboard piece.white:not(.fading):not(.ghost),
+html[data-piece-theme='warm'] .qqurz-piece-asset piece.white{
+  filter:sepia(.48) saturate(1.32) hue-rotate(-22deg) brightness(1.03)!important;
+  -webkit-filter:sepia(.48) saturate(1.32) hue-rotate(-22deg) brightness(1.03)!important;
+}
+html[data-piece-theme='warm'] .qqurz-chessboard piece.black:not(.fading):not(.ghost),
+html[data-piece-theme='warm'] .qqurz-piece-asset piece.black{
+  filter:sepia(.82) saturate(1.18) hue-rotate(-16deg) brightness(.58)!important;
+  -webkit-filter:sepia(.82) saturate(1.18) hue-rotate(-16deg) brightness(.58)!important;
+}
+html[data-piece-theme='warm'] .captured-glyphs.white{color:var(--q-board-piece-warm-light)}
+html[data-piece-theme='warm'] .captured-glyphs.black{color:var(--q-board-piece-warm-dark)}
+
 .premium-physical-clock{margin-top:var(--q-space-12)}

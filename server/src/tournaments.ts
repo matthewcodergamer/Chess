@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { TIME_CONTROL_PRESETS, tournamentTimeTemplateFor, type TournamentTimeTemplateId } from '../../shared/timeControl';
+import { CATALOG, catalogItem, isCatalogCheckoutKind, type CheckoutKind } from '../../shared/catalog';
 import { recordAccountTournament, resolveAccountSession, type AccountEnv } from './accounts';
 
 export type TournamentEnv = AccountEnv & {
@@ -14,7 +15,6 @@ export type TournamentEnv = AccountEnv & {
 };
 
 type PaymentMode = 'off' | 'test' | 'live';
-type CheckoutKind = 'tournament' | 'premium3d' | 'position_bid' | 'color_bid';
 type DesiredColor = 'white' | 'black';
 type TournamentStatus = 'open' | 'filling' | 'ready' | 'in_progress' | 'complete';
 type PayoutGroup = {
@@ -213,8 +213,8 @@ function normalizePlayerName(value: unknown): string {
   return cleaned || 'Guest';
 }
 function premium3dPrice(env: TournamentEnv): number {
-  const n = Number(env.PREMIUM_3D_PRICE_CENTS ?? '499');
-  return Number.isFinite(n) && n >= 50 ? Math.floor(n) : 499;
+  const n = Number(env.PREMIUM_3D_PRICE_CENTS ?? '399');
+  return Number.isFinite(n) && n >= 50 ? Math.floor(n) : 399;
 }
 function paymentMode(env: TournamentEnv): PaymentMode {
   const key = env.STRIPE_SECRET_KEY ?? '';
@@ -226,7 +226,15 @@ function checkoutPattern(mode: PaymentMode): RegExp {
   return mode === 'live' ? /^cs_live_[A-Za-z0-9_]+$/ : /^cs_test_[A-Za-z0-9_]+$/;
 }
 function itemFor(kind: CheckoutKind, itemId: string, env: TournamentEnv, desiredColor?: DesiredColor) {
-  if (kind === 'premium3d' && itemId === '3d-pass') return { id: itemId, name: 'QQURZ Premium 3D Board Pass', cents: premium3dPrice(env) };
+  const catalog = catalogItem(itemId);
+  if (catalog && catalog.kind === kind) {
+    return {
+      id: catalog.id,
+      name: catalog.name,
+      cents: catalog.id === '3d-pass' ? premium3dPrice(env) : catalog.cents,
+      recurring: catalog.recurring,
+    };
+  }
   if (kind === 'position_bid') { const cents = POSITION_BIDS[itemId]; if (cents) return { id: itemId, name: `QQURZ Chess960 position bid — $${cents / 100}`, cents }; }
   if (kind === 'color_bid') { const cents = COLOR_BIDS[itemId]; if (cents && desiredColor) return { id: itemId, name: `QQURZ ${desiredColor === 'white' ? 'White' : 'Black'} side bid — $${cents / 100}`, cents }; }
   if (kind === 'tournament') {
@@ -252,7 +260,7 @@ async function createStripeCheckout(request: Request, env: TournamentEnv): Promi
   const mode = paymentMode(env);
   if (mode === 'off') return json({ error: 'Stripe checkout is not configured for the selected payment mode.' }, 503);
   const body = await request.json().catch(() => ({})) as { itemId?: string; kind?: CheckoutKind; roomCode?: string; desiredColor?: DesiredColor };
-  const kind: CheckoutKind = body.kind === 'premium3d' ? 'premium3d' : body.kind === 'position_bid' ? 'position_bid' : body.kind === 'color_bid' ? 'color_bid' : 'tournament';
+  const kind: CheckoutKind = isCatalogCheckoutKind(body.kind) ? body.kind : 'tournament';
   const desiredColor: DesiredColor | undefined = body.desiredColor === 'white' || body.desiredColor === 'black' ? body.desiredColor : undefined;
 
   if (mode === 'live' && kind === 'tournament') {
@@ -280,21 +288,32 @@ async function createStripeCheckout(request: Request, env: TournamentEnv): Promi
   if (roomCode) cancel.searchParams.set('room', roomCode);
   if (desiredColor) cancel.searchParams.set('color', desiredColor);
 
+  const recurring = 'recurring' in item && item.recurring ? item.recurring : undefined;
   const params = new URLSearchParams();
-  params.set('mode', 'payment');
+  params.set('mode', recurring ? 'subscription' : 'payment');
   params.set('line_items[0][price_data][currency]', 'usd');
   params.set('line_items[0][price_data][product_data][name]', item.name);
   params.set('line_items[0][price_data][unit_amount]', String(item.cents));
   params.set('line_items[0][quantity]', '1');
+  if (recurring) {
+    params.set('line_items[0][price_data][recurring][interval]', recurring.interval);
+    params.set('line_items[0][price_data][recurring][interval_count]', String(recurring.intervalCount));
+  }
   params.set('success_url', success.toString().replace('%7BCHECKOUT_SESSION_ID%7D', '{CHECKOUT_SESSION_ID}'));
   params.set('cancel_url', cancel.toString());
   params.set('client_reference_id', `${kind}:${item.id}${roomCode ? `:${roomCode}` : ''}${desiredColor ? `:${desiredColor}` : ''}`);
   params.set('metadata[item_id]', item.id);
   params.set('metadata[kind]', kind);
   params.set('metadata[environment]', `qqurz-${mode}`);
-  params.set('payment_intent_data[metadata][item_id]', item.id);
-  params.set('payment_intent_data[metadata][kind]', kind);
-  params.set('payment_intent_data[metadata][environment]', `qqurz-${mode}`);
+  if (recurring) {
+    params.set('subscription_data[metadata][item_id]', item.id);
+    params.set('subscription_data[metadata][kind]', kind);
+    params.set('subscription_data[metadata][environment]', `qqurz-${mode}`);
+  } else {
+    params.set('payment_intent_data[metadata][item_id]', item.id);
+    params.set('payment_intent_data[metadata][kind]', kind);
+    params.set('payment_intent_data[metadata][environment]', `qqurz-${mode}`);
+  }
   if (kind === 'position_bid' || kind === 'color_bid') {
     params.set('metadata[room_code]', roomCode);
     params.set('metadata[bid_cents]', String(item.cents));
@@ -320,7 +339,7 @@ async function verifyStripeCheckout(url: URL, env: TournamentEnv): Promise<Respo
   try {
     const sessionId = url.searchParams.get('session_id') ?? '';
     const payload = await fetchStripeSession(sessionId, env);
-    const kind: CheckoutKind | '' = payload.metadata?.kind === 'premium3d' ? 'premium3d' : payload.metadata?.kind === 'position_bid' ? 'position_bid' : payload.metadata?.kind === 'color_bid' ? 'color_bid' : payload.metadata?.kind === 'tournament' ? 'tournament' : '';
+    const kind: CheckoutKind | '' = isCatalogCheckoutKind(payload.metadata?.kind) ? payload.metadata.kind : '';
     const desiredColor = payload.metadata?.desired_color === 'white' || payload.metadata?.desired_color === 'black' ? payload.metadata.desired_color : '';
     return json({
       paid: payload.payment_status === 'paid',
@@ -399,6 +418,12 @@ export async function handleTournamentRequest(request: Request, env: TournamentE
       complianceNotice: 'Cash-prize tournament checkout is test-only until QQURZ has an approved payment provider and jurisdiction review.',
       platformRakeBps: PLATFORM_RAKE_BPS,
       premium3dPriceCents: premium3dPrice(env),
+      freestyleCatalog: Object.values(CATALOG).map(item => ({
+        id: item.id,
+        kind: item.kind,
+        name: item.name,
+        cents: item.id === '3d-pass' ? premium3dPrice(env) : item.cents,
+      })),
       positionBidCents: [200, 500],
       livePositionBidsEnabled: mode === 'live' && env.LIVE_POSITION_BIDS === 'enabled',
       colorBidCents: [200, 500],

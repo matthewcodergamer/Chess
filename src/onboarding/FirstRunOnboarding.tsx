@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PrimaryButton, SecondaryButton } from '../ui/controls';
+import BrandMark from '../ui/BrandMark';
 import { loadProfile, randomUsername, sanitizeUsername, saveProfile } from '../profile/profileStore';
 import {
   boardAppearanceLabel,
@@ -7,6 +8,7 @@ import {
   type BoardAppearance,
   type ChessExperience,
 } from './preferences';
+import { hasBoardTheme } from '../premium/entitlements';
 
 type Props = {
   initialBoardAppearance: BoardAppearance;
@@ -38,8 +40,8 @@ const EXPERIENCE_OPTIONS: ExperienceOption[] = [
 
 const BOARD_OPTIONS: BoardOption[] = [
   { value: 'walnut', title: 'Walnut', note: 'Warm wood with strong piece contrast.' },
-  { value: 'tournament', title: 'Tournament green', note: 'Classic competitive board colors.' },
-  { value: 'slate', title: 'Slate', note: 'Neutral, cool and low-distraction.' },
+  { value: 'tournament', title: 'Tournament green', note: 'Classic competitive board · $1.99' },
+  { value: 'slate', title: 'Slate', note: 'Neutral, cool and low-distraction · $1.99' },
 ];
 
 export default function FirstRunOnboarding({
@@ -62,6 +64,7 @@ export default function FirstRunOnboarding({
   };
 
   const chooseBoard = (value: BoardAppearance) => {
+    if (!hasBoardTheme(value)) return;
     setBoardAppearance(value);
     onBoardAppearanceChange(value);
     setStep(2);
@@ -91,7 +94,7 @@ export default function FirstRunOnboarding({
       <section className="onboarding-shell">
         <header className="onboarding-header">
           <div className="onboarding-brand" aria-label="qqurzchess">
-            <span aria-hidden="true">♞</span>
+            <BrandMark />
             <div><b>qqurzchess</b><small>Competitive Chess960</small></div>
           </div>
           <span className="onboarding-step-label">Step {step + 1} of 4</span>
@@ -125,12 +128,15 @@ export default function FirstRunOnboarding({
               <h1>Which board feels best to you?</h1>
               <p>This becomes your default board appearance. You can change it later in Display settings.</p>
               <div className="onboarding-board-grid">
-                {BOARD_OPTIONS.map(option => (
-                  <button key={option.value} className={`onboarding-board-choice ${boardAppearance === option.value ? 'selected' : ''}`} onClick={() => chooseBoard(option.value)} aria-label={`Use ${option.title} board`}>
+                {BOARD_OPTIONS.map(option => {
+                  const locked = !hasBoardTheme(option.value);
+                  return (
+                  <button key={option.value} className={`onboarding-board-choice ${boardAppearance === option.value ? 'selected' : ''} ${locked ? 'locked' : ''}`} onClick={() => locked ? undefined : chooseBoard(option.value)} aria-label={locked ? `${option.title} board, $1.99` : `Use ${option.title} board`}>
                     <span className={`onboarding-board-preview board-${option.value}`} aria-hidden="true" />
-                    <span><b>{option.title}</b><small>{option.note}</small></span>
+                    <span><b>{option.title}</b><small>{option.note}</small>{locked ? <small className="board-price">$1.99</small> : null}</span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

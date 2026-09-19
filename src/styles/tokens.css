@@ -57,7 +57,7 @@
   --q-radius-pill:999px;
 
   /* Surfaces. */
-  --q-surface-canvas:#312e2b;
+  --q-surface-canvas:#2F2E2A;
   --q-surface-1:#262522;
   --q-surface-2:#3a3835;
   --q-surface-3:#45423e;
@@ -70,13 +70,13 @@
   --q-line:rgba(255,255,255,.09);
   --q-line-strong:rgba(255,255,255,.16);
 
-  /* Primary green action system — Chess.com play-button green, white label, flat. */
-  --q-action:#81b64c;
-  --q-action-hover:#8fbf5a;
-  --q-action-active:#6fa13e;
-  --q-action-strong:#9ed05e;
+  /* Primary green action system — Freestyle buttons, white label, flat. */
+  --q-action:#71A84B;
+  --q-action-hover:#7db456;
+  --q-action-active:#578542;
+  --q-action-strong:#8bc45a;
   --q-action-ink:#ffffff;
-  --q-action-soft:rgba(129,182,76,.16);
+  --q-action-soft:rgba(113,168,75,.16);
   --q-focus-ring:color-mix(in srgb,var(--q-action) 68%,white);
 
   /* Semantic states. */
@@ -94,7 +94,7 @@
   --q-board-walnut-dark:#6f452a;
   --q-board-walnut-frame:#4d3222;
   --q-board-tournament-light:#e0d4ad;
-  --q-board-tournament-dark:#6f8752;
+  --q-board-tournament-dark:#558866;
   --q-board-tournament-frame:#3f4b35;
   --q-board-slate-light:#b9c0c3;
   --q-board-slate-dark:#657078;
@@ -106,6 +106,8 @@
   --q-board-legal-soft:rgba(70,174,92,.18);
   --q-board-piece-light:#efebe2;
   --q-board-piece-dark:#24231f;
+  --q-board-piece-warm-light:#E0A185;
+  --q-board-piece-warm-dark:#503430;
   --q-board-status-white:#ddd8ca;
   --q-board-status-black:#6e6b63;
 
@@ -172,12 +174,12 @@
   --q-subtle:#918b82;
   --q-line:rgba(42,37,30,.10);
   --q-line-strong:rgba(42,37,30,.18);
-  --q-action:#81b64c;
-  --q-action-hover:#73a643;
-  --q-action-active:#64913b;
-  --q-action-strong:#547f38;
+  --q-action:#71A84B;
+  --q-action-hover:#64943f;
+  --q-action-active:#578542;
+  --q-action-strong:#4e7838;
   --q-action-ink:#ffffff;
-  --q-action-soft:rgba(129,182,76,.14);
+  --q-action-soft:rgba(113,168,75,.14);
   --q-success:#3e8b5f;
   --q-success-strong:#2f704b;
   --q-success-soft:rgba(62,139,95,.12);

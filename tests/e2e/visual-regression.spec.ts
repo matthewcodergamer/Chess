@@ -183,7 +183,7 @@ async function installApi(page: Page) {
         liveTournamentPaymentsEnabled: false,
         cashTournamentCheckoutMode: 'test-only',
         platformRakeBps: 2000,
-        premium3dPriceCents: 499,
+        premium3dPriceCents: 399,
         positionBidCents: [200, 500],
         livePositionBidsEnabled: false,
         colorBidCents: [200, 500],
