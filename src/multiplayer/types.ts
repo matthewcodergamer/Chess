@@ -70,6 +70,17 @@ export type RoomSnapshot = {
     yourDesiredColor: GroundColor | null;
     yourBidRefunded: boolean;
   };
+  chat?: RoomChatLine[];
+  takebackFrom?: GroundColor | null;
+  takebacksEnabled?: boolean;
+};
+
+export type RoomChatLine = {
+  id: string;
+  at: number;
+  name: string;
+  color: GroundColor;
+  text: string;
 };
 
 export type RoomSeat = { code: string; token: string; color: SeatColor };

@@ -1,5 +1,5 @@
 /* Shared button system. React controls in ui/controls.tsx own semantics; this file owns their physics and appearance. */
-.qqurz-product-system button{transition:transform var(--q-motion-press) var(--q-ease-standard),background-color var(--q-motion-fast) var(--q-ease-standard),border-color var(--q-motion-fast) var(--q-ease-standard),box-shadow var(--q-motion-fast) var(--q-ease-standard),opacity var(--q-motion-fast) var(--q-ease-standard)}
+.qqurz-product-system button{transition:transform var(--q-motion-press) var(--q-ease-standard),background-color var(--q-motion-base) var(--q-ease-standard),border-color var(--q-motion-base) var(--q-ease-standard),box-shadow var(--q-motion-base) var(--q-ease-standard),opacity var(--q-motion-base) var(--q-ease-standard),color var(--q-motion-base) var(--q-ease-standard)}
 .qqurz-product-system button:active:not(:disabled){transform:translateY(1px) scale(.995)}
 .qqurz-product-system button:focus-visible,.qqurz-product-system a[href]:focus-visible{outline:2px solid var(--q-focus-ring);outline-offset:2px}
 .qqurz-product-system input:focus-visible,.qqurz-product-system select:focus-visible,.qqurz-product-system textarea:focus-visible{outline:none}
@@ -29,6 +29,12 @@
 .qqurz-icon-button.qqurz-button--md{width:var(--q-control-md)}
 .qqurz-icon-button.qqurz-button--lg{width:var(--q-control-lg)}
 .qqurz-icon-button .qqurz-button-content{font-size:var(--q-type-action-lg);line-height:1}
+
+.qqurz-switch{position:relative;width:var(--q-control-md);min-width:var(--q-control-md);height:var(--q-space-32);min-height:var(--q-space-32);padding:0;border:0;border-radius:var(--q-radius-pill);background:var(--q-surface-3);flex:0 0 var(--q-control-md);transition:background-color var(--q-motion-base) var(--q-ease-standard)}
+.qqurz-switch[aria-checked='true']{background:var(--q-action)}
+.qqurz-switch>i{position:absolute;top:var(--q-space-4);left:var(--q-space-4);width:var(--q-space-24);height:var(--q-space-24);border-radius:var(--q-radius-pill);background:var(--q-text-inverse);pointer-events:none;transition:transform var(--q-motion-base) var(--q-ease-standard)}
+.qqurz-switch[aria-checked='true']>i{transform:translateX(var(--q-space-24))}
+.qqurz-switch:disabled{opacity:.46}
 
 .qqurz-segmented{display:grid;grid-template-columns:repeat(auto-fit,minmax(var(--q-control-md),1fr));gap:var(--q-space-4);padding:var(--q-space-4);border:1px solid var(--q-line);border-radius:var(--q-radius-md);background:var(--q-surface-2)}
 .qqurz-segmented-option{min-width:0;padding-inline:var(--q-space-12);border:1px solid transparent;border-radius:var(--q-radius-sm);background:transparent;color:var(--q-muted);font-size:var(--q-type-label);font-weight:780;box-shadow:none}

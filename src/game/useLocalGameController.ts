@@ -11,7 +11,7 @@ import { adjudicateChess, appendPositionHistory, chessPositionKey } from '../../
 import { TIME_CONTROL_PRESETS, type TimeControl } from '../../shared/timeControl';
 import { chess960BackRank, chess960Fen, randomChess960Id } from './chess960';
 import { useGameSession } from './useGameSession';
-import { chessSoundForSan, playChessSound } from '../ui/sound';
+import { chessSoundForSan, playChessSound, playWinCelebration } from '../ui/sound';
 import { loadTakebackPreference, saveTakebackPreference } from '../premium/entitlements';
 
 export type LocalGameMode = 'human' | 'ai';
@@ -301,8 +301,10 @@ export function useLocalGameController(initialMode: LocalGameMode): LocalGameCon
     if (!session.resultKind || terminalSoundPlayed.current) return;
     terminalSoundPlayed.current = true;
     engine.current?.cancelSearch();
-    playChessSound('game-end', { haptic: true });
-  }, [session.resultKind]);
+    const viewer = humanColor ?? orientation;
+    if (session.winner && session.winner === viewer) playWinCelebration({ haptic: true });
+    else playChessSound('game-end', { haptic: true });
+  }, [humanColor, orientation, session.resultKind, session.winner]);
 
   useEffect(() => {
     const pos = position.current;

@@ -388,7 +388,7 @@ function redirectToSite(env: AccountEnv, params: Record<string, string>): Respon
 }
 
 async function startGoogle(request: Request, env: AccountEnv): Promise<Response> {
-  if (!googleConfigured(env)) return redirectToSite(env, { social: 'error', reason: 'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to the Cloudflare Worker, then deploy.' });
+  if (!googleConfigured(env)) return redirectToSite(env, { social: 'error', reason: 'Google sign-in is not available right now. Try email, or try again later.' });
   const state = `google.${crypto.randomUUID()}`;
   const redirectUri = new URL('/account/google/callback', request.url).toString();
   const target = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -429,7 +429,7 @@ async function googleCallback(request: Request, env: AccountEnv): Promise<Respon
 }
 
 async function startApple(request: Request, env: AccountEnv): Promise<Response> {
-  if (!appleConfigured(env)) return redirectToSite(env, { social: 'error', reason: 'Add Apple Sign In keys to the Cloudflare Worker, then deploy.' });
+  if (!appleConfigured(env)) return redirectToSite(env, { social: 'error', reason: 'Apple sign-in is not available right now. Try email, or try again later.' });
   const state = `apple.${crypto.randomUUID()}`;
   const redirectUri = new URL('/account/apple/callback', request.url).toString();
   const target = new URL('https://appleid.apple.com/auth/authorize');

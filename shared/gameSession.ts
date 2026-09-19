@@ -218,10 +218,14 @@ export function resignationWinnerForViewer(session: GameSessionModel): GameColor
   return colorFromResultText(session.result);
 }
 
+function winnerForViewer(session: GameSessionModel): GameColor | null {
+  return session.winner ?? resignationWinnerForViewer(session) ?? colorFromResultText(session.result);
+}
+
 /** Present a terminal result from the current player's perspective. */
 export function resultTextForViewer(session: GameSessionModel, viewerColor: GameColor): string | null {
   if (!session.result) return null;
-  const winner = resignationWinnerForViewer(session);
+  const winner = winnerForViewer(session);
   if (!winner) return session.result;
   return winner === viewerColor
     ? 'You win'

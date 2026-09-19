@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SegmentedControl } from '../ui/controls';
+import { SegmentedControl, Switch } from '../ui/controls';
 import {
   feedbackEnabled,
   hapticsEnabled,
@@ -20,6 +20,14 @@ type Props = {
   onCycleBoardAppearance: () => void;
   onSoundChange?: (enabled: boolean) => void;
 };
+
+const FONT_STEPS: FontScale[] = ['default', 'large', 'extra'];
+
+function fontScaleLabel(value: FontScale): string {
+  if (value === 'large') return 'Large';
+  if (value === 'extra') return 'Extra large';
+  return 'Default';
+}
 
 export default function AccessibilityPanel({
   open,
@@ -69,6 +77,8 @@ export default function AccessibilityPanel({
     setHapticsOn(enabled);
   };
 
+  const fontIndex = Math.max(0, FONT_STEPS.indexOf(preferences.fontScale));
+
   return (
     <section
       ref={panelRef}
@@ -85,32 +95,34 @@ export default function AccessibilityPanel({
 
       <div className="display-setting-block">
         <span>Text size</span>
-        <SegmentedControl<FontScale>
-          value={preferences.fontScale}
-          options={[
-            { value: 'default', label: 'Default' },
-            { value: 'large', label: 'Large' },
-            { value: 'extra', label: 'Extra large' },
-          ]}
-          onChange={fontScale => updatePreferences({ fontScale })}
-          ariaLabel="Text size"
-          className="display-accessibility-segmented"
-        />
+        <div className="display-slider-row">
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={1}
+            value={fontIndex}
+            aria-valuetext={fontScaleLabel(preferences.fontScale)}
+            aria-label="Text size"
+            onChange={event => updatePreferences({ fontScale: FONT_STEPS[Number(event.target.value)] ?? 'default' })}
+          />
+          <small>{fontScaleLabel(preferences.fontScale)}</small>
+        </div>
       </div>
 
       <div className="display-setting-row">
-        <span>App theme</span>
-        <button type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}>{theme === 'light' ? 'Light' : 'Dark'}</button>
+        <span>Dark mode</span>
+        <Switch checked={theme === 'dark'} onChange={() => onToggleTheme()} label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} />
       </div>
 
       <div className="display-setting-row">
         <span>High contrast</span>
-        <button type="button" aria-pressed={preferences.highContrast} onClick={() => updatePreferences({ highContrast: !preferences.highContrast })}>{preferences.highContrast ? 'On' : 'Off'}</button>
+        <Switch checked={preferences.highContrast} onChange={highContrast => updatePreferences({ highContrast })} label="High contrast" />
       </div>
 
       <div className="display-setting-row">
         <span>Reduced motion</span>
-        <button type="button" aria-pressed={preferences.reducedMotion} onClick={() => updatePreferences({ reducedMotion: !preferences.reducedMotion })}>{preferences.reducedMotion ? 'On' : 'Follow device'}</button>
+        <Switch checked={preferences.reducedMotion} onChange={reducedMotion => updatePreferences({ reducedMotion })} label="Reduced motion" />
       </div>
 
       <div className="display-setting-row">
@@ -135,25 +147,18 @@ export default function AccessibilityPanel({
 
       <div className="display-setting-row">
         <span>Sound & haptics</span>
-        <button type="button" aria-pressed={feedbackOn} onClick={() => setAllFeedback(!feedbackOn)}>{feedbackOn ? 'On' : 'Muted'}</button>
+        <Switch checked={feedbackOn} onChange={setAllFeedback} label="Sound and haptics master" />
         <small className="display-setting-help">Master control. Muting this stops every chess sound and vibration while preserving the individual choices below.</small>
       </div>
 
       <div className="display-setting-row">
         <span>Game sounds</span>
-        <button type="button" aria-pressed={soundOn} disabled={!feedbackOn} onClick={() => setSound(!soundOn)}>{soundOn ? 'On' : 'Off'}</button>
+        <Switch checked={soundOn} onChange={setSound} disabled={!feedbackOn} label="Game sounds" />
       </div>
 
       <div className="display-setting-row">
         <span>Haptics</span>
-        <button
-          type="button"
-          aria-pressed={vibrationAvailable ? hapticsOn : undefined}
-          disabled={!feedbackOn || !vibrationAvailable}
-          onClick={() => setHaptics(!hapticsOn)}
-        >
-          {vibrationAvailable ? hapticsOn ? 'On' : 'Off' : 'Unavailable'}
-        </button>
+        <Switch checked={vibrationAvailable && hapticsOn} onChange={setHaptics} disabled={!feedbackOn || !vibrationAvailable} label="Haptics" />
         {!vibrationAvailable && <small className="display-setting-help">This browser does not expose vibration feedback.</small>}
       </div>
 

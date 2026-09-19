@@ -16,5 +16,6 @@
 @keyframes qqurz-online-pop{from{opacity:0;transform:translateY(calc(var(--q-space-8) * -1)) scale(.94)}to{opacity:1;transform:none}}
 @keyframes qqurz-online-row{from{opacity:0;transform:translateX(var(--q-space-8))}to{opacity:1;transform:none}}
 @keyframes qqurz-modal-in{from{opacity:0;transform:translateY(var(--q-space-4)) scale(.985)}to{opacity:1;transform:none}}
+@keyframes qqurz-trophy-in{from{opacity:0;transform:scale(.72) translateY(var(--q-space-8))}to{opacity:1;transform:none}}
 @keyframes qqurz-skeleton-pulse{from{opacity:.54}to{opacity:.92}}
 @keyframes qqurz-confetti{0%{opacity:0;transform:translate(var(--x),var(--y)) scale(.4) rotate(0deg)}8%{opacity:1}42%{opacity:1;transform:translate(calc(var(--x) + var(--tx)*.72),calc(var(--y) - 150px + var(--ty)*.12)) scale(1) rotate(calc(var(--rot)*.55))}100%{opacity:0;transform:translate(calc(var(--x) + var(--tx)),calc(var(--y) + var(--ty))) scale(.9) rotate(var(--rot))}}

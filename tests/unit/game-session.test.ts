@@ -143,3 +143,24 @@ test('take-back pops the last ply and restores the fen', () => {
   assert.equal(undone.movesSan.length, 0);
   assert.equal(undone.pendingClockPress, null);
 });
+
+test('checkmate and timeout results say You win to the winner', () => {
+  const active = createGameSession({ state: 'ACTIVE', sideToMove: 'white', clockMs: 60_000, clockStartedAt: 100, now: 100 });
+  const mate = reduceGameSession(active, {
+    type: 'FINISH',
+    kind: 'CHECKMATE',
+    text: 'White wins by checkmate',
+    winner: 'white',
+    at: 200,
+  });
+  assert.equal(resultTextForViewer(mate, 'white'), 'You win');
+  assert.equal(resultTextForViewer(mate, 'black'), 'White wins');
+
+  const timed = reduceGameSession(active, { type: 'CLOCK_TICK', elapsedMs: 61_000, at: 61_100 });
+  assert.equal(timed.winner, 'black');
+  assert.equal(resultTextForViewer(timed, 'black'), 'You win');
+  assert.equal(resultTextForViewer(timed, 'white'), 'Black wins');
+
+  const draw = reduceGameSession(active, { type: 'FINISH', kind: 'DRAW', text: 'Draw by agreement', winner: null, at: 300 });
+  assert.equal(resultTextForViewer(draw, 'white'), 'Draw by agreement');
+});

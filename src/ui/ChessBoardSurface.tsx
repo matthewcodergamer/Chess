@@ -3,7 +3,7 @@ import { Chessground } from '@lichess-org/chessground';
 import type { Api as ChessgroundApi } from '@lichess-org/chessground/api';
 import type { Key } from '@lichess-org/chessground/types';
 import { boardCoordinateConfig, useAccessibilityPreferences } from '../accessibility/preferences';
-import { useReducedMotion } from './motion';
+import { motionTokenMs, useReducedMotion } from './motion';
 
 export type QQurzChessgroundConfig = NonNullable<Parameters<typeof Chessground>[1]>;
 export type QQurzChessgroundApi = ChessgroundApi;
@@ -83,7 +83,13 @@ export default function ChessBoardSurface({
     // animation state with undefined and its animation loop then dereferenced
     // `state.animation.current`. Preserve the library default unless QQURZ is
     // explicitly disabling motion.
-    if (!reducedMotion) return baseConfig;
+    if (!reducedMotion) {
+      const duration = motionTokenMs('--q-motion-piece', 260);
+      return {
+        ...baseConfig,
+        animation: baseConfig.animation ?? { enabled: true, duration },
+      };
+    }
     return {
       ...baseConfig,
       animation: { enabled: false, duration: 0 },

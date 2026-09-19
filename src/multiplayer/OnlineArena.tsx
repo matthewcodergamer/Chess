@@ -3,14 +3,17 @@ import type { Key } from '@lichess-org/chessground/types';
 import { Chess } from 'chessops/chess';
 import { chessgroundDests } from 'chessops/compat';
 import { parseFen } from 'chessops/fen';
-import { parseSquare } from 'chessops/util';
+import { makeSan } from 'chessops/san';
+import { parseSquare, parseUci } from 'chessops/util';
 import { celebratePurchase } from '../ui/purchaseCelebration';
 import Quarter3D from '../ui/LazyQuarter3D';
 import MatchPlayerBar from '../ui/MatchPlayerBar';
 import ChessBoardSurface, { type QQurzChessgroundApi, type QQurzChessgroundConfig } from '../ui/ChessBoardSurface';
 import ChessPieceAsset from '../ui/ChessPieceAsset';
+import { AppIcon } from '../ui/AppIcons';
 import TimeControlPicker from '../ui/TimeControlPicker';
-import { playChessSound } from '../ui/sound';
+import MatchChat from '../ui/MatchChat';
+import { chessSoundForSan, playChessSound, playWinCelebration } from '../ui/sound';
 import { motionTokenMs, useReducedMotion } from '../ui/motion';
 import { createCheckout, loadTournamentCatalog, type PaymentMode } from '../tournaments/client';
 import WalletPanel from '../payments/WalletPanel';
@@ -138,7 +141,7 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
   const clocksUnlocked = hasBlitzAccess();
   const subscribed = hasFreestyle();
   const reducedMotion = useReducedMotion();
-  const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 160);
+  const pieceMotionMs = reducedMotion ? 0 : motionTokenMs('--q-motion-piece', 260);
 
   const gameSession = useMemo(() => snapshot ? authoritativeRoomSession(snapshot) : null, [snapshot]);
   const pos = useMemo(() => roomPosition(gameSession?.fen), [gameSession?.fen]);
@@ -198,7 +201,13 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
       return requestAnimationFrame(syncBoard);
     }
     moveSequence.current += 1;
-    send({ type: 'move', uci: `${orig}${dest}`, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
+    const uci = `${orig}${dest}`;
+    const parsed = parseUci(uci);
+    if (parsed && pos.isLegal(parsed)) {
+      playChessSound(chessSoundForSan(makeSan(pos, parsed)));
+      lastMoveSoundCount.current += 1;
+    }
+    send({ type: 'move', uci, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
   }, [pos, send, syncBoard, yourTurn]);
   moveHandler.current = handleMove;
 
@@ -278,7 +287,8 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
   useEffect(() => {
     if (!snapshot || !gameSession) return;
     if (gameSession.movesSan.length > lastMoveSoundCount.current) {
-      playChessSound((gameSession.movesSan.at(-1) ?? '').includes('x') ? 'capture' : 'move');
+      const added = gameSession.movesSan.slice(lastMoveSoundCount.current);
+      added.forEach(san => playChessSound(chessSoundForSan(san)));
       lastMoveSoundCount.current = gameSession.movesSan.length;
     }
     if (snapshot.coin.result && snapshot.coin.result !== lastCoinResult.current) {
@@ -286,8 +296,9 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
       lastCoinResult.current = snapshot.coin.result;
     }
     if (gameSession.result && gameSession.result !== lastResult.current) {
-      playChessSound('win');
       lastResult.current = gameSession.result;
+      if (seat && gameSession.winner === seat.color) playWinCelebration();
+      else playChessSound('game-end');
     }
   }, [gameSession, snapshot]);
 
@@ -319,7 +330,7 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
     const blocked = humanMatchBlockReason();
     if (blocked) { setMessage(blocked); return; }
     setBusy(true); setMessage('');
-    try { const created = await createRoom(name.trim() || 'Guest', roomTimeControl, variant === 'tournament' ? tournamentPolicy.templateId : undefined); consumeHumanMatch(); setRoomCode(created.code); rememberSeat(created); setSeat(created); setRoomUrl(created.code); }
+    try { const created = await createRoom(name.trim() || 'Guest', roomTimeControl, variant === 'tournament' ? tournamentPolicy.templateId : undefined, takebacksOn); consumeHumanMatch(); setRoomCode(created.code); rememberSeat(created); setSeat(created); setRoomUrl(created.code); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not create room.'); }
     finally { setBusy(false); }
   };
@@ -351,7 +362,15 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
   const choosePromotion = (piece: PromotionLetter) => {
     if (!promotion || !connectedToRoom) return;
     moveSequence.current += 1;
-    send({ type: 'move', uci: `${promotion.orig}${promotion.dest}${piece}`, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
+    const uci = `${promotion.orig}${promotion.dest}${piece}`;
+    if (pos) {
+      const parsed = parseUci(uci);
+      if (parsed && pos.isLegal(parsed)) {
+        playChessSound(chessSoundForSan(makeSan(pos, parsed)));
+        lastMoveSoundCount.current += 1;
+      }
+    }
+    send({ type: 'move', uci, clientSentAt: Date.now(), clientMonotonicMs: performance.now(), clientSequence: moveSequence.current });
     setPromotion(null);
   };
   const buyBid = async (cents: 200 | 500) => {
@@ -469,7 +488,7 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
             {gameSession?.state === 'LOBBY' && <div className="board-overlay online-waiting-overlay"><div><span>Waiting for opponent</span><strong className="room-code-display">{snapshot.code}</strong><small>Share this code or invite link with player two.</small></div></div>}
             {gameSession?.state === 'COIN_TOSS' && <div className="board-overlay coin-overlay"><div className="coin-stage real-quarter-stage"><span>{colorPreferenceOpen ? 'Color preference' : 'Color toss'}</span><Quarter3D result={snapshot.coin.result} flippedAt={snapshot.coin.flippedAt}/>{colorPreferenceOpen ? snapshot.colorAuction.leaderName ? <><strong>Color preference is active.</strong><p><b>{snapshot.colorAuction.leaderName}</b> leads at {money(snapshot.colorAuction.leadingBidCents)} for {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'}. The toss stays locked until this preference is resolved.</p>{youLeadColorBid ? <button className="lock-color-bid" onClick={() => send({ type: 'settle_color_bid' })} disabled={!connectedToRoom}>Lock {snapshot.colorAuction.desiredColor === 'white' ? 'White' : 'Black'} and continue</button> : <small>Outbid the leader below, or wait for the winning preference to resolve.</small>}</> : <><strong>Choose a side preference or use the free toss.</strong><p>The quarter cannot be called until both players choose the free toss. This keeps color preference and the toss from racing each other.</p><button className="lock-color-bid" onClick={chooseFreeToss} disabled={!connectedToRoom || colorGate.yourOptOut}>{colorGate.yourOptOut ? 'Waiting for opponent…' : 'Use free quarter toss'}</button><small>{colorGate.optedOut}/{colorGate.required} players chose the free toss.</small></> : !snapshot.coin.result ? <><strong>Call the quarter.</strong><p>The server has already opened the normal toss path. Choose a face; the server generates and stores the result before the animation displays it.</p><div className="coin-call-actions"><button onClick={() => send({ type: 'call_coin', face: 'heads' })} disabled={!connectedToRoom}>Heads</button><button onClick={() => send({ type: 'call_coin', face: 'tails' })} disabled={!connectedToRoom}>Tails</button></div></> : <><strong>{snapshot.coin.result.toUpperCase()} · {snapshot.coin.winner} gets White</strong><p>You called {snapshot.coin.yourFace ?? '—'} · your assigned color is {snapshot.yourColor ?? seat.color}.</p></>}</div></div>}
             {gameSession?.state === 'COUNTDOWN' && <div className="board-overlay strategy-overlay online-strategy-overlay"><div><span>Strategy phase</span><strong>{formatClockMs(strategySeconds * 1000)}</strong><small>Green dots show legal destinations. Tactical danger warnings stay off, so players can still blunder.</small><button className="overlay-start-button" onClick={() => { playChessSound('start'); send({ type: 'start_now' }); }} disabled={!connectedToRoom}>Start now</button></div></div>}
-            {gameSession && isTerminalGameState(gameSession.state) && viewerResult && <div className="board-overlay ended online-ended-overlay"><div><span>Game over</span><strong className="end-title">{viewerResult}</strong><small>{subscribed ? 'Analysis and the opening explorer are included with Freestyle.' : 'Analysis and the opening explorer come with Freestyle.'}</small></div></div>}
+            {gameSession && isTerminalGameState(gameSession.state) && viewerResult && <div className="board-overlay ended online-ended-overlay"><div>{viewerResult === 'You win' && <span className="match-trophy" aria-hidden="true"><AppIcon name="trophy" /></span>}<span>Game over</span><strong className="end-title">{viewerResult}</strong><small>{subscribed ? 'Analysis and the opening explorer are included with Freestyle.' : 'Analysis and the opening explorer come with Freestyle.'}</small></div></div>}
           </div>
 
           <MatchPlayerBar
@@ -492,6 +511,14 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
             <div className={`match-turn-note ${yourTurn ? 'active' : ''}`}>{gameSession && isTerminalGameState(gameSession.state) ? viewerResult : !connectedToRoom ? 'Reconnecting — the server will restore the latest game state' : gameSession?.state === 'ACTIVE' ? yourTurn ? 'Your move' : 'Opponent move' : gameSession?.state === 'RECONNECTING' ? 'Opponent reconnecting — server clock continues' : gameSession?.state === 'PAUSED' ? 'Game paused' : gameSession?.state === 'COUNTDOWN' ? 'Strategy phase' : gameSession?.state === 'COIN_TOSS' ? colorPreferenceOpen ? 'Color preference' : 'Color toss' : gameSession?.state === 'READY' ? 'Players ready' : 'Waiting for opponent'}</div>
             <button onClick={() => send({ type: opponentOfferedDraw ? 'accept_draw' : 'offer_draw' })} disabled={!canDraw || youOfferedDraw}>{opponentOfferedDraw ? 'Accept draw' : youOfferedDraw ? 'Draw offered' : 'Draw'}</button>
             {opponentOfferedDraw && canDraw && <button onClick={() => send({ type: 'decline_draw' })}>Decline</button>}
+            {snapshot.takebacksEnabled !== false && variant !== 'tournament' && <>
+              {snapshot.takebackFrom && snapshot.takebackFrom !== seat.color
+                ? <>
+                  <button onClick={() => send({ type: 'accept_takeback' })} disabled={!connectedToRoom || gameSession?.state !== 'ACTIVE'}>Accept take-back</button>
+                  <button onClick={() => send({ type: 'decline_takeback' })} disabled={!connectedToRoom}>Decline</button>
+                </>
+                : <button onClick={() => send({ type: 'offer_takeback' })} disabled={!connectedToRoom || gameSession?.state !== 'ACTIVE' || !gameSession.moveNumber || snapshot.takebackFrom === seat.color}>{snapshot.takebackFrom === seat.color ? 'Take-back offered' : 'Take back'}</button>}
+            </>}
             <button className="match-resign resign-button" onClick={() => { setResignPending(true); setMessage(''); send({ type: 'resign' }); }} disabled={resignDisabled}>Resign</button>
             <button aria-expanded={optionsOpen} onClick={() => setOptionsOpen(value => !value)}>Options</button>
           </div>
@@ -507,6 +534,8 @@ export default function OnlineArena({ onClose, variant = 'friends', onShop }: Pr
             <div className="match-options-actions"><button onClick={copyInvite}>{copied ? 'Invite copied ✓' : 'Copy invite link'}</button>{canLeave && <button onClick={onClose}>Leave room</button>}</div>
             <div className="match-move-list"><span className="qqurz-kicker">Moves</span>{gameSession?.movesSan.length ? <ol>{gameSession.movesSan.map((move, index) => <li key={`${move}-${index}`}>{move}</li>)}</ol> : <p>No moves yet.</p>}</div>
           </section>}
+
+          {chatOn && <MatchChat lines={snapshot.chat ?? []} selfName={playerFor(seat.color)?.name ?? name} disabled={!connectedToRoom} onSend={text => send({ type: 'chat', text })} />}
 
           {message && <p className="online-error">{message}</p>}
         </div>

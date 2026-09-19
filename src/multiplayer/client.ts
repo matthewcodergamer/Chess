@@ -130,8 +130,8 @@ function selectedTournamentId(tournamentTemplateId?: TournamentTimeTemplateId): 
     return id;
   } catch { return undefined; }
 }
-export async function createRoom(name: string, timeControl?: TimeControl, tournamentTemplateId?: TournamentTimeTemplateId): Promise<RoomSeat> {
-  return requestJson('/rooms', { method: 'POST', body: JSON.stringify({ name, timeControl, tournamentTemplateId, tournamentId: selectedTournamentId(tournamentTemplateId) }) });
+export async function createRoom(name: string, timeControl?: TimeControl, tournamentTemplateId?: TournamentTimeTemplateId, takebacks = true): Promise<RoomSeat> {
+  return requestJson('/rooms', { method: 'POST', body: JSON.stringify({ name, timeControl, tournamentTemplateId, tournamentId: selectedTournamentId(tournamentTemplateId), takebacks }) });
 }
 export async function joinRoom(code: string, name: string): Promise<RoomSeat> {
   return requestJson(`/rooms/${encodeURIComponent(code.toUpperCase())}/join`, { method: 'POST', body: JSON.stringify({ name }) });

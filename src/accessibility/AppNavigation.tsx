@@ -76,7 +76,29 @@ export default function AppNavigation({
   const [displayOpen, setDisplayOpen] = useState(false);
   const [preferences, updatePreferences] = useAccessibilityPreferences();
   const displayButtonRef = useRef<HTMLButtonElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
+  const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
   const closeDisplay = useCallback(() => setDisplayOpen(false), []);
+
+  const placePill = useCallback((button: HTMLElement | null) => {
+    const nav = navRef.current;
+    if (!nav || !button) return;
+    const navBox = nav.getBoundingClientRect();
+    const box = button.getBoundingClientRect();
+    setPill({ left: box.left - navBox.left, width: box.width, ready: true });
+  }, []);
+
+  const snapPillToActive = useCallback(() => {
+    const nav = navRef.current;
+    const active = nav?.querySelector<HTMLButtonElement>('button.active') ?? nav?.querySelector('button');
+    placePill(active ?? null);
+  }, [placePill]);
+
+  useEffect(() => {
+    snapPillToActive();
+    window.addEventListener('resize', snapPillToActive);
+    return () => window.removeEventListener('resize', snapPillToActive);
+  }, [screen, onlineVariant, snapPillToActive]);
 
   const closeNavigation = () => {
     setMenuOpen(false);
@@ -103,6 +125,17 @@ export default function AppNavigation({
     action();
   };
 
+  const hoverNav = (target: Screen) => {
+    const extra = intent(target);
+    return {
+      ...extra,
+      onPointerEnter: (event: Parameters<NonNullable<IntentHandlers['onPointerEnter']>>[0]) => {
+        placePill(event.currentTarget);
+        extra.onPointerEnter?.(event);
+      },
+    };
+  };
+
   const cycleTextSize = () => {
     updatePreferences({ fontScale: preferences.fontScale === 'default' ? 'large' : preferences.fontScale === 'large' ? 'extra' : 'default' });
   };
@@ -117,12 +150,19 @@ export default function AppNavigation({
         </button>
       </div>
 
-      <nav className="desktop-chess-nav" aria-label="Primary navigation" onKeyDown={moveFocus}>
-        <button onClick={() => run(onHome)} className={screen === 'home' ? 'active' : ''} aria-current={screen === 'home' ? 'page' : undefined}><AppIcon name="home" /> Home</button>
-        <button onClick={() => run(onTournaments)} {...intent('tournaments')} className={screen === 'tournaments' ? 'active' : ''} aria-current={screen === 'tournaments' ? 'page' : undefined}><AppIcon name="trophy" /> Tournaments</button>
-        <button onClick={() => run(onFriends)} {...intent('online')} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''} aria-current={screen === 'online' && onlineVariant === 'friends' ? 'page' : undefined}><AppIcon name="users" /> Friends</button>
-        <button onClick={() => run(onShop)} {...intent('shop')} className={screen === 'shop' ? 'active' : ''} aria-current={screen === 'shop' ? 'page' : undefined}><AppIcon name="king" /> Plans</button>
-        <button onClick={() => run(onPremium3D)} {...intent('3d')} className={screen === '3d' ? 'active' : ''} aria-current={screen === '3d' ? 'page' : undefined}><AppIcon name="cube" /> 3D</button>
+      <nav
+        ref={navRef}
+        className="desktop-chess-nav"
+        aria-label="Primary navigation"
+        onKeyDown={moveFocus}
+        onPointerLeave={snapPillToActive}
+      >
+        <span className={`desktop-chess-nav-pill${pill.ready ? ' ready' : ''}`} style={{ transform: `translateX(${pill.left}px)`, width: pill.width }} aria-hidden="true" />
+        <button onClick={() => run(onHome)} onPointerEnter={event => placePill(event.currentTarget)} className={screen === 'home' ? 'active' : ''} aria-current={screen === 'home' ? 'page' : undefined}><AppIcon name="home" /> Home</button>
+        <button onClick={() => run(onTournaments)} {...hoverNav('tournaments')} className={screen === 'tournaments' ? 'active' : ''} aria-current={screen === 'tournaments' ? 'page' : undefined}><AppIcon name="trophy" /> Tournaments</button>
+        <button onClick={() => run(onFriends)} {...hoverNav('online')} className={screen === 'online' && onlineVariant === 'friends' ? 'active' : ''} aria-current={screen === 'online' && onlineVariant === 'friends' ? 'page' : undefined}><AppIcon name="users" /> Friends</button>
+        <button onClick={() => run(onShop)} {...hoverNav('shop')} className={screen === 'shop' ? 'active' : ''} aria-current={screen === 'shop' ? 'page' : undefined}><AppIcon name="king" /> Plans</button>
+        <button onClick={() => run(onPremium3D)} {...hoverNav('3d')} className={screen === '3d' ? 'active' : ''} aria-current={screen === '3d' ? 'page' : undefined}><AppIcon name="cube" /> 3D</button>
       </nav>
 
       <div className="qqurz-nav-end">

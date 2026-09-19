@@ -50,8 +50,8 @@ function playRecorded(kind: RecordedSound, delayMs = 0): void {
     try {
       const audio = prototype.cloneNode(true) as HTMLAudioElement;
       const meta = SAMPLE[kind];
-      audio.volume = meta.volume;
-      audio.playbackRate = meta.rate;
+      audio.volume = Math.max(0.08, Math.min(1, meta.volume * (0.88 + Math.random() * 0.24)));
+      audio.playbackRate = Math.max(0.88, Math.min(1.12, meta.rate * (0.97 + Math.random() * 0.06)));
       audio.currentTime = 0;
       const playback = audio.play();
       if (playback) void playback.catch(() => undefined);
@@ -154,3 +154,10 @@ export function playChessSound(kind: ChessSound, options: ChessSoundOptions = {}
     playRecorded(normalized);
   }
 }
+
+/** Recorded game-end plus a metallic coin hit — the trophy sting, no synthesized tones. */
+export function playWinCelebration(options: ChessSoundOptions = {}): void {
+  playChessSound('game-end', options);
+  playRecorded('coin', 150);
+}
+

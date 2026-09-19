@@ -19,12 +19,17 @@ type AuctionState = { bids: Record<string, PaidBid>; leaderToken: string | null;
 type ColorAuctionState = { bids: Record<string, PaidColorBid>; leaderToken: string | null; leadingBidCents: number; desiredColor: Color | null; usedSessions: string[]; settled: boolean };
 type MoveTiming = { moveNumber: number; clientSequence: number | null; clientSentAt: number | null; serverReceivedAt: number; serverCommittedAt: number; chargedElapsedMs: number; latencyCreditMs: number; nextClockStartedAt: number | null };
 type LatencyState = { nonce: string | null; sentAt: number; bestRttMs: number | null; sampledAt: number | null };
+type ChatLine = { id: string; at: number; name: string; color: Color; text: string };
 type RoomState = {
   code: string;
   session: GameSessionModel;
   lastMoveTiming: MoveTiming | null;
   accountResultRecordedAt: number | null;
   positionHistory: string[];
+  fenStack: string[];
+  chat: ChatLine[];
+  takebackFrom: Color | null;
+  takebacksEnabled: boolean;
   createdAt: number;
   lastActivityAt: number;
   players: { white: PlayerSeat; black: PlayerSeat | null };
@@ -46,7 +51,11 @@ type ClientMessage =
   | { type: 'resign' }
   | { type: 'offer_draw' }
   | { type: 'accept_draw' }
-  | { type: 'decline_draw' };
+  | { type: 'decline_draw' }
+  | { type: 'chat'; text: string }
+  | { type: 'offer_takeback' }
+  | { type: 'accept_takeback' }
+  | { type: 'decline_takeback' };
 type Env = AccountEnv & {
   ROOMS: DurableObjectNamespace<ChessRoom>;
   DEPLOYMENT_ENV?: string;
@@ -65,10 +74,23 @@ const LATENCY_CREDIT_FRACTION = .03;
 const LATENCY_SAMPLE_MAX_AGE_MS = 30_000;
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BID_VALUES = new Set([200, 500]);
+const CHAT_MAX_CHARS = 180;
+const CHAT_KEEP = 40;
+const CHAT_RATE_MS = 450;
 
 function emptyCoin(): CoinState { return { claimedFace: null, claimedByToken: null, result: null, winnerToken: null, flippedAt: null, endsAt: null }; }
 function emptyAuction(): AuctionState { return { bids: {}, leaderToken: null, leadingBidCents: 0, rerollCount: 0, usedSessions: [] }; }
 function emptyColorAuction(): ColorAuctionState { return { bids: {}, leaderToken: null, leadingBidCents: 0, desiredColor: null, usedSessions: [], settled: false }; }
+function sanitizeChat(value: unknown): string {
+  return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, CHAT_MAX_CHARS);
+}
+function withRoomExtras(room: RoomState): RoomState {
+  if (!Array.isArray(room.chat)) room.chat = [];
+  if (room.takebackFrom !== 'white' && room.takebackFrom !== 'black') room.takebackFrom = null;
+  if (typeof room.takebacksEnabled !== 'boolean') room.takebacksEnabled = true;
+  if (!Array.isArray(room.fenStack) || !room.fenStack.length) room.fenStack = room.session.fen ? [room.session.fen] : [];
+  return room;
+}
 function legacyState(status: unknown, result: string | null, checkmate: boolean): GameSessionState {
   if (status === 'waiting') return 'LOBBY';
   if (status === 'coin') return 'COIN_TOSS';
@@ -99,7 +121,7 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
   if (!raw || typeof raw !== 'object') return null;
   const legacy = raw as Record<string, any>;
   if (legacy.session) {
-    const room = legacy as RoomState;
+    const room = withRoomExtras(legacy as RoomState);
     if (!Array.isArray(room.positionHistory) || !room.positionHistory.length) room.positionHistory = historyForFen(room.session.fen);
     if (room.players?.white) room.players.white.accountId = (room.players.white as PlayerSeat & { accountId?: string | null }).accountId ?? null;
     if (room.players?.black) room.players.black.accountId = (room.players.black as PlayerSeat & { accountId?: string | null }).accountId ?? null;
@@ -131,15 +153,19 @@ function migrateStoredRoom(raw: unknown): RoomState | null {
   session.check = Boolean(legacy.check);
   session.checkmate = Boolean(legacy.checkmate);
   session.clocks.startedAt = typeof legacy.turnStartedAt === 'number' ? legacy.turnStartedAt : null;
-  return {
+  return withRoomExtras({
     code: String(legacy.code), session, lastMoveTiming: legacy.lastMoveTiming ?? null, accountResultRecordedAt: null,
     positionHistory: historyForFen(session.fen),
+    fenStack: [session.fen],
+    chat: [],
+    takebackFrom: null,
+    takebacksEnabled: true,
     createdAt: Number(legacy.createdAt ?? now), lastActivityAt: Number(legacy.lastActivityAt ?? now),
     players: {
       white: { ...legacy.players.white, accountId: legacy.players.white.accountId ?? null },
       black: legacy.players.black ? { ...legacy.players.black, accountId: legacy.players.black.accountId ?? null } : null,
     }, coin: legacy.coin ?? emptyCoin(), auction: legacy.auction ?? emptyAuction(), colorAuction: legacy.colorAuction ?? emptyColorAuction(),
-  };
+  });
 }
 function normalizeName(value: unknown): string {
   const name = String(value ?? 'Guest').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 28);
@@ -228,6 +254,9 @@ function makeSnapshot(room: RoomState, connected: Set<Color>, viewerToken: strin
       yourDesiredColor: yourColorBid?.desiredColor ?? null,
       yourBidRefunded: Boolean(yourColorBid?.refundedAt),
     },
+    chat: (room.chat ?? []).slice(-CHAT_KEEP),
+    takebackFrom: room.takebackFrom ?? null,
+    takebacksEnabled: room.takebacksEnabled !== false,
   };
 }
 function parseRoomPath(pathname: string): { code: string; action: 'join' | 'ws' } | null {
@@ -255,7 +284,7 @@ export default {
       const name = identity?.displayName ?? normalizeName(body.name);
       for (let attempt = 0; attempt < 12; attempt += 1) {
         const code = roomCode(); const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
-        const internal = await stub.fetch(new Request('https://room.internal/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name, accountId: identity?.id ?? null, timeControl: body.timeControl, tournamentTemplateId: body.tournamentTemplateId }) }));
+        const internal = await stub.fetch(new Request('https://room.internal/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name, accountId: identity?.id ?? null, timeControl: body.timeControl, tournamentTemplateId: body.tournamentTemplateId, takebacks: body.takebacks }) }));
         if (internal.status === 409) continue;
         return cors(request, internal, env);
       }
@@ -280,6 +309,7 @@ export default {
 export class ChessRoom extends DurableObject<Env> {
   private room: RoomState | null = null;
   private latency = new Map<string, LatencyState>();
+  private lastChatAt = new Map<string, number>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -289,6 +319,7 @@ export class ChessRoom extends DurableObject<Env> {
         if (!this.room.coin) this.room.coin = emptyCoin();
         if (!this.room.auction) this.room.auction = emptyAuction();
         if (!this.room.colorAuction) this.room.colorAuction = emptyColorAuction();
+        this.room = withRoomExtras(this.room);
       }
     });
   }
@@ -337,6 +368,10 @@ export class ChessRoom extends DurableObject<Env> {
         lastMoveTiming: null,
         accountResultRecordedAt: null,
         positionHistory: historyForFen(fen),
+        fenStack: [fen],
+        chat: [],
+        takebackFrom: null,
+        takebacksEnabled: false,
         createdAt: now,
         lastActivityAt: now,
         players: {
@@ -358,19 +393,24 @@ export class ChessRoom extends DurableObject<Env> {
 
     if (url.hostname === 'room.internal' && url.pathname === '/create' && request.method === 'POST') {
       if (this.room) return json({ error: 'Room already exists.' }, 409);
-      const body = await request.json() as { code?: string; name?: string; accountId?: string | null; timeControl?: TimeControlRequest; tournamentTemplateId?: TournamentTimeTemplateId };
+      const body = await request.json() as { code?: string; name?: string; accountId?: string | null; timeControl?: TimeControlRequest; tournamentTemplateId?: TournamentTimeTemplateId; takebacks?: boolean };
       const code = String(body.code ?? '').toUpperCase();
       if (!/^[A-Z0-9]{6}$/.test(code)) return json({ error: 'Invalid room code.' }, 400);
       const now = Date.now(), token = seatToken(), positionId = randomChess960Id();
       const timeControl = normalizeTimeControl(body.timeControl, '10+5');
       const templateId = body.tournamentTemplateId && TOURNAMENT_TIME_TEMPLATES[body.tournamentTemplateId] ? body.tournamentTemplateId : null;
       if (templateId && !isTournamentControlAllowed(templateId, timeControl)) return json({ error: 'That time control is not allowed by this tournament template.' }, 400);
+      const startFen = chess960Fen(positionId);
       this.room = {
         code,
-        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: chess960Fen(positionId), sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'DISCONNECTED', now }),
+        session: createGameSession({ id: `room-${code}`, state: 'LOBBY', positionId, fen: startFen, sideToMove: 'white', clockMs: timeControl.baseMs, incrementMs: timeControl.incrementMs, connectionStatus: 'DISCONNECTED', now }),
         lastMoveTiming: null,
         accountResultRecordedAt: null,
-        positionHistory: historyForFen(chess960Fen(positionId)),
+        positionHistory: historyForFen(startFen),
+        fenStack: [startFen],
+        chat: [],
+        takebackFrom: null,
+        takebacksEnabled: !templateId && body.takebacks !== false,
         createdAt: now, lastActivityAt: now,
         players: { white: { name: normalizeName(body.name), token, accountId: body.accountId ?? null }, black: null }, coin: emptyCoin(), auction: emptyAuction(), colorAuction: emptyColorAuction(),
       };
@@ -432,6 +472,10 @@ export class ChessRoom extends DurableObject<Env> {
     if (payload.type === 'offer_draw') return void await this.handleDrawOffer(ws, color);
     if (payload.type === 'accept_draw') return void await this.handleDrawAccept(ws, color);
     if (payload.type === 'decline_draw') return void await this.handleDrawDecline(ws, color);
+    if (payload.type === 'chat') return void await this.handleChat(ws, attachment.token, color, payload.text);
+    if (payload.type === 'offer_takeback') return void await this.handleTakebackOffer(ws, color);
+    if (payload.type === 'accept_takeback') return void await this.handleTakebackAccept(ws, color);
+    if (payload.type === 'decline_takeback') return void await this.handleTakebackDecline(ws, color);
     if (payload.type === 'resign') {
       // Resignation is intentionally idempotent from the client perspective.
       // A fast double-tap, reconnect, or queued command can arrive after the
@@ -717,6 +761,8 @@ export class ChessRoom extends DurableObject<Env> {
     };
     this.room.lastMoveTiming = null;
     this.room.positionHistory = historyForFen(this.room.session.fen);
+    this.room.fenStack = [this.room.session.fen];
+    this.room.takebackFrom = null;
   }
   private startPlaying(now: number): void {
     if (!this.room || this.room.session.state !== 'COUNTDOWN') return;
@@ -773,6 +819,73 @@ export class ChessRoom extends DurableObject<Env> {
     this.room.session = reduceGameSession(this.room.session, { type: 'CLEAR_DRAW_OFFER', by: other, at: now });
     this.room.lastActivityAt = now; await this.persist(); this.broadcast();
   }
+  private async handleChat(ws: WebSocket, token: string, color: Color, raw: unknown): Promise<void> {
+    if (!this.room) return;
+    const text = sanitizeChat(raw);
+    if (!text) return this.sendError(ws, 'Type a message first.');
+    const now = Date.now();
+    const previous = this.lastChatAt.get(token) ?? 0;
+    if (now - previous < CHAT_RATE_MS) return;
+    this.lastChatAt.set(token, now);
+    const name = playerForToken(this.room, token)?.name ?? (color === 'white' ? 'White' : 'Black');
+    this.room.chat = [...this.room.chat, { id: `${now}-${token.slice(0, 8)}`, at: now, name, color, text }].slice(-CHAT_KEEP);
+    this.room.lastActivityAt = now;
+    this.broadcast();
+    await this.persist();
+  }
+  private async handleTakebackOffer(ws: WebSocket, color: Color): Promise<void> {
+    if (!this.room) return;
+    if (!this.room.takebacksEnabled) return this.sendError(ws, 'Take-backs are off for this room.');
+    if (this.room.session.state !== 'ACTIVE' || this.room.session.movesSan.length === 0 || (this.room.fenStack?.length ?? 0) < 2) {
+      return this.sendError(ws, 'There is no move to take back.');
+    }
+    this.room.takebackFrom = color;
+    this.room.lastActivityAt = Date.now();
+    this.broadcast();
+    await this.persist();
+  }
+  private async handleTakebackAccept(ws: WebSocket, color: Color): Promise<void> {
+    if (!this.room) return;
+    if (!this.room.takebacksEnabled || this.room.takebackFrom !== opposite(color)) {
+      return this.sendError(ws, 'There is no take-back to accept.');
+    }
+    if (this.room.session.state !== 'ACTIVE' || (this.room.fenStack?.length ?? 0) < 2) {
+      this.room.takebackFrom = null;
+      this.broadcast();
+      return;
+    }
+    const now = Date.now();
+    const nextStack = this.room.fenStack.slice(0, -1);
+    const fen = nextStack[nextStack.length - 1];
+    let sideToMove: Color = 'white';
+    let check = false;
+    let checkmate = false;
+    try {
+      const position = Chess.fromSetup(parseFen(fen).unwrap()).unwrap();
+      sideToMove = position.turn;
+      check = position.isCheck();
+      checkmate = position.isCheckmate();
+    } catch {
+      this.room.takebackFrom = null;
+      return this.sendError(ws, 'Could not restore that position.');
+    }
+    this.room.session = reduceGameSession(this.room.session, { type: 'TAKE_BACK', fen, sideToMove, plies: 1, check, checkmate, at: now });
+    this.room.fenStack = nextStack;
+    this.room.positionHistory = this.room.positionHistory.slice(0, Math.max(1, this.room.positionHistory.length - 1));
+    this.room.takebackFrom = null;
+    this.room.lastActivityAt = now;
+    this.broadcast();
+    await this.persist(); await this.scheduleForState();
+  }
+  private async handleTakebackDecline(ws: WebSocket, color: Color): Promise<void> {
+    if (!this.room) return;
+    if (!this.room.takebackFrom) return;
+    if (this.room.takebackFrom !== opposite(color) && this.room.takebackFrom !== color) return;
+    this.room.takebackFrom = null;
+    this.room.lastActivityAt = Date.now();
+    this.broadcast();
+    await this.persist();
+  }
   private async handleMove(ws: WebSocket, token: string, color: Color, payload: Extract<ClientMessage, { type: 'move' }>): Promise<void> {
     if (!this.room) return;
     if (!canColorMove(this.room.session, color)) return this.sendError(ws, 'The game is not accepting that move.');
@@ -816,12 +929,15 @@ export class ChessRoom extends DurableObject<Env> {
     this.room.lastMoveTiming = timing;
     try { ws.send(JSON.stringify({ type: 'move_ack', timing })); } catch { /* socket closing */ }
     this.room.lastActivityAt = serverCommittedAt;
+    this.room.takebackFrom = null;
+    this.room.fenStack = [...(this.room.fenStack ?? []), this.room.session.fen].slice(-400);
     const ending = resultInfo(position, this.room.positionHistory);
     if (ending) {
       this.room.session = reduceGameSession(this.room.session, { type: 'FINISH', ...ending, at: serverCommittedAt });
       await this.ctx.storage.deleteAlarm();
     }
-    await this.persist(); await this.scheduleForState(); this.broadcast();
+    this.broadcast();
+    await this.persist(); await this.scheduleForState();
   }
 
   private async persist(): Promise<void> {

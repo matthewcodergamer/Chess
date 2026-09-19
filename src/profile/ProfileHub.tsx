@@ -148,7 +148,9 @@ export default function ProfileHub({ onBack }: Props) {
 
   useEffect(() => {
     if (query.get('social') === 'error') {
-      setFailure(new Error(query.get('reason')?.replaceAll('+', ' ') || 'Social sign-in was cancelled.'));
+      const raw = query.get('reason')?.replaceAll('+', ' ') || 'Social sign-in was cancelled.';
+      const hidden = /GOOGLE_CLIENT|APPLE_|Cloudflare Worker|CLIENT_SECRET|CLIENT_ID/i.test(raw);
+      setFailure(new Error(hidden ? 'That sign-in method is not available right now. Try email, or try again later.' : raw));
     }
     if (consumeSocialLoginToken()) {
       setBusy(true);
